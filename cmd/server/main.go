@@ -60,6 +60,13 @@ func main() {
 	rc.Verbose = true
 	collectors := []collector.Collector{rc}
 
+	if cfg.DeltaPermitsURL != "" {
+		dc := collector.NewDeltaCollector(cfg.DeltaPermitsURL)
+		dc.MinValue = cfg.MinPermitValueCAD
+		dc.Verbose = true
+		collectors = append(collectors, dc)
+	}
+
 	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude)
 	e.Verbose = true
 

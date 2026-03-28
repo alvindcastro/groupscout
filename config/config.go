@@ -14,6 +14,7 @@ type Config struct {
 	SlackWebhookURL        string
 	SendGridAPIKey         string
 	RichmondPermitsURL     string
+	DeltaPermitsURL        string
 	BCBidRSSURL            string
 	NewsAPIKey             string
 	EnrichmentEnabled      bool
@@ -35,6 +36,7 @@ func Load() (*Config, error) {
 		SlackWebhookURL:        os.Getenv("SLACK_WEBHOOK_URL"),
 		SendGridAPIKey:         os.Getenv("SENDGRID_API_KEY"),
 		RichmondPermitsURL:     os.Getenv("RICHMOND_PERMITS_URL"),
+		DeltaPermitsURL:        os.Getenv("DELTA_PERMITS_URL"),
 		BCBidRSSURL:            os.Getenv("BCBID_RSS_URL"),
 		NewsAPIKey:             os.Getenv("NEWS_API_KEY"),
 		EnrichmentEnabled:      getEnv("ENRICHMENT_ENABLED", "true") == "true",
