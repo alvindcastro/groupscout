@@ -57,6 +57,7 @@ func main() {
 	claude := enrichment.NewClaudeEnricher(cfg.ClaudeAPIKey)
 	rc := collector.NewRichmondCollector()
 	rc.MinValue = cfg.MinPermitValueCAD
+	rc.Verbose = true
 	collectors := []collector.Collector{rc}
 
 	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude)

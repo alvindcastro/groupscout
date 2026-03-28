@@ -45,6 +45,19 @@ var valueRe = regexp.MustCompile(`^\$[\d,]+\.?\d*$`)
 // pdftotext sometimes wraps the folder number across two lines; this code appears alone on the second line.
 var folderSuffixRe = regexp.MustCompile(`^[A-Z]\d+$`)
 
+// folderNumExtractRe matches a complete folder number within a line.
+// Used to split "19 878924 000 02 B7 Special Inspection Issued" into number + rest.
+var folderNumExtractRe = regexp.MustCompile(`\d{2}\s+\d{6}\s+\d{3}\s+\d{2}\s+[A-Z]\d+`)
+
+// folderNameHeaderRe matches "FOLDER NAME" as a standalone header line.
+var folderNameHeaderRe = regexp.MustCompile(`(?i)^folder\s+name\s*$`)
+
+// folderNameDataRe matches "FOLDER NAME 8640 Alexandra Road" — label + address on one line.
+var folderNameDataRe = regexp.MustCompile(`(?i)^folder\s+name\s+(.+)`)
+
+// permitCountRe matches a lone integer printed as a row count in the PDF (e.g. "1").
+var permitCountRe = regexp.MustCompile(`^\d+$`)
+
 // permitRecord holds the raw fields extracted from one permit entry in a Richmond PDF report.
 // The PDF renders each field on its own line in reading order, so records are parsed
 // positionally: folder number → work proposed → status → date → value → address → applicant → contractor.
@@ -251,24 +264,35 @@ func findPdftotext() (string, error) {
 
 // parsePermitLines converts a flat slice of text lines into permit records.
 //
-// PDF structure (one permit = 7–8 consecutive lines):
+// Detection is content-aware rather than positional: each line is classified by
+// what it looks like, so the extra lines pdftotext inserts (permit-count integers,
+// "CONSTR. VALUE" headers, "FOLDER NAME …" address labels) do not displace real values.
 //
-//	line 0: FOLDER NUMBER  (e.g. "25 036523 000 00 B7")
-//	line 1: WORK PROPOSED  (e.g. "Alteration")
-//	line 2: STATUS         (e.g. "Issued")
-//	line 3: ISSUE DATE     (e.g. "2026/03/16")
-//	line 4: CONSTR. VALUE  (e.g. "$300,000.00")
-//	line 5: ADDRESS        (e.g. "8640 Alexandra Road")
-//	line 6: APPLICANT
-//	line 7: CONTRACTOR
-//
-// Section headers ("SUB TYPE: Hotel") reset the current sub-type.
-// Column headers, totals, and page noise are skipped via skipLineRe.
+// Detection order per line:
+//  1. SUB TYPE header → flush current, update sub-type
+//  2. skipLineRe match → discard (column headers, totals, page chrome)
+//  3. folderNumRe match → flush current, start new record
+//  4. folderSuffixRe (e.g. "B7") with no fields set → append to folder number
+//  5. nextLineIsAddress flag set → this line is the address
+//  6. folderNameDataRe ("FOLDER NAME 8640 …") → address from capture group
+//  7. folderNameHeaderRe ("FOLDER NAME" alone) → set nextLineIsAddress flag
+//  8. issueDateRe → IssueDate
+//  9. valueRe → first match = ValueCAD; subsequent = subtotal, skip
+//  10. permitCountRe (bare integer) → skip (permit-count row)
+//  11. everything else → sequential fill: WorkProposed → Status → Address → Applicant → Contractor
+//     (fields already set, e.g. Address via FOLDER NAME, are skipped automatically)
 func parsePermitLines(lines []string) []permitRecord {
 	var records []permitRecord
 	var current *permitRecord
 	var currentSubType string
-	fieldIdx := 0
+	var nextLineIsAddress bool
+
+	flush := func() {
+		if current != nil {
+			records = append(records, *current)
+			current = nil
+		}
+	}
 
 	for _, raw := range lines {
 		line := strings.TrimSpace(raw)
@@ -276,31 +300,31 @@ func parsePermitLines(lines []string) []permitRecord {
 			continue
 		}
 
-		// Section header — update sub-type, reset current record
+		// 1. Section header — flush current record, update sub-type
 		if m := subTypeRe.FindStringSubmatch(line); m != nil {
-			if current != nil {
-				records = append(records, *current)
-				current = nil
-			}
+			flush()
 			currentSubType = strings.TrimSpace(m[1])
+			nextLineIsAddress = false
 			continue
 		}
 
-		// Skip column headers, totals, and page chrome
+		// 2. Skip column headers, totals, and page chrome
 		if skipLineRe.MatchString(line) {
 			continue
 		}
 
-		// New permit record starts with a folder number
+		// 3. New permit record starts with a folder number
 		if folderNumRe.MatchString(line) {
-			if current != nil {
-				records = append(records, *current)
+			flush()
+			fn := line
+			if m := folderNumExtractRe.FindString(line); m != "" {
+				fn = m
 			}
 			current = &permitRecord{
 				SubType:      currentSubType,
-				FolderNumber: line,
+				FolderNumber: fn,
 			}
-			fieldIdx = 0
+			nextLineIsAddress = false
 			continue
 		}
 
@@ -308,40 +332,69 @@ func parsePermitLines(lines []string) []permitRecord {
 			continue
 		}
 
-		// pdftotext sometimes wraps the trailing type code (e.g. "B7") to its own line.
-		// If no fields have been assigned yet, treat a bare type code as part of the folder number.
-		if fieldIdx == 0 && folderSuffixRe.MatchString(line) {
+		// 4. pdftotext sometimes wraps the trailing type code (e.g. "B7") to its own line.
+		// Accept only when no text fields have been assigned yet.
+		if current.WorkProposed == "" && folderSuffixRe.MatchString(line) {
 			current.FolderNumber = strings.TrimSpace(current.FolderNumber + " " + line)
 			continue
 		}
 
-		// Assign fields positionally after the folder number line
-		switch fieldIdx {
-		case 0:
-			current.WorkProposed = line
-		case 1:
-			current.Status = line
-		case 2:
+		// 5. Address continuation from "FOLDER NAME" header on previous line
+		if nextLineIsAddress {
+			current.Address = line
+			nextLineIsAddress = false
+			continue
+		}
+
+		// 6. "FOLDER NAME 8640 Alexandra Road" — address embedded on same line
+		if m := folderNameDataRe.FindStringSubmatch(line); m != nil {
+			current.Address = strings.TrimSpace(m[1])
+			continue
+		}
+
+		// 7. "FOLDER NAME" alone — address is on the next line
+		if folderNameHeaderRe.MatchString(line) {
+			nextLineIsAddress = true
+			continue
+		}
+
+		// 8. Date line
+		if issueDateRe.MatchString(line) {
 			if t, err := time.Parse("2006/01/02", line); err == nil {
 				current.IssueDate = t
 			}
-		case 3:
-			current.ValueCAD = parseDollarAmount(line)
-		case 4:
+			continue
+		}
+
+		// 9. Dollar value — first occurrence is construction value; subsequent are subtotals
+		if valueRe.MatchString(line) {
+			if current.ValueCAD == 0 {
+				current.ValueCAD = parseDollarAmount(line)
+			}
+			continue
+		}
+
+		// 10. Lone integer — permit count row printed by pdftotext, skip
+		if permitCountRe.MatchString(line) {
+			continue
+		}
+
+		// 11. Sequential text assignment; already-set fields are skipped automatically
+		switch {
+		case current.WorkProposed == "":
+			current.WorkProposed = line
+		case current.Status == "":
+			current.Status = line
+		case current.Address == "":
 			current.Address = line
-		case 5:
+		case current.Applicant == "":
 			current.Applicant = line
-		case 6:
+		case current.Contractor == "":
 			current.Contractor = line
 		}
-		fieldIdx++
 	}
 
-	// Flush the last record
-	if current != nil {
-		records = append(records, *current)
-	}
-
+	flush()
 	return records
 }
 
