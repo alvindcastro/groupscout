@@ -1,0 +1,40 @@
+# ── Local-only docs ──────────────────────────────────────
+CLAUDE.md
+PLANNING.md
+PHASES.md
+CHANGELOG.md
+
+# ── Binaries ─────────────────────────────────────────────
+blockscout
+blockscout.exe
+*.exe
+*.out
+dist/
+build/
+
+# ── Go toolchain ─────────────────────────────────────────
+vendor/
+*.test
+coverage.out
+coverage.html
+
+# ── Database (local dev only) ────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+
+# ── Environment / secrets ────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Claude Code ──────────────────────────────────────────
+.claude/settings.local.json
+
+# ── JetBrains / GoLand ───────────────────────────────────
+.idea/
+
+# ── OS ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
