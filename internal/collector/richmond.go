@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,10 +44,10 @@ var valueRe = regexp.MustCompile(`^\$[\d,]+\.?\d*$`)
 // The PDF renders each field on its own line in reading order, so records are parsed
 // positionally: folder number → work proposed → status → date → value → address → applicant → contractor.
 type permitRecord struct {
-	SubType      string    // e.g. "Hotel", "Warehouse", "Office"
-	FolderNumber string    // e.g. "25 036523 000 00 B7"
-	WorkProposed string    // e.g. "New", "Alteration", "Revision"
-	Status       string    // e.g. "Issued"
+	SubType      string // e.g. "Hotel", "Warehouse", "Office"
+	FolderNumber string // e.g. "25 036523 000 00 B7"
+	WorkProposed string // e.g. "New", "Alteration", "Revision"
+	Status       string // e.g. "Issued"
 	IssueDate    time.Time
 	ValueCAD     int64  // construction value in CAD dollars
 	Address      string // civic address + project description
@@ -95,9 +96,16 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
 		return nil, err
 	}
 
-	// A3: filter by sub-type + value, map to RawProject
-	_ = records
-	return nil, nil
+	var projects []RawProject
+	for _, rec := range records {
+		if !isRelevant(rec) {
+			continue
+		}
+		p := toRawProject(rec)
+		p.Hash = hashPermit(rec.FolderNumber, rec.Address, rec.IssueDate)
+		projects = append(projects, p)
+	}
+	return projects, nil
 }
 
 // fetchPDFURLs scrapes the weekly reports page and returns absolute URLs for
@@ -213,14 +221,15 @@ func parsePDF(path string) ([]permitRecord, error) {
 // parsePermitLines converts a flat slice of text lines into permit records.
 //
 // PDF structure (one permit = 7–8 consecutive lines):
-//   line 0: FOLDER NUMBER  (e.g. "25 036523 000 00 B7")
-//   line 1: WORK PROPOSED  (e.g. "Alteration")
-//   line 2: STATUS         (e.g. "Issued")
-//   line 3: ISSUE DATE     (e.g. "2026/03/16")
-//   line 4: CONSTR. VALUE  (e.g. "$300,000.00")
-//   line 5: ADDRESS        (e.g. "8640 Alexandra Road")
-//   line 6: APPLICANT
-//   line 7: CONTRACTOR
+//
+//	line 0: FOLDER NUMBER  (e.g. "25 036523 000 00 B7")
+//	line 1: WORK PROPOSED  (e.g. "Alteration")
+//	line 2: STATUS         (e.g. "Issued")
+//	line 3: ISSUE DATE     (e.g. "2026/03/16")
+//	line 4: CONSTR. VALUE  (e.g. "$300,000.00")
+//	line 5: ADDRESS        (e.g. "8640 Alexandra Road")
+//	line 6: APPLICANT
+//	line 7: CONTRACTOR
 //
 // Section headers ("SUB TYPE: Hotel") reset the current sub-type.
 // Column headers, totals, and page noise are skipped via skipLineRe.
@@ -307,4 +316,73 @@ func parseDollarAmount(s string) int64 {
 	}
 	n, _ := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
 	return n
+}
+
+// minPermitValueCAD is the minimum construction value for a permit to be considered.
+// Residential and low-value permits rarely involve out-of-town crews.
+const minPermitValueCAD = 500_000
+
+// commercialSubTypes is the whitelist of permit sub-types relevant to hotel group sales.
+// Residential sub-types (One Family Dwelling, Townhouse, etc.) are excluded — they
+// don't generate construction crew lodging demand at scale.
+var commercialSubTypes = map[string]bool{
+	"hotel":                true,
+	"warehouse":            true,
+	"office":               true,
+	"medical office":       true,
+	"dental office":        true,
+	"restaurant":           true,
+	"retail":               true,
+	"apartment":            true,
+	"educational facility": true,
+	"community hall":       true,
+	"recreational":         true,
+	"industrial":           true,
+	"canopy":               true,
+}
+
+// isRelevant returns true if a permit record is worth enriching.
+// Filters out residential sub-types and low-value permits.
+func isRelevant(rec permitRecord) bool {
+	if rec.ValueCAD < minPermitValueCAD {
+		return false
+	}
+	return commercialSubTypes[strings.ToLower(strings.TrimSpace(rec.SubType))]
+}
+
+// toRawProject maps a permitRecord to the normalized RawProject used by the pipeline.
+func toRawProject(rec permitRecord) RawProject {
+	return RawProject{
+		Source:     "richmond_permits",
+		ExternalID: rec.FolderNumber,
+		Title:      fmt.Sprintf("%s — %s", rec.SubType, rec.Address),
+		Location:   rec.Address,
+		Value:      rec.ValueCAD,
+		Description: fmt.Sprintf(
+			"Work: %s | Status: %s | Applicant: %s | Contractor: %s",
+			rec.WorkProposed, rec.Status, rec.Applicant, rec.Contractor,
+		),
+		IssuedAt: rec.IssueDate,
+		RawData: map[string]any{
+			"folder_number": rec.FolderNumber,
+			"sub_type":      rec.SubType,
+			"work_proposed": rec.WorkProposed,
+			"status":        rec.Status,
+			"issue_date":    rec.IssueDate.Format("2006-01-02"),
+			"value_cad":     rec.ValueCAD,
+			"address":       rec.Address,
+			"applicant":     rec.Applicant,
+			"contractor":    rec.Contractor,
+		},
+	}
+}
+
+// hashPermit produces a deterministic dedup key for a Richmond permit.
+// Uses folder number (unique per permit) + address + date to guard against
+// re-processing the same permit if it appears in multiple weekly reports.
+func hashPermit(folderNumber, address string, issuedAt time.Time) string {
+	h := sha256.Sum256([]byte(
+		"richmond_permits|" + folderNumber + "|" + address + "|" + issuedAt.Format("2006-01-02"),
+	))
+	return fmt.Sprintf("%x", h)
 }
