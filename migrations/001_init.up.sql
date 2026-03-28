@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS leads (
     priority_score            INTEGER,
     priority_reason           TEXT,
     suggested_outreach_timing TEXT,
+    applicant                 TEXT,
+    contractor                TEXT,
     notes                     TEXT,
     status                    TEXT DEFAULT 'new',
     created_at                DATETIME NOT NULL,

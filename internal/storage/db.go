@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"strings"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 )
@@ -34,6 +35,8 @@ CREATE TABLE IF NOT EXISTS leads (
     priority_score            INTEGER,
     priority_reason           TEXT,
     suggested_outreach_timing TEXT,
+    applicant                 TEXT,   -- raw applicant from permit (may include phone)
+    contractor                TEXT,   -- raw contractor from permit (may include phone)
     notes                     TEXT,
     status                    TEXT DEFAULT 'new', -- new|contacted|proposal|booked|lost
     created_at                DATETIME NOT NULL,
@@ -67,7 +70,21 @@ func Open(dsn string) (*sql.DB, error) {
 }
 
 // Migrate applies the schema to the database. Safe to call on every startup.
+// For existing databases, it also adds any new columns via ALTER TABLE.
 func Migrate(db *sql.DB) error {
-	_, err := db.Exec(schema)
-	return err
+	if _, err := db.Exec(schema); err != nil {
+		return err
+	}
+	// Idempotent column additions for databases created before these columns existed.
+	// SQLite returns "duplicate column name" when a column already exists — we ignore that
+	// specific error and surface anything else.
+	for _, stmt := range []string{
+		`ALTER TABLE leads ADD COLUMN applicant TEXT`,
+		`ALTER TABLE leads ADD COLUMN contractor TEXT`,
+	} {
+		if _, err := db.Exec(stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+			return err
+		}
+	}
+	return nil
 }

@@ -104,11 +104,26 @@ func dividerBlock() map[string]any {
 //
 //	*Title*                        🔥 Score: 9/10
 //	📍 Location  |  💰 $1,200,000 CAD  |  🏢 GC: BuildRight Contracting
+//	📞 Contractor: Safara Cladding Inc (416)875-1770  |  Applicant: Studio Senbel…
 //	🕐 Outreach: Reach out now — crews mobilizing in 4–6 weeks
 //	📝 Notes: ...
 func leadBlock(l storage.Lead) map[string]any {
+	contactLine := ""
+	if l.Contractor != "" || l.Applicant != "" {
+		contactLine = "\n📞"
+		if l.Contractor != "" {
+			contactLine += fmt.Sprintf(" *Contractor:* %s", l.Contractor)
+		}
+		if l.Applicant != "" {
+			if l.Contractor != "" {
+				contactLine += "  |"
+			}
+			contactLine += fmt.Sprintf(" *Applicant:* %s", l.Applicant)
+		}
+	}
+
 	text := fmt.Sprintf("*%s*\t\t\t%s *Score: %d/10*\n"+
-		"📍 %s  |  💰 $%s CAD  |  🏢 GC: %s\n"+
+		"📍 %s  |  💰 $%s CAD  |  🏢 GC: %s%s\n"+
 		"🕐 *Outreach:* %s\n"+
 		"📝 %s",
 		l.Title,
@@ -116,6 +131,7 @@ func leadBlock(l storage.Lead) map[string]any {
 		l.Location,
 		formatCAD(l.ProjectValue),
 		l.GeneralContractor,
+		contactLine,
 		l.SuggestedOutreachTiming,
 		l.Notes,
 	)

@@ -125,13 +125,19 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 }
 
 // toLeadRecord maps a RawProject + EnrichedLead into a storage.Lead.
+// Applicant and Contractor are taken directly from the raw permit data so that
+// phone numbers and contact details from the PDF are preserved as-is.
 func toLeadRecord(p collector.RawProject, e *EnrichedLead) storage.Lead {
+	applicant, _ := p.RawData["applicant"].(string)
+	contractor, _ := p.RawData["contractor"].(string)
 	return storage.Lead{
 		Source:                  p.Source,
 		Title:                   p.Title,
 		Location:                p.Location,
 		ProjectValue:            p.Value,
 		GeneralContractor:       e.GeneralContractor,
+		Applicant:               applicant,
+		Contractor:              contractor,
 		ProjectType:             e.ProjectType,
 		EstimatedCrewSize:       e.EstimatedCrewSize,
 		EstimatedDurationMonths: e.EstimatedDurationMonths,

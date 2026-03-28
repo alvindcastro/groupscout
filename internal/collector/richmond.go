@@ -59,8 +59,9 @@ var folderNameDataRe = regexp.MustCompile(`(?i)^folder\s+name\s+(.+)`)
 var permitCountRe = regexp.MustCompile(`^\d+$`)
 
 // permitRecord holds the raw fields extracted from one permit entry in a Richmond PDF report.
-// The PDF renders each field on its own line in reading order, so records are parsed
-// positionally: folder number → work proposed → status → date → value → address → applicant → contractor.
+// Fields are detected by content (date format, dollar sign, FOLDER NAME prefix, etc.)
+// rather than position — the actual pdftotext output includes extra lines (permit count
+// integers, column header repeats) that make positional parsing unreliable.
 type permitRecord struct {
 	SubType      string // e.g. "Hotel", "Warehouse", "Office"
 	FolderNumber string // e.g. "25 036523 000 00 B7"
