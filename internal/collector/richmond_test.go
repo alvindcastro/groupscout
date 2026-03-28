@@ -100,7 +100,7 @@ func TestIsRelevant(t *testing.T) {
 
 	for _, tt := range tests {
 		rec := permitRecord{SubType: tt.subType, ValueCAD: tt.value}
-		got := isRelevant(rec)
+		got := isRelevant(rec, 500_000)
 		if got != tt.want {
 			t.Errorf("[%s] isRelevant({SubType:%q, ValueCAD:%d}) = %v, want %v",
 				tt.name, tt.subType, tt.value, got, tt.want)
@@ -233,7 +233,7 @@ func TestParsePermitLines(t *testing.T) {
 		if residential.SubType != "One Family Dwelling" {
 			t.Errorf("SubType = %q, want %q", residential.SubType, "One Family Dwelling")
 		}
-		if isRelevant(residential) {
+		if isRelevant(residential, 500_000) {
 			t.Error("residential permit should not pass isRelevant filter")
 		}
 	})

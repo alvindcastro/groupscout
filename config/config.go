@@ -18,6 +18,7 @@ type Config struct {
 	NewsAPIKey             string
 	EnrichmentEnabled      bool
 	PriorityAlertThreshold int
+	MinPermitValueCAD      int64
 	DigestDay              string
 	DigestHour             int
 }
@@ -38,6 +39,7 @@ func Load() (*Config, error) {
 		NewsAPIKey:             os.Getenv("NEWS_API_KEY"),
 		EnrichmentEnabled:      getEnv("ENRICHMENT_ENABLED", "true") == "true",
 		PriorityAlertThreshold: getEnvInt("PRIORITY_ALERT_THRESHOLD", 9),
+		MinPermitValueCAD:      int64(getEnvInt("MIN_PERMIT_VALUE_CAD", 500_000)),
 		DigestDay:              getEnv("DIGEST_DAY", "monday"),
 		DigestHour:             getEnvInt("DIGEST_HOUR", 8),
 	}, nil

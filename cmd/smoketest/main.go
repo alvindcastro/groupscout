@@ -48,8 +48,10 @@ func main() {
 		return
 	}
 
+	cfg, _ := config.Load()
 	c := collector.NewRichmondCollector()
 	c.Verbose = true
+	c.MinValue = cfg.MinPermitValueCAD
 	log.Printf("running collector: %s", c.Name())
 
 	start := time.Now()

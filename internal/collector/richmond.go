@@ -64,14 +64,16 @@ type permitRecord struct {
 // Richmond has no open data API — data is only available as PDFs at:
 // https://www.richmond.ca/business-development/building-approvals/reports/weeklyreports.htm
 type RichmondCollector struct {
-	client  *http.Client
-	Verbose bool // when true, logs intermediate step counts to stderr
+	client   *http.Client
+	Verbose  bool  // when true, logs intermediate step counts to stderr
+	MinValue int64 // minimum construction value to pass the filter (default: minPermitValueCAD)
 }
 
 // NewRichmondCollector returns a RichmondCollector with a 30-second HTTP timeout.
 func NewRichmondCollector() *RichmondCollector {
 	return &RichmondCollector{
-		client: &http.Client{Timeout: 30 * time.Second},
+		client:   &http.Client{Timeout: 30 * time.Second},
+		MinValue: minPermitValueCAD,
 	}
 }
 
@@ -119,7 +121,7 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
 
 	var projects []RawProject
 	for _, rec := range records {
-		if !isRelevant(rec) {
+		if !isRelevant(rec, r.MinValue) {
 			continue
 		}
 		p := toRawProject(rec)
@@ -128,7 +130,7 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if r.Verbose {
-		log.Printf("[richmond] %d permits passed filter (commercial + value > $500K)", len(projects))
+		log.Printf("[richmond] %d permits passed filter (commercial + value > $%s CAD)", len(projects), formatValue(r.MinValue))
 	}
 
 	return projects, nil
@@ -378,9 +380,9 @@ var commercialSubTypes = map[string]bool{
 }
 
 // isRelevant returns true if a permit record is worth enriching.
-// Filters out residential sub-types and low-value permits.
-func isRelevant(rec permitRecord) bool {
-	if rec.ValueCAD <= minPermitValueCAD {
+// Filters out residential sub-types and permits at or below minValue.
+func isRelevant(rec permitRecord, minValue int64) bool {
+	if rec.ValueCAD <= minValue {
 		return false
 	}
 	return commercialSubTypes[strings.ToLower(strings.TrimSpace(rec.SubType))]
@@ -411,6 +413,19 @@ func toRawProject(rec permitRecord) RawProject {
 			"contractor":    rec.Contractor,
 		},
 	}
+}
+
+// formatValue formats an int64 dollar amount with comma separators for log output.
+func formatValue(n int64) string {
+	s := fmt.Sprintf("%d", n)
+	out := make([]byte, 0, len(s)+len(s)/3)
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			out = append(out, ',')
+		}
+		out = append(out, byte(c))
+	}
+	return string(out)
 }
 
 // hashPermit produces a deterministic dedup key for a Richmond permit.
