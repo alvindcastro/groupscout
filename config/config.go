@@ -1,27 +1,33 @@
 package config
 
 import (
+	"bufio"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config holds all runtime configuration loaded from environment variables.
 type Config struct {
-	DatabaseURL             string
-	ClaudeAPIKey            string
-	SlackWebhookURL         string
-	SendGridAPIKey          string
-	RichmondPermitsURL      string
-	BCBidRSSURL             string
-	NewsAPIKey              string
-	EnrichmentEnabled       bool
-	PriorityAlertThreshold  int
-	DigestDay               string
-	DigestHour              int
+	DatabaseURL            string
+	ClaudeAPIKey           string
+	SlackWebhookURL        string
+	SendGridAPIKey         string
+	RichmondPermitsURL     string
+	BCBidRSSURL            string
+	NewsAPIKey             string
+	EnrichmentEnabled      bool
+	PriorityAlertThreshold int
+	DigestDay              string
+	DigestHour             int
 }
 
 // Load reads config from environment variables, falling back to sensible defaults.
+// It also loads a .env file from the current directory if one exists — values in
+// the .env are only applied when the variable is not already set in the environment,
+// so real environment variables always take precedence.
 func Load() (*Config, error) {
+	loadDotEnv(".env")
 	return &Config{
 		DatabaseURL:            getEnv("DATABASE_URL", "blockscout.db"),
 		ClaudeAPIKey:           os.Getenv("CLAUDE_API_KEY"),
@@ -35,6 +41,34 @@ func Load() (*Config, error) {
 		DigestDay:              getEnv("DIGEST_DAY", "monday"),
 		DigestHour:             getEnvInt("DIGEST_HOUR", 8),
 	}, nil
+}
+
+// loadDotEnv reads key=value pairs from a file and sets them as environment
+// variables. Lines starting with # and blank lines are ignored.
+// Existing environment variables are never overwritten.
+func loadDotEnv(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return // .env is optional — silence the error
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		if key != "" && os.Getenv(key) == "" {
+			os.Setenv(key, val)
+		}
+	}
 }
 
 func getEnv(key, fallback string) string {

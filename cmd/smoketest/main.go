@@ -1,10 +1,10 @@
-// smoketest is a dev-only tool that runs the Richmond collector against the
-// live City of Richmond website and pretty-prints the results as JSON.
+// smoketest is a dev-only tool for testing blockscout components against live services.
 //
 // Usage:
 //
-//	go run ./cmd/smoketest/          — full run, JSON output
-//	go run ./cmd/smoketest/ -rawpdf  — print raw PDF text lines (debug parsing)
+//	go run ./cmd/smoketest/                    — run Richmond collector, JSON output
+//	go run ./cmd/smoketest/ -rawpdf            — print raw PDF text (debug parsing)
+//	go run ./cmd/smoketest/ -testslack         — send a test lead to Slack (reads SLACK_WEBHOOK_URL)
 package main
 
 import (
@@ -20,21 +20,31 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alvindcastro/blockscout/config"
 	"github.com/alvindcastro/blockscout/internal/collector"
+	"github.com/alvindcastro/blockscout/internal/notify"
+	"github.com/alvindcastro/blockscout/internal/storage"
 )
 
 var rawPDF = flag.Bool("rawpdf", false, "print raw text extracted from the latest PDF and exit")
+var testSlack = flag.Bool("testslack", false, "send a test lead to Slack and exit (requires SLACK_WEBHOOK_URL)")
 
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
 	log.SetPrefix("[smoketest] ")
+	config.Load() // loads .env into the environment; ignore the returned struct here
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	if *rawPDF {
 		dumpRawPDF(ctx)
+		return
+	}
+
+	if *testSlack {
+		sendTestSlack(ctx)
 		return
 	}
 
@@ -67,6 +77,58 @@ func main() {
 	if err := enc.Encode(projects); err != nil {
 		log.Fatalf("json encode: %v", err)
 	}
+}
+
+// sendTestSlack posts two realistic fake leads to the Slack webhook so you can
+// verify the Block Kit layout in your channel before running the real pipeline.
+// Reads SLACK_WEBHOOK_URL from the environment.
+func sendTestSlack(ctx context.Context) {
+	webhookURL := os.Getenv("SLACK_WEBHOOK_URL")
+	if webhookURL == "" {
+		log.Fatal("SLACK_WEBHOOK_URL is not set")
+	}
+
+	leads := []storage.Lead{
+		{
+			Source:                  "richmond_permits",
+			Title:                   "Warehouse — 12500 Vulcan Way",
+			Location:                "12500 Vulcan Way, Richmond BC",
+			ProjectValue:            1_200_000,
+			GeneralContractor:       "BuildRight Contracting",
+			ProjectType:             "industrial",
+			EstimatedCrewSize:       80,
+			EstimatedDurationMonths: 6,
+			OutOfTownCrewLikely:     true,
+			PriorityScore:           9,
+			PriorityReason:          "Large new industrial build near YVR — likely out-of-province steel crew",
+			SuggestedOutreachTiming: "Reach out now — crews mobilizing in 4–6 weeks",
+			Notes:                   "GC is BuildRight Contracting. Check LinkedIn for travel coordinator.",
+			Status:                  "new",
+		},
+		{
+			Source:                  "richmond_permits",
+			Title:                   "Office — 8640 Alexandra Road",
+			Location:                "8640 Alexandra Road, Richmond BC",
+			ProjectValue:            300_000,
+			GeneralContractor:       "Safara Cladding Inc",
+			ProjectType:             "commercial",
+			EstimatedCrewSize:       15,
+			EstimatedDurationMonths: 2,
+			OutOfTownCrewLikely:     false,
+			PriorityScore:           4,
+			PriorityReason:          "Small alteration — local crew likely, short duration",
+			SuggestedOutreachTiming: "Low priority — monitor for future phases",
+			Notes:                   "Cladding alteration only. Unlikely to need extended-stay rooms.",
+			Status:                  "new",
+		},
+	}
+
+	notifier := notify.NewSlackNotifier(webhookURL)
+	log.Printf("sending %d test leads to Slack...", len(leads))
+	if err := notifier.Send(ctx, leads); err != nil {
+		log.Fatalf("slack send failed: %v", err)
+	}
+	log.Println("sent — check your Slack channel")
 }
 
 // dumpRawPDF downloads the latest Richmond PDF and prints the raw text extracted
