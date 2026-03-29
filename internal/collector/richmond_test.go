@@ -7,39 +7,68 @@ import (
 
 // sampleLines is a representative slice of text lines as they come out of parsePDF().
 // Derived from the real Richmond weekly building report (Mar 15–21, 2026).
-// Used as a fixture for TestParsePermitLines.
+//
+// Matches the real pdftotext output structure: permit records (left column) come first,
+// then APPLICANT/CONTRACTOR blocks (right column) appear after all permits on the page.
+// Each APPLICANT block corresponds to one SUB TYPE section in the same order.
 var sampleLines = []string{
-	"BUILDING PERMIT ISSUANCE REPORT", // page chrome — should be skipped
-	"FOLDER NUMBER WORK PROPOSED STATUS ISSUE DATE CONSTR. VALUE FOLDER NAME APPLICANT CONTRACTOR", // header — skipped
+	// Page chrome — skipped
+	"Building Permit Issuance Report",
+	"City of Richmond",
+	"Filters",
+	"ISSUED FROM Equal to 15/03/2026 And ISSUED TO Equal to 21/03/2026",
+
+	// Section 0: Hotel
 	"SUB TYPE: Hotel",
+	"FOLDER NUMBER WORK PROPOSED STATUS ISSUE DATE CONSTR. VALUE", // column header — skipped
 	"25 036523 000 00 B7",
 	"Alteration",
 	"Issued",
 	"2026/03/16",
+	"1",             // permit count row — skipped
+	"CONSTR. VALUE", // column header repeat — skipped
 	"$300,000.00",
-	"8640 Alexandra Road",
-	"Studio Senbel Architecture Inc",
-	"Safara Cladding Inc",
+	"FOLDER NAME 8640 Alexandra Road",
+	"$300,000.00", // section subtotal — second value, skipped
+
+	// Section 1: Warehouse
 	"SUB TYPE: Warehouse",
 	"24 008734 000 01 B7",
 	"New",
 	"Issued",
 	"2026/03/18",
+	"1",
 	"$1,200,000.00",
-	"12500 Vulcan Way",
-	"ABC Developments Ltd",
-	"BuildRight Contracting",
-	"SUB TYPE: One Family Dwelling", // residential — should be filtered by isRelevant
+	"FOLDER NAME 12500 Vulcan Way",
+	"$1,200,000.00",
+
+	// Section 2: One Family Dwelling (residential — filtered by isRelevant)
+	"SUB TYPE: One Family Dwelling",
 	"25 011111 000 00 B7",
 	"New",
 	"Issued",
 	"2026/03/19",
+	"1",
 	"$850,000.00",
-	"9800 Maple Street",
-	"John Smith",
-	"Smith Build Co",
+	"FOLDER NAME 9800 Maple Street",
+	"$850,000.00",
+
 	"SUB TOTAL",   // should be skipped
 	"GRAND TOTAL", // should be skipped
+
+	// Right column — APPLICANT/CONTRACTOR blocks in section order (0, 1, 2)
+	// Block 0 → Hotel (sectionIdx = 0)
+	"APPLICANT",
+	"Studio Senbel Architecture and Design Inc (Sharif Senbel) (604)605-6995",
+	"CONTRACTOR Safara Cladding Inc (416)875-1770",
+
+	// Block 1 → Warehouse (sectionIdx = 1)
+	"APPLICANT ABC Developments Ltd (604)555-0100",
+	"CONTRACTOR BuildRight Contracting (604)555-0199",
+
+	// Block 2 → One Family Dwelling (sectionIdx = 2)
+	"APPLICANT John Smith",
+	"CONTRACTOR Smith Build Co",
 }
 
 // ── parseDollarAmount ────────────────────────────────────────────────────────
@@ -219,12 +248,32 @@ func TestParsePermitLines(t *testing.T) {
 		}
 	})
 
+	t.Run("hotel applicant and contractor from right-column block", func(t *testing.T) {
+		wantApplicant := "Studio Senbel Architecture and Design Inc (Sharif Senbel) (604)605-6995"
+		wantContractor := "Safara Cladding Inc (416)875-1770"
+		if hotel.Applicant != wantApplicant {
+			t.Errorf("Applicant = %q, want %q", hotel.Applicant, wantApplicant)
+		}
+		if hotel.Contractor != wantContractor {
+			t.Errorf("Contractor = %q, want %q", hotel.Contractor, wantContractor)
+		}
+	})
+
 	t.Run("warehouse sub-type", func(t *testing.T) {
 		if warehouse.SubType != "Warehouse" {
 			t.Errorf("SubType = %q, want %q", warehouse.SubType, "Warehouse")
 		}
 		if warehouse.ValueCAD != 1_200_000 {
 			t.Errorf("ValueCAD = %d, want 1200000", warehouse.ValueCAD)
+		}
+	})
+
+	t.Run("warehouse applicant and contractor", func(t *testing.T) {
+		if warehouse.Applicant != "ABC Developments Ltd (604)555-0100" {
+			t.Errorf("Applicant = %q, want %q", warehouse.Applicant, "ABC Developments Ltd (604)555-0100")
+		}
+		if warehouse.Contractor != "BuildRight Contracting (604)555-0199" {
+			t.Errorf("Contractor = %q, want %q", warehouse.Contractor, "BuildRight Contracting (604)555-0199")
 		}
 	})
 

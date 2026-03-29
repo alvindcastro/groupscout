@@ -92,4 +92,11 @@ func main() {
 		log.Fatalf("slack: %v", err)
 	}
 	log.Printf("sent %d leads to Slack", len(leads))
+
+	// Mark leads as notified so they don't re-appear in the next run's digest.
+	for _, l := range leads {
+		if err := leadStore.UpdateStatus(ctx, l.ID, "notified"); err != nil {
+			log.Printf("warn: update status for lead %s: %v", l.ID, err)
+		}
+	}
 }

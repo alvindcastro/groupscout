@@ -33,7 +33,9 @@ var folderNumRe = regexp.MustCompile(`^\d{2}\s+\d{6}`)
 var subTypeRe = regexp.MustCompile(`(?i)SUB\s+TYPE:\s*(.+)`)
 
 // skipLineRe matches lines that are column headers, totals, or page noise to ignore during parsing.
-var skipLineRe = regexp.MustCompile(`(?i)^(folder\s*number|work\s*proposed|status|issue\s*date|constr|applicant|contractor|sub\s*total|grand\s*total|building\s*permit|city\s*of\s*richmond)`)
+// Note: "applicant" and "contractor" are intentionally excluded — they are handled separately
+// as right-column contact block markers, not skipped.
+var skipLineRe = regexp.MustCompile(`(?i)^(folder\s*number|work\s*proposed|status|issue\s*date|constr|sub\s*total|grand\s*total|building\s*permit|city\s*of\s*richmond|filters|issued\s*from)`)
 
 // issueDateRe matches YYYY/MM/DD date strings.
 var issueDateRe = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}$`)
@@ -58,10 +60,20 @@ var folderNameDataRe = regexp.MustCompile(`(?i)^folder\s+name\s+(.+)`)
 // permitCountRe matches a lone integer printed as a row count in the PDF (e.g. "1").
 var permitCountRe = regexp.MustCompile(`^\d+$`)
 
+// applicantLineRe matches the APPLICANT right-column label (with optional inline name).
+// Richmond PDFs render contact info in a separate right column; pdftotext outputs all
+// permit records (left column) first, then all APPLICANT/CONTRACTOR blocks (right column).
+var applicantLineRe = regexp.MustCompile(`(?i)^APPLICANT\s*(.*)`)
+
+// contractorLineRe matches the CONTRACTOR right-column label (with optional inline name).
+var contractorLineRe = regexp.MustCompile(`(?i)^CONTRACTOR\s*(.*)`)
+
 // permitRecord holds the raw fields extracted from one permit entry in a Richmond PDF report.
 // Fields are detected by content (date format, dollar sign, FOLDER NAME prefix, etc.)
 // rather than position — the actual pdftotext output includes extra lines (permit count
 // integers, column header repeats) that make positional parsing unreliable.
+// SectionIndex is used internally to associate the right-column APPLICANT/CONTRACTOR
+// contact blocks (which appear after all permit records on each page) with the correct permit.
 type permitRecord struct {
 	SubType      string // e.g. "Hotel", "Warehouse", "Office"
 	FolderNumber string // e.g. "25 036523 000 00 B7"
@@ -72,6 +84,7 @@ type permitRecord struct {
 	Address      string // civic address + project description
 	Applicant    string
 	Contractor   string
+	SectionIndex int // internal: index of the SUB TYPE section this permit belongs to
 }
 
 // RichmondCollector scrapes building permit PDFs published weekly by the City of Richmond BC.
@@ -265,30 +278,41 @@ func findPdftotext() (string, error) {
 	return p, nil
 }
 
+// sectionContact holds the raw applicant and contractor strings for one SUB TYPE section.
+type sectionContact struct {
+	applicant  string
+	contractor string
+}
+
 // parsePermitLines converts a flat slice of text lines into permit records.
 //
-// Detection is content-aware rather than positional: each line is classified by
-// what it looks like, so the extra lines pdftotext inserts (permit-count integers,
-// "CONSTR. VALUE" headers, "FOLDER NAME …" address labels) do not displace real values.
+// Richmond PDFs are two-column tables. pdftotext (without -layout) reads the left column
+// first (all permit records) then the right column (all APPLICANT/CONTRACTOR blocks), so
+// contact info for a permit appears well after the permit's own lines. Each APPLICANT block
+// corresponds to one SUB TYPE section, in the same order as those sections.
 //
-// Detection order per line:
-//  1. SUB TYPE header → flush current, update sub-type
-//  2. skipLineRe match → discard (column headers, totals, page chrome)
-//  3. folderNumRe match → flush current, start new record
-//  4. folderSuffixRe (e.g. "B7") with no fields set → append to folder number
-//  5. nextLineIsAddress flag set → this line is the address
-//  6. folderNameDataRe ("FOLDER NAME 8640 …") → address from capture group
-//  7. folderNameHeaderRe ("FOLDER NAME" alone) → set nextLineIsAddress flag
-//  8. issueDateRe → IssueDate
-//  9. valueRe → first match = ValueCAD; subsequent = subtotal, skip
-//  10. permitCountRe (bare integer) → skip (permit-count row)
-//  11. everything else → sequential fill: WorkProposed → Status → Address → Applicant → Contractor
-//     (fields already set, e.g. Address via FOLDER NAME, are skipped automatically)
+// This parser uses a two-phase approach:
+//  1. Permit phase: parse permit fields by content type, tagging each record with its
+//     section index (increments at each SUB TYPE header).
+//  2. Contact phase: triggered by the first APPLICANT line on a page; collect one
+//     applicant/contractor block per section in order.
+//  3. Zip: after all lines are processed, associate contacts[sectionIndex] with each permit.
+//
+// Phase transitions:
+//   - Permit phase → Contact phase: first APPLICANT line encountered
+//   - Contact phase → Permit phase: SUB TYPE header encountered (next page beginning)
 func parsePermitLines(lines []string) []permitRecord {
 	var records []permitRecord
 	var current *permitRecord
 	var currentSubType string
 	var nextLineIsAddress bool
+
+	var sectionIdx int = -1 // increments at each SUB TYPE header
+	var contacts []sectionContact
+	var curContact sectionContact
+	var inContacts bool // true = currently parsing right-column contact blocks
+	var pendingApplicant bool
+	var pendingContractor bool
 
 	flush := func() {
 		if current != nil {
@@ -297,26 +321,87 @@ func parsePermitLines(lines []string) []permitRecord {
 		}
 	}
 
+	saveContact := func() {
+		contacts = append(contacts, curContact)
+		curContact = sectionContact{}
+		pendingApplicant = false
+		pendingContractor = false
+	}
+
 	for _, raw := range lines {
 		line := strings.TrimSpace(raw)
 		if line == "" {
 			continue
 		}
 
-		// 1. Section header — flush current record, update sub-type
+		// SUB TYPE header — handled in both phases
 		if m := subTypeRe.FindStringSubmatch(line); m != nil {
-			flush()
+			if inContacts {
+				// Page break: save the last contact block, return to permit phase
+				saveContact()
+				inContacts = false
+			} else {
+				flush()
+			}
+			sectionIdx++
 			currentSubType = strings.TrimSpace(m[1])
 			nextLineIsAddress = false
 			continue
 		}
 
-		// 2. Skip column headers, totals, and page chrome
+		// APPLICANT label — first occurrence triggers switch to contact phase
+		if m := applicantLineRe.FindStringSubmatch(line); m != nil {
+			if !inContacts {
+				flush()
+				inContacts = true
+			} else {
+				// New APPLICANT = new section's contact block
+				saveContact()
+			}
+			if val := strings.TrimSpace(m[1]); val != "" {
+				curContact.applicant = val
+				pendingApplicant = false
+			} else {
+				pendingApplicant = true
+			}
+			pendingContractor = false
+			continue
+		}
+
+		// CONTRACTOR label (only meaningful in contact phase)
+		if m := contractorLineRe.FindStringSubmatch(line); m != nil {
+			if inContacts {
+				if val := strings.TrimSpace(m[1]); val != "" {
+					curContact.contractor = val
+					pendingContractor = false
+				} else {
+					pendingContractor = true
+				}
+				pendingApplicant = false
+			}
+			continue
+		}
+
+		// Contact phase: fill pending fields; ignore all other lines
+		if inContacts {
+			if pendingApplicant {
+				curContact.applicant = line
+				pendingApplicant = false
+			} else if pendingContractor {
+				curContact.contractor = line
+				pendingContractor = false
+			}
+			continue
+		}
+
+		// ── Permit field parsing (phase 1) ───────────────────────────────────────
+
+		// Skip column headers, totals, and page chrome
 		if skipLineRe.MatchString(line) {
 			continue
 		}
 
-		// 3. New permit record starts with a folder number
+		// New permit record starts with a folder number
 		if folderNumRe.MatchString(line) {
 			flush()
 			fn := line
@@ -326,6 +411,7 @@ func parsePermitLines(lines []string) []permitRecord {
 			current = &permitRecord{
 				SubType:      currentSubType,
 				FolderNumber: fn,
+				SectionIndex: sectionIdx,
 			}
 			nextLineIsAddress = false
 			continue
@@ -335,33 +421,33 @@ func parsePermitLines(lines []string) []permitRecord {
 			continue
 		}
 
-		// 4. pdftotext sometimes wraps the trailing type code (e.g. "B7") to its own line.
+		// pdftotext sometimes wraps the trailing type code (e.g. "B7") to its own line.
 		// Accept only when no text fields have been assigned yet.
 		if current.WorkProposed == "" && folderSuffixRe.MatchString(line) {
 			current.FolderNumber = strings.TrimSpace(current.FolderNumber + " " + line)
 			continue
 		}
 
-		// 5. Address continuation from "FOLDER NAME" header on previous line
+		// Address continuation from "FOLDER NAME" header on previous line
 		if nextLineIsAddress {
 			current.Address = line
 			nextLineIsAddress = false
 			continue
 		}
 
-		// 6. "FOLDER NAME 8640 Alexandra Road" — address embedded on same line
+		// "FOLDER NAME 8640 Alexandra Road" — address embedded on same line
 		if m := folderNameDataRe.FindStringSubmatch(line); m != nil {
 			current.Address = strings.TrimSpace(m[1])
 			continue
 		}
 
-		// 7. "FOLDER NAME" alone — address is on the next line
+		// "FOLDER NAME" alone — address is on the next line
 		if folderNameHeaderRe.MatchString(line) {
 			nextLineIsAddress = true
 			continue
 		}
 
-		// 8. Date line
+		// Date line
 		if issueDateRe.MatchString(line) {
 			if t, err := time.Parse("2006/01/02", line); err == nil {
 				current.IssueDate = t
@@ -369,7 +455,7 @@ func parsePermitLines(lines []string) []permitRecord {
 			continue
 		}
 
-		// 9. Dollar value — first occurrence is construction value; subsequent are subtotals
+		// Dollar value — first occurrence is construction value; subsequent are subtotals
 		if valueRe.MatchString(line) {
 			if current.ValueCAD == 0 {
 				current.ValueCAD = parseDollarAmount(line)
@@ -377,12 +463,12 @@ func parsePermitLines(lines []string) []permitRecord {
 			continue
 		}
 
-		// 10. Lone integer — permit count row printed by pdftotext, skip
+		// Lone integer — permit count row printed by pdftotext, skip
 		if permitCountRe.MatchString(line) {
 			continue
 		}
 
-		// 11. Sequential text assignment; already-set fields are skipped automatically
+		// Sequential text assignment; already-set fields (e.g. Address via FOLDER NAME) are skipped
 		switch {
 		case current.WorkProposed == "":
 			current.WorkProposed = line
@@ -390,14 +476,23 @@ func parsePermitLines(lines []string) []permitRecord {
 			current.Status = line
 		case current.Address == "":
 			current.Address = line
-		case current.Applicant == "":
-			current.Applicant = line
-		case current.Contractor == "":
-			current.Contractor = line
 		}
 	}
 
 	flush()
+	if inContacts {
+		saveContact() // save the last page's final contact block
+	}
+
+	// Zip contacts onto permits by section index
+	for i := range records {
+		si := records[i].SectionIndex
+		if si >= 0 && si < len(contacts) {
+			records[i].Applicant = contacts[si].applicant
+			records[i].Contractor = contacts[si].contractor
+		}
+	}
+
 	return records
 }
 
