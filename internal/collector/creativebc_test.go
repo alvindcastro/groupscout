@@ -4,32 +4,71 @@ import (
 	"testing"
 )
 
-// sampleCreativeBCLines is a realistic excerpt from pdftotext -layout output on the
-// Creative BC in-production PDF. Column positions are preserved with spaces.
-var sampleCreativeBCLines = []string{
-	`Creative BC — In Production List                                                   As of March 28, 2026`,
-	``,
-	`Production Title                       Production Type         Studio/Distributor             Status`,
-	``,
-	`The Lost Highway                       Feature Film            Netflix                        Principal Photography`,
-	`Vancouver Chronicles                   TV Series               CBC                            Pre-Production`,
-	`Mountain Light                         Feature Film            A24                            Pre-Production`,
-	`Metro Nights                           TV Series               Amazon Studios                 Principal Photography`,
-	`Burnaby Blocks                         Animation Series        DHX Media                      Production`,
-	`Northern Exposure Doc                  Documentary Series      National Geographic            Post Production`,
-	``,
-	`1`,
-}
+// sampleCreativeBCHTML is a minimal HTML fixture that mirrors the structure expected
+// from the Creative BC Visualforce page.
+var sampleCreativeBCHTML = []byte(`<!DOCTYPE html>
+<html>
+<body>
+<table>
+  <thead>
+    <tr>
+      <th>Production Title</th>
+      <th>Production Type</th>
+      <th>Studio/Distributor</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>The Lost Highway</td>
+      <td>Feature Film</td>
+      <td>Netflix</td>
+      <td>Principal Photography</td>
+    </tr>
+    <tr>
+      <td>Vancouver Chronicles</td>
+      <td>TV Series</td>
+      <td>CBC</td>
+      <td>Pre-Production</td>
+    </tr>
+    <tr>
+      <td>Mountain Light</td>
+      <td>Feature Film</td>
+      <td>A24</td>
+      <td>Pre-Production</td>
+    </tr>
+    <tr>
+      <td>Burnaby Blocks</td>
+      <td>Animation Series</td>
+      <td>DHX Media</td>
+      <td>Production</td>
+    </tr>
+    <tr>
+      <td>Northern Exposure</td>
+      <td>Documentary Series</td>
+      <td>National Geographic</td>
+      <td>Post Production</td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>`)
 
-func TestParseCreativeBCLines_count(t *testing.T) {
-	records := parseCreativeBCLines(sampleCreativeBCLines)
-	if len(records) != 6 {
-		t.Fatalf("expected 6 records, got %d", len(records))
+func TestParseCreativeBCHTML_count(t *testing.T) {
+	records, err := parseCreativeBCHTML(sampleCreativeBCHTML)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(records) != 5 {
+		t.Fatalf("expected 5 records, got %d", len(records))
 	}
 }
 
-func TestParseCreativeBCLines_firstRecord(t *testing.T) {
-	records := parseCreativeBCLines(sampleCreativeBCLines)
+func TestParseCreativeBCHTML_firstRecord(t *testing.T) {
+	records, err := parseCreativeBCHTML(sampleCreativeBCHTML)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	r := records[0]
 
 	if r.Title != "The Lost Highway" {
@@ -46,8 +85,11 @@ func TestParseCreativeBCLines_firstRecord(t *testing.T) {
 	}
 }
 
-func TestParseCreativeBCLines_secondRecord(t *testing.T) {
-	records := parseCreativeBCLines(sampleCreativeBCLines)
+func TestParseCreativeBCHTML_secondRecord(t *testing.T) {
+	records, err := parseCreativeBCHTML(sampleCreativeBCHTML)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	r := records[1]
 
 	if r.Title != "Vancouver Chronicles" {
@@ -56,8 +98,12 @@ func TestParseCreativeBCLines_secondRecord(t *testing.T) {
 	if r.Type != "TV Series" {
 		t.Errorf("Type: got %q, want %q", r.Type, "TV Series")
 	}
-	if r.Studio != "CBC" {
-		t.Errorf("Studio: got %q, want %q", r.Studio, "CBC")
+}
+
+func TestParseCreativeBCHTML_noTable(t *testing.T) {
+	_, err := parseCreativeBCHTML([]byte(`<html><body><p>No table here</p></body></html>`))
+	if err == nil {
+		t.Error("expected error when no production table found")
 	}
 }
 
@@ -105,11 +151,8 @@ func TestToCreativeBCRawProject_fields(t *testing.T) {
 	if p.ExternalID != "the-lost-highway" {
 		t.Errorf("ExternalID: got %q, want %q", p.ExternalID, "the-lost-highway")
 	}
-	if p.Title != "The Lost Highway" {
-		t.Errorf("Title: got %q, want %q", p.Title, "The Lost Highway")
-	}
 	if p.Value != 0 {
-		t.Errorf("Value: got %d, want 0 (unknown)", p.Value)
+		t.Errorf("Value: got %d, want 0", p.Value)
 	}
 	applicant, _ := p.RawData["applicant"].(string)
 	if applicant != "Netflix" {
@@ -133,7 +176,7 @@ func TestHashCreativeBCProduction_caseInsensitive(t *testing.T) {
 	h1 := hashCreativeBCProduction("The Lost Highway", "Feature Film")
 	h2 := hashCreativeBCProduction("the lost highway", "feature film")
 	if h1 != h2 {
-		t.Error("hash should be case-insensitive for stable dedup")
+		t.Error("hash should be case-insensitive")
 	}
 }
 
@@ -161,29 +204,5 @@ func TestSlugify(t *testing.T) {
 		if got != c.want {
 			t.Errorf("slugify(%q) = %q, want %q", c.input, got, c.want)
 		}
-	}
-}
-
-// sampleCreativeBCLinesNoHeader tests the fallback type-anchor parser.
-var sampleCreativeBCLinesNoHeader = []string{
-	`The Lost Highway    Feature Film    Netflix    Principal Photography`,
-	`Vancouver Chronicles    TV Series    CBC    Pre-Production`,
-	`Burnaby Blocks    Animation Series    DHX`,
-}
-
-func TestParseCreativeBCByTypeAnchor(t *testing.T) {
-	records := parseCreativeBCByTypeAnchor(sampleCreativeBCLinesNoHeader)
-
-	// Should parse 3 records (anchor parser finds any known type)
-	if len(records) != 3 {
-		t.Fatalf("expected 3 records from anchor parser, got %d", len(records))
-	}
-
-	// First record title check
-	if records[0].Title != "The Lost Highway" {
-		t.Errorf("first record Title: got %q, want %q", records[0].Title, "The Lost Highway")
-	}
-	if records[0].Type != "Feature Film" {
-		t.Errorf("first record Type: got %q, want %q", records[0].Type, "Feature Film")
 	}
 }

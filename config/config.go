@@ -16,6 +16,7 @@ type Config struct {
 	RichmondPermitsURL     string
 	DeltaPermitsURL        string
 	CreativeBCEnabled      bool
+	CreativeBCURL          string
 	BCBidRSSURL            string
 	NewsAPIKey             string
 	EnrichmentEnabled      bool
@@ -39,6 +40,7 @@ func Load() (*Config, error) {
 		RichmondPermitsURL:     os.Getenv("RICHMOND_PERMITS_URL"),
 		DeltaPermitsURL:        os.Getenv("DELTA_PERMITS_URL"),
 		CreativeBCEnabled:      os.Getenv("CREATIVEBC_ENABLED") == "true",
+		CreativeBCURL:          os.Getenv("CREATIVEBC_URL"),
 		BCBidRSSURL:            os.Getenv("BCBID_RSS_URL"),
 		NewsAPIKey:             os.Getenv("NEWS_API_KEY"),
 		EnrichmentEnabled:      getEnv("ENRICHMENT_ENABLED", "true") == "true",

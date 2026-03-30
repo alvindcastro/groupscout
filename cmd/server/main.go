@@ -68,7 +68,7 @@ func main() {
 	}
 
 	if cfg.CreativeBCEnabled {
-		cbc := collector.NewCreativeBCCollector()
+		cbc := collector.NewCreativeBCCollector(cfg.CreativeBCURL)
 		cbc.Verbose = true
 		collectors = append(collectors, cbc)
 	}
