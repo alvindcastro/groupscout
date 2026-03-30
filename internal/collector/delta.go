@@ -49,9 +49,9 @@ var deltaCivicRe = regexp.MustCompile(`(?i)Civic\s+Address:\s*(.+)`)
 // deltaRelevantTypes are the permit type prefixes (before " - ") that indicate
 // commercial/industrial projects likely to generate crew lodging demand.
 var deltaRelevantTypes = map[string]bool{
-	"industrial":  true,
-	"commercial":  true,
-	"assembly":    true,
+	"industrial":    true,
+	"commercial":    true,
+	"assembly":      true,
 	"institutional": true,
 }
 
@@ -130,7 +130,7 @@ func (d *DeltaCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if d.Verbose {
-		log.Printf("[delta] %d permits passed filter (commercial/industrial + value > $%s CAD)", len(projects), formatValue(d.MinValue))
+		log.Printf("[delta] %d permits passed filter (commercial/industrial + value > $%s CAD)", len(projects), formatCAD(d.MinValue))
 	}
 
 	return projects, nil

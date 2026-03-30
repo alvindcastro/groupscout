@@ -33,7 +33,11 @@ func main() {
 	flag.Parse()
 	log.SetFlags(0)
 	log.SetPrefix("[smoketest] ")
-	config.Load() // loads .env into the environment; ignore the returned struct here
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -47,8 +51,6 @@ func main() {
 		sendTestSlack(ctx)
 		return
 	}
-
-	cfg, _ := config.Load()
 	c := collector.NewRichmondCollector()
 	c.Verbose = true
 	c.MinValue = cfg.MinPermitValueCAD

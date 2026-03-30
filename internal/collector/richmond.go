@@ -169,7 +169,7 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if r.Verbose {
-		log.Printf("[richmond] %d permits passed filter (commercial + value > $%s CAD)", len(projects), formatValue(r.MinValue))
+		log.Printf("[richmond] %d permits passed filter (commercial + value > $%s CAD)", len(projects), formatCAD(r.MinValue))
 	}
 
 	return projects, nil
@@ -597,8 +597,8 @@ func toRawProject(rec permitRecord) RawProject {
 	}
 }
 
-// formatValue formats an int64 dollar amount with comma separators for log output.
-func formatValue(n int64) string {
+// formatCAD formats an int64 dollar amount with comma separators for log output.
+func formatCAD(n int64) string {
 	s := fmt.Sprintf("%d", n)
 	out := make([]byte, 0, len(s)+len(s)/3)
 	for i, c := range s {
