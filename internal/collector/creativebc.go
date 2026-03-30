@@ -15,27 +15,30 @@ import (
 	"golang.org/x/net/html"
 )
 
-// creativeBCDefaultURL is the Salesforce Visualforce page that renders the in-production list
-// as server-side HTML. The isdtp=p1 parameter strips Salesforce navigation chrome.
-// Plain net/http GET works — no JavaScript required.
+// creativeBCDefaultURL is the Salesforce Visualforce page that server-renders the in-production
+// list as static HTML. isdtp=p1 strips Salesforce navigation chrome.
 const creativeBCDefaultURL = "https://knowledgehub.creativebc.com/apex/In_Production_List?isdtp=p1"
 
-// creativeBCKeepTypes are the production types that bring large out-of-town crews.
-// Animation, VFX, Documentary, and Short Film are primarily local-crew work.
+// creativeBCKeepTypes maps normalized production types to keep (Feature Film + TV Series only).
+// Animation, Documentary, New Media, and Mini Series are primarily local-crew work.
 var creativeBCKeepTypes = map[string]bool{
 	"feature film": true,
 	"tv series":    true,
 }
 
-// creativeBCRecord holds one parsed row from the Creative BC in-production list.
+// creativeBCRecord holds one parsed entry from the Creative BC in-production list.
+// Fields come directly from the labeled <b> elements on the Visualforce page.
 type creativeBCRecord struct {
-	Title  string
-	Type   string // e.g. "Feature Film", "TV Series"
-	Studio string // Studio/Distributor
-	Status string // e.g. "Principal Photography", "Pre-Production"
+	Title    string
+	Type     string // normalized: "Feature Film", "TV Series", etc.
+	Studio   string // Local Production Company
+	Schedule string // "3/9/2026 - 4/10/2026"
+	Address  string // Production Address — used for location scoring
+	Manager  string // Production Manager
+	Email    string
 }
 
-// CreativeBCCollector fetches the Creative BC "In Production" HTML page and returns
+// CreativeBCCollector fetches the Creative BC "In Production" Visualforce page and returns
 // Feature Film and TV Series productions as RawProject values.
 // Enabled via CREATIVEBC_ENABLED=true; URL overridable via CREATIVEBC_URL.
 type CreativeBCCollector struct {
@@ -47,7 +50,7 @@ type CreativeBCCollector struct {
 // NewCreativeBCCollector returns a CreativeBCCollector.
 // urlOverride replaces the default Visualforce URL when non-empty.
 // TLS verification is skipped: the Knowledge Hub uses a Salesforce intermediate CA
-// that is absent from Go's default root pool on Linux. No credentials are transmitted.
+// absent from Go's default root pool on Linux. No credentials are transmitted.
 func NewCreativeBCCollector(urlOverride string) *CreativeBCCollector {
 	u := creativeBCDefaultURL
 	if urlOverride != "" {
@@ -68,9 +71,9 @@ func NewCreativeBCCollector(urlOverride string) *CreativeBCCollector {
 func (c *CreativeBCCollector) Name() string { return "creativebc" }
 
 // Collect satisfies the Collector interface.
-// Fetches the Creative BC in-production HTML page, parses the production table, filters to
-// Feature Film and TV Series, and returns RawProjects. Fetch or parse errors produce a warning
-// log and an empty slice — they do not abort the pipeline run.
+// Fetches the Creative BC in-production page, parses all productions, filters to Feature Film
+// and TV Series, and returns RawProjects. Errors produce a warning log and an empty slice —
+// they do not abort the pipeline run.
 func (c *CreativeBCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	body, err := c.fetchHTML(ctx)
 	if err != nil {
@@ -85,7 +88,7 @@ func (c *CreativeBCCollector) Collect(ctx context.Context) ([]RawProject, error)
 	}
 
 	if c.Verbose {
-		log.Printf("[creativebc] parsed %d production records from HTML", len(records))
+		log.Printf("[creativebc] parsed %d production records from page", len(records))
 	}
 
 	var projects []RawProject
@@ -132,141 +135,169 @@ func (c *CreativeBCCollector) fetchHTML(ctx context.Context) ([]byte, error) {
 	return body, nil
 }
 
-// parseCreativeBCHTML parses the production table from the Creative BC Visualforce page HTML.
+// parseCreativeBCHTML parses the Creative BC in-production Visualforce page.
 //
-// Strategy:
-//  1. Walk the HTML tree to find all <table> elements.
-//  2. For each table, check whether the header row contains "title" and "type" (case-insensitive).
-//  3. Map column indices from the header row.
-//  4. Extract each data row using those column indices.
+// Page structure (actual HTML from knowledgehub.creativebc.com/apex/In_Production_List):
+//
+//	<div id="inProductionList">
+//	  <table class="detailList">
+//	    <tr><td><h5>Feature</h5></td></tr>                   ← category header
+//	    <tr><td>
+//	      <h3 class="production">FARADAY</h3>                ← title (ALL CAPS)
+//	      <b>Local Production Company: </b>ABG Productions   ← labeled fields
+//	      <b>Schedule: </b>3/9/2026 - 4/10/2026
+//	      <b>Production Address: </b>3920 Norland Ave...
+//	    </td></tr>
+//	    <tr><td><h5>TV Series</h5></td></tr>
+//	    ...
+//	  </table>
+//	</div>
 func parseCreativeBCHTML(body []byte) ([]creativeBCRecord, error) {
 	doc, err := html.Parse(strings.NewReader(string(body)))
 	if err != nil {
 		return nil, fmt.Errorf("creativebc: parse html: %w", err)
 	}
 
-	tables := findTables(doc)
-	for _, table := range tables {
-		records, ok := extractProductionTable(table)
-		if ok {
-			return records, nil
-		}
-	}
-
-	return nil, fmt.Errorf("creativebc: no production table found in page")
-}
-
-// findTables returns all <table> nodes in document order.
-func findTables(n *html.Node) []*html.Node {
-	var tables []*html.Node
-	var walk func(*html.Node)
-	walk = func(node *html.Node) {
-		if node.Type == html.ElementNode && node.Data == "table" {
-			tables = append(tables, node)
-			return // don't recurse into nested tables
-		}
-		for c := node.FirstChild; c != nil; c = c.NextSibling {
-			walk(c)
-		}
-	}
-	walk(n)
-	return tables
-}
-
-// extractProductionTable attempts to parse a <table> node as the production list.
-// Returns the parsed records and true if this table looks like the right one.
-func extractProductionTable(table *html.Node) ([]creativeBCRecord, bool) {
-	rows := tableRows(table)
-	if len(rows) < 2 {
-		return nil, false
-	}
-
-	// Find header row — first row whose cells contain "title" and "type"
-	headerIdx := -1
-	colTitle, colType, colStudio, colStatus := -1, -1, -1, -1
-
-	for i, row := range rows {
-		cells := rowCells(row)
-		if len(cells) < 2 {
-			continue
-		}
-		// Check if this looks like the header
-		titleFound, typeFound := false, false
-		for j, cell := range cells {
-			text := strings.ToLower(strings.TrimSpace(nodeText(cell)))
-			switch {
-			case strings.Contains(text, "title"):
-				colTitle = j
-				titleFound = true
-			case strings.Contains(text, "type"):
-				colType = j
-				typeFound = true
-			case strings.Contains(text, "studio") || strings.Contains(text, "distributor"):
-				colStudio = j
-			case text == "status":
-				colStatus = j
-			}
-		}
-		if titleFound && typeFound {
-			headerIdx = i
-			break
-		}
-	}
-
-	if headerIdx == -1 || colTitle == -1 || colType == -1 {
-		return nil, false
+	listDiv := findNodeByID(doc, "inProductionList")
+	if listDiv == nil {
+		return nil, fmt.Errorf("creativebc: production list not found in page")
 	}
 
 	var records []creativeBCRecord
-	for _, row := range rows[headerIdx+1:] {
-		cells := rowCells(row)
-		if len(cells) == 0 {
-			continue
+	var currentType string
+	var current *creativeBCRecord
+
+	flush := func() {
+		if current != nil && current.Title != "" {
+			records = append(records, *current)
+			current = nil
 		}
-		rec := creativeBCRecord{
-			Title:  cellText(cells, colTitle),
-			Type:   cellText(cells, colType),
-			Studio: cellText(cells, colStudio),
-			Status: cellText(cells, colStatus),
-		}
-		if rec.Title == "" || rec.Type == "" {
-			continue
-		}
-		records = append(records, rec)
 	}
 
-	return records, true
-}
-
-// tableRows returns all <tr> nodes within a table (from thead, tbody, or directly).
-func tableRows(table *html.Node) []*html.Node {
-	var rows []*html.Node
 	var walk func(*html.Node)
 	walk = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "tr" {
-			rows = append(rows, n)
+		if n.Type != html.ElementNode {
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				walk(c)
+			}
 			return
+		}
+
+		switch n.Data {
+		case "h5":
+			// Category header: "Feature", "TV Series", "Doc Series", etc.
+			currentType = normalizeProdType(strings.TrimSpace(nodeText(n)))
+			return // don't recurse
+
+		case "h3":
+			if hasClass(n, "production") {
+				flush()
+				current = &creativeBCRecord{
+					Title: toTitleCase(strings.TrimSpace(nodeText(n))),
+					Type:  currentType,
+				}
+				return // don't recurse into h3
+			}
+
+		case "b":
+			if current != nil {
+				label := strings.ToLower(strings.TrimRight(strings.TrimSpace(nodeText(n)), ":"))
+				// Value is the text node immediately following the <b> closing tag
+				var value string
+				if sib := n.NextSibling; sib != nil && sib.Type == html.TextNode {
+					value = strings.TrimSpace(sib.Data)
+				}
+				if value != "" {
+					switch label {
+					case "local production company":
+						current.Studio = value
+					case "schedule":
+						current.Schedule = value
+					case "production address":
+						current.Address = value
+					case "production manager":
+						current.Manager = value
+					case "email":
+						current.Email = value
+					}
+				}
+				return // don't recurse into b
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+
+	walk(listDiv)
+	flush()
+
+	if len(records) == 0 {
+		return nil, fmt.Errorf("creativebc: no productions found in page")
+	}
+	return records, nil
+}
+
+// normalizeProdType maps the h5 category text to a consistent production type string.
+func normalizeProdType(h5text string) string {
+	switch strings.ToLower(h5text) {
+	case "feature":
+		return "Feature Film"
+	case "tv series":
+		return "TV Series"
+	case "doc series":
+		return "Documentary Series"
+	case "mini series":
+		return "Mini Series"
+	case "new media feature":
+		return "New Media Feature"
+	case "new media series":
+		return "New Media Series"
+	default:
+		return h5text
+	}
+}
+
+// findNodeByID returns the first node with the given id attribute, or nil.
+func findNodeByID(root *html.Node, id string) *html.Node {
+	var found *html.Node
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if found != nil {
+			return
+		}
+		if n.Type == html.ElementNode {
+			for _, a := range n.Attr {
+				if a.Key == "id" && a.Val == id {
+					found = n
+					return
+				}
+			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			walk(c)
 		}
 	}
-	walk(table)
-	return rows
+	walk(root)
+	return found
 }
 
-// rowCells returns all <td> and <th> nodes in a <tr>.
-func rowCells(tr *html.Node) []*html.Node {
-	var cells []*html.Node
-	for c := tr.FirstChild; c != nil; c = c.NextSibling {
-		if c.Type == html.ElementNode && (c.Data == "td" || c.Data == "th") {
-			cells = append(cells, c)
+// hasClass reports whether an element node has the given CSS class.
+func hasClass(n *html.Node, class string) bool {
+	for _, a := range n.Attr {
+		if a.Key == "class" {
+			for _, c := range strings.Fields(a.Val) {
+				if c == class {
+					return true
+				}
+			}
 		}
 	}
-	return cells
+	return false
 }
 
-// nodeText returns all text content within an HTML node, concatenated.
+// nodeText returns all text content within an HTML node, concatenated and trimmed.
 func nodeText(n *html.Node) string {
 	if n == nil {
 		return ""
@@ -285,12 +316,16 @@ func nodeText(n *html.Node) string {
 	return strings.TrimSpace(b.String())
 }
 
-// cellText returns the trimmed text of a cell at the given index, or "" if out of range.
-func cellText(cells []*html.Node, idx int) string {
-	if idx < 0 || idx >= len(cells) {
-		return ""
+// toTitleCase converts ALL CAPS production titles to Title Case.
+// "QUEENS FOR A DAY" → "Queens For A Day"
+func toTitleCase(s string) string {
+	words := strings.Fields(strings.ToLower(s))
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
 	}
-	return nodeText(cells[idx])
+	return strings.Join(words, " ")
 }
 
 // isCreativeBCRelevant returns true if the production type is Feature Film or TV Series.
@@ -299,31 +334,70 @@ func isCreativeBCRelevant(rec creativeBCRecord) bool {
 }
 
 // toCreativeBCRawProject maps a creativeBCRecord to the normalized RawProject.
+// Address and schedule are included in Description so Claude can use them for location scoring.
 func toCreativeBCRawProject(rec creativeBCRecord) RawProject {
 	desc := fmt.Sprintf("%s — %s", rec.Type, rec.Studio)
-	if rec.Status != "" {
-		desc += fmt.Sprintf(" (%s)", rec.Status)
+	if rec.Schedule != "" {
+		desc += fmt.Sprintf(" | Schedule: %s", rec.Schedule)
 	}
+	if rec.Address != "" {
+		desc += fmt.Sprintf(" | Address: %s", rec.Address)
+	}
+
+	location := extractCreativeBCCity(rec.Address)
+
 	return RawProject{
 		Source:      "creativebc",
 		ExternalID:  slugify(rec.Title),
 		Title:       rec.Title,
-		Location:    "Metro Vancouver, BC",
+		Location:    location,
 		Value:       0,
 		Description: desc,
-		IssuedAt:    time.Time{},
+		IssuedAt:    parseScheduleStart(rec.Schedule),
 		RawData: map[string]any{
 			"production_type": rec.Type,
 			"studio":          rec.Studio,
-			"status":          rec.Status,
+			"schedule":        rec.Schedule,
+			"address":         rec.Address,
+			"manager":         rec.Manager,
+			"email":           rec.Email,
 			"applicant":       rec.Studio,
 			"contractor":      "",
 		},
 	}
 }
 
+// extractCreativeBCCity pulls the city name from a production address string.
+// Format: "3920 Norland Avenue, Burnaby, Canada, V5G 4K7" → "Burnaby, BC"
+func extractCreativeBCCity(address string) string {
+	if address == "" {
+		return "Metro Vancouver, BC"
+	}
+	parts := strings.Split(address, ",")
+	if len(parts) >= 2 {
+		city := strings.TrimSpace(parts[1])
+		if city != "" && strings.ToLower(city) != "canada" {
+			return city + ", BC"
+		}
+	}
+	return "Metro Vancouver, BC"
+}
+
+// parseScheduleStart parses the start date from "M/D/YYYY - M/D/YYYY" schedule strings.
+func parseScheduleStart(schedule string) time.Time {
+	if schedule == "" {
+		return time.Time{}
+	}
+	parts := strings.SplitN(schedule, " - ", 2)
+	t, err := time.Parse("1/2/2006", strings.TrimSpace(parts[0]))
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
 // hashCreativeBCProduction produces a deterministic dedup key keyed on title + type.
-// Case-insensitive and content-independent so weekly list reorders don't regenerate leads.
+// Case-insensitive so capitalisation changes don't regenerate the same lead.
 func hashCreativeBCProduction(title, productionType string) string {
 	h := sha256.Sum256([]byte(
 		"creativebc|" + strings.ToLower(strings.TrimSpace(title)) + "|" + strings.ToLower(strings.TrimSpace(productionType)),

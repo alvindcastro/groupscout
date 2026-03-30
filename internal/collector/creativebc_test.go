@@ -4,55 +4,79 @@ import (
 	"testing"
 )
 
-// sampleCreativeBCHTML is a minimal HTML fixture that mirrors the structure expected
-// from the Creative BC Visualforce page.
+// sampleCreativeBCHTML mirrors the actual structure of the Creative BC Visualforce page.
+// Productions are grouped under <h5> category headers; each entry uses <h3 class="production">
+// for the title and labeled <b> elements for fields.
 var sampleCreativeBCHTML = []byte(`<!DOCTYPE html>
-<html>
-<body>
-<table>
-  <thead>
-    <tr>
-      <th>Production Title</th>
-      <th>Production Type</th>
-      <th>Studio/Distributor</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>The Lost Highway</td>
-      <td>Feature Film</td>
-      <td>Netflix</td>
-      <td>Principal Photography</td>
-    </tr>
-    <tr>
-      <td>Vancouver Chronicles</td>
-      <td>TV Series</td>
-      <td>CBC</td>
-      <td>Pre-Production</td>
-    </tr>
-    <tr>
-      <td>Mountain Light</td>
-      <td>Feature Film</td>
-      <td>A24</td>
-      <td>Pre-Production</td>
-    </tr>
-    <tr>
-      <td>Burnaby Blocks</td>
-      <td>Animation Series</td>
-      <td>DHX Media</td>
-      <td>Production</td>
-    </tr>
-    <tr>
-      <td>Northern Exposure</td>
-      <td>Documentary Series</td>
-      <td>National Geographic</td>
-      <td>Post Production</td>
-    </tr>
-  </tbody>
-</table>
-</body>
-</html>`)
+<html><body>
+<div id="inProductionList">
+  <table class="detailList">
+    <tr><td class="data2Col first" colSpan="2">
+      <h5>Feature</h5>
+    </td></tr>
+    <tr><td class="data2Col" colSpan="2">
+      <span>
+        <h3 class="production">FARADAY</h3>
+        <span>
+          <span><b>Local Production Company: </b>ABG Productions BC Inc</span>
+          <p><b>Production Manager: </b>Gabriel Zamora</p>
+          <span><b>Schedule: </b>3/9/2026 - 4/10/2026</span>
+          <p><b>Production Address: </b>3920 Norland Avenue, Burnaby, Canada, V5G 4K7</p>
+          <p><b>Email: </b>abgproductionoffice@gmail.com</p>
+        </span>
+      </span>
+    </td></tr>
+    <tr><td class="data2Col" colSpan="2">
+      <span>
+        <h3 class="production">WHITE ELEPHANT</h3>
+        <span>
+          <span><b>Local Production Company: </b>Scratch That CAN Productions Inc.</span>
+          <span><b>Schedule: </b>3/30/2026 - 5/1/2026</span>
+          <p><b>Production Address: </b>18788 96 Avenue, Surrey, Canada, V4N 3R1</p>
+        </span>
+      </span>
+    </td></tr>
+    <tr><td class="data2Col first" colSpan="2">
+      <h5>TV Series</h5>
+    </td></tr>
+    <tr><td class="data2Col" colSpan="2">
+      <span>
+        <h3 class="production">VANCOUVER CHRONICLES - SEASON 2</h3>
+        <span>
+          <span><b>Local Production Company: </b>BC Productions Ltd</span>
+          <p><b>Production Manager: </b>Jane Smith</p>
+          <span><b>Schedule: </b>2/1/2026 - 8/31/2026</span>
+          <p><b>Production Address: </b>123 Main St, Vancouver, Canada, V6B 1A1</p>
+        </span>
+      </span>
+    </td></tr>
+    <tr><td class="data2Col first" colSpan="2">
+      <h5>Doc Series</h5>
+    </td></tr>
+    <tr><td class="data2Col" colSpan="2">
+      <span>
+        <h3 class="production">NATURE DOCS</h3>
+        <span>
+          <span><b>Local Production Company: </b>Doc Films Inc</span>
+          <span><b>Schedule: </b>1/1/2026 - 3/31/2026</span>
+        </span>
+      </span>
+    </td></tr>
+    <tr><td class="data2Col first" colSpan="2">
+      <h5>New Media Series</h5>
+    </td></tr>
+    <tr><td class="data2Col" colSpan="2">
+      <span>
+        <h3 class="production">ANAHEIM REALM - SEASON 1</h3>
+        <span>
+          <span><b>Local Production Company: </b>Pico Productions (BC) Limited</span>
+          <span><b>Schedule: </b>2/25/2026 - 4/1/2027</span>
+        </span>
+      </span>
+    </td></tr>
+  </table>
+</div>
+</body></html>`)
 
 func TestParseCreativeBCHTML_count(t *testing.T) {
 	records, err := parseCreativeBCHTML(sampleCreativeBCHTML)
@@ -71,118 +95,166 @@ func TestParseCreativeBCHTML_firstRecord(t *testing.T) {
 	}
 	r := records[0]
 
-	if r.Title != "The Lost Highway" {
-		t.Errorf("Title: got %q, want %q", r.Title, "The Lost Highway")
+	if r.Title != "Faraday" {
+		t.Errorf("Title: got %q, want %q", r.Title, "Faraday")
 	}
 	if r.Type != "Feature Film" {
 		t.Errorf("Type: got %q, want %q", r.Type, "Feature Film")
 	}
-	if r.Studio != "Netflix" {
-		t.Errorf("Studio: got %q, want %q", r.Studio, "Netflix")
+	if r.Studio != "ABG Productions BC Inc" {
+		t.Errorf("Studio: got %q, want %q", r.Studio, "ABG Productions BC Inc")
 	}
-	if r.Status != "Principal Photography" {
-		t.Errorf("Status: got %q, want %q", r.Status, "Principal Photography")
+	if r.Schedule != "3/9/2026 - 4/10/2026" {
+		t.Errorf("Schedule: got %q, want %q", r.Schedule, "3/9/2026 - 4/10/2026")
+	}
+	if r.Address != "3920 Norland Avenue, Burnaby, Canada, V5G 4K7" {
+		t.Errorf("Address: got %q, want %q", r.Address, "3920 Norland Avenue, Burnaby, Canada, V5G 4K7")
+	}
+	if r.Manager != "Gabriel Zamora" {
+		t.Errorf("Manager: got %q, want %q", r.Manager, "Gabriel Zamora")
 	}
 }
 
-func TestParseCreativeBCHTML_secondRecord(t *testing.T) {
+func TestParseCreativeBCHTML_tvSeries(t *testing.T) {
 	records, err := parseCreativeBCHTML(sampleCreativeBCHTML)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	r := records[1]
-
-	if r.Title != "Vancouver Chronicles" {
-		t.Errorf("Title: got %q, want %q", r.Title, "Vancouver Chronicles")
-	}
+	r := records[2] // third record, first TV Series
 	if r.Type != "TV Series" {
 		t.Errorf("Type: got %q, want %q", r.Type, "TV Series")
 	}
+	if r.Title != "Vancouver Chronicles - Season 2" {
+		t.Errorf("Title: got %q, want %q", r.Title, "Vancouver Chronicles - Season 2")
+	}
 }
 
-func TestParseCreativeBCHTML_noTable(t *testing.T) {
-	_, err := parseCreativeBCHTML([]byte(`<html><body><p>No table here</p></body></html>`))
+func TestParseCreativeBCHTML_noList(t *testing.T) {
+	_, err := parseCreativeBCHTML([]byte(`<html><body><p>No list here</p></body></html>`))
 	if err == nil {
-		t.Error("expected error when no production table found")
+		t.Error("expected error when inProductionList div not found")
+	}
+}
+
+func TestNormalizeProdType(t *testing.T) {
+	cases := []struct{ input, want string }{
+		{"Feature", "Feature Film"},
+		{"TV Series", "TV Series"},
+		{"Doc Series", "Documentary Series"},
+		{"Mini Series", "Mini Series"},
+		{"New Media Feature", "New Media Feature"},
+		{"New Media Series", "New Media Series"},
+	}
+	for _, c := range cases {
+		got := normalizeProdType(c.input)
+		if got != c.want {
+			t.Errorf("normalizeProdType(%q) = %q, want %q", c.input, got, c.want)
+		}
 	}
 }
 
 func TestIsCreativeBCRelevant_featureFilm(t *testing.T) {
-	rec := creativeBCRecord{Title: "Test", Type: "Feature Film", Studio: "Netflix"}
-	if !isCreativeBCRelevant(rec) {
+	if !isCreativeBCRelevant(creativeBCRecord{Type: "Feature Film"}) {
 		t.Error("Feature Film should pass filter")
 	}
 }
 
 func TestIsCreativeBCRelevant_tvSeries(t *testing.T) {
-	rec := creativeBCRecord{Title: "Test", Type: "TV Series", Studio: "CBC"}
-	if !isCreativeBCRelevant(rec) {
+	if !isCreativeBCRelevant(creativeBCRecord{Type: "TV Series"}) {
 		t.Error("TV Series should pass filter")
 	}
 }
 
-func TestIsCreativeBCRelevant_animation(t *testing.T) {
-	rec := creativeBCRecord{Title: "Test", Type: "Animation Series", Studio: "DHX"}
-	if isCreativeBCRelevant(rec) {
-		t.Error("Animation Series should be filtered out")
+func TestIsCreativeBCRelevant_documentary(t *testing.T) {
+	if isCreativeBCRelevant(creativeBCRecord{Type: "Documentary Series"}) {
+		t.Error("Documentary Series should be filtered out")
 	}
 }
 
-func TestIsCreativeBCRelevant_documentary(t *testing.T) {
-	rec := creativeBCRecord{Title: "Test", Type: "Documentary Series", Studio: "NatGeo"}
-	if isCreativeBCRelevant(rec) {
-		t.Error("Documentary Series should be filtered out")
+func TestIsCreativeBCRelevant_newMedia(t *testing.T) {
+	if isCreativeBCRelevant(creativeBCRecord{Type: "New Media Series"}) {
+		t.Error("New Media Series should be filtered out")
 	}
 }
 
 func TestToCreativeBCRawProject_fields(t *testing.T) {
 	rec := creativeBCRecord{
-		Title:  "The Lost Highway",
-		Type:   "Feature Film",
-		Studio: "Netflix",
-		Status: "Principal Photography",
+		Title:    "Faraday",
+		Type:     "Feature Film",
+		Studio:   "ABG Productions BC Inc",
+		Schedule: "3/9/2026 - 4/10/2026",
+		Address:  "3920 Norland Avenue, Burnaby, Canada, V5G 4K7",
+		Manager:  "Gabriel Zamora",
 	}
-
 	p := toCreativeBCRawProject(rec)
 
 	if p.Source != "creativebc" {
 		t.Errorf("Source: got %q, want %q", p.Source, "creativebc")
 	}
-	if p.ExternalID != "the-lost-highway" {
-		t.Errorf("ExternalID: got %q, want %q", p.ExternalID, "the-lost-highway")
+	if p.ExternalID != "faraday" {
+		t.Errorf("ExternalID: got %q, want %q", p.ExternalID, "faraday")
 	}
-	if p.Value != 0 {
-		t.Errorf("Value: got %d, want 0", p.Value)
+	if p.Location != "Burnaby, BC" {
+		t.Errorf("Location: got %q, want %q", p.Location, "Burnaby, BC")
+	}
+	if p.IssuedAt.IsZero() {
+		t.Error("IssuedAt should be parsed from schedule start date")
 	}
 	applicant, _ := p.RawData["applicant"].(string)
-	if applicant != "Netflix" {
-		t.Errorf("RawData[applicant]: got %q, want %q", applicant, "Netflix")
+	if applicant != "ABG Productions BC Inc" {
+		t.Errorf("RawData[applicant]: got %q, want %q", applicant, "ABG Productions BC Inc")
 	}
-	prodType, _ := p.RawData["production_type"].(string)
-	if prodType != "Feature Film" {
-		t.Errorf("RawData[production_type]: got %q, want %q", prodType, "Feature Film")
+}
+
+func TestExtractCreativeBCCity(t *testing.T) {
+	cases := []struct{ input, want string }{
+		{"3920 Norland Avenue, Burnaby, Canada, V5G 4K7", "Burnaby, BC"},
+		{"18788 96 Avenue, Surrey, Canada, V4N 3R1", "Surrey, BC"},
+		{"123 Main St, Vancouver, Canada, V6B 1A1", "Vancouver, BC"},
+		{"", "Metro Vancouver, BC"},
+	}
+	for _, c := range cases {
+		got := extractCreativeBCCity(c.input)
+		if got != c.want {
+			t.Errorf("extractCreativeBCCity(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+}
+
+func TestParseScheduleStart(t *testing.T) {
+	t1 := parseScheduleStart("3/9/2026 - 4/10/2026")
+	if t1.IsZero() {
+		t.Error("expected non-zero time for valid schedule")
+	}
+	if t1.Month() != 3 || t1.Day() != 9 || t1.Year() != 2026 {
+		t.Errorf("unexpected date: %v", t1)
+	}
+
+	t2 := parseScheduleStart("")
+	if !t2.IsZero() {
+		t.Error("expected zero time for empty schedule")
 	}
 }
 
 func TestHashCreativeBCProduction_deterministic(t *testing.T) {
-	h1 := hashCreativeBCProduction("The Lost Highway", "Feature Film")
-	h2 := hashCreativeBCProduction("The Lost Highway", "Feature Film")
+	h1 := hashCreativeBCProduction("Faraday", "Feature Film")
+	h2 := hashCreativeBCProduction("Faraday", "Feature Film")
 	if h1 != h2 {
 		t.Error("hash is not deterministic")
 	}
 }
 
 func TestHashCreativeBCProduction_caseInsensitive(t *testing.T) {
-	h1 := hashCreativeBCProduction("The Lost Highway", "Feature Film")
-	h2 := hashCreativeBCProduction("the lost highway", "feature film")
+	h1 := hashCreativeBCProduction("Faraday", "Feature Film")
+	h2 := hashCreativeBCProduction("FARADAY", "feature film")
 	if h1 != h2 {
 		t.Error("hash should be case-insensitive")
 	}
 }
 
-func TestHashCreativeBCProduction_differentProductions(t *testing.T) {
-	h1 := hashCreativeBCProduction("The Lost Highway", "Feature Film")
-	h2 := hashCreativeBCProduction("Vancouver Chronicles", "TV Series")
+func TestHashCreativeBCProduction_collision(t *testing.T) {
+	h1 := hashCreativeBCProduction("Faraday", "Feature Film")
+	h2 := hashCreativeBCProduction("White Elephant", "Feature Film")
 	if h1 == h2 {
 		t.Error("different productions should produce different hashes")
 	}
@@ -203,6 +275,21 @@ func TestSlugify(t *testing.T) {
 		got := slugify(c.input)
 		if got != c.want {
 			t.Errorf("slugify(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+}
+
+func TestToTitleCase(t *testing.T) {
+	cases := []struct{ input, want string }{
+		{"FARADAY", "Faraday"},
+		{"QUEENS FOR A DAY", "Queens For A Day"},
+		{"WHITE ELEPHANT", "White Elephant"},
+		{"VANCOUVER CHRONICLES - SEASON 2", "Vancouver Chronicles - Season 2"},
+	}
+	for _, c := range cases {
+		got := toTitleCase(c.input)
+		if got != c.want {
+			t.Errorf("toTitleCase(%q) = %q, want %q", c.input, got, c.want)
 		}
 	}
 }

@@ -162,34 +162,37 @@ Respond with ONLY a valid JSON object. No markdown, no explanation, no code fenc
 // It instructs Claude to estimate crew size and out-of-town ratio rather than permit fields.
 // Score boosters per PHASES.md: US studio → +2; "Richmond" or "Surrey" location reference → +1.
 func creativeBCPrompt(p collector.RawProject) string {
-	status, _ := p.RawData["status"].(string)
-	if status == "" {
-		status = "unknown"
-	}
-	return fmt.Sprintf(`Evaluate this film or TV production appearing on the Creative BC in-production list.
+	schedule, _ := p.RawData["schedule"].(string)
+	address, _ := p.RawData["address"].(string)
+	manager, _ := p.RawData["manager"].(string)
+	return fmt.Sprintf(`Evaluate this film or TV production from the Creative BC in-production list.
 The Sandman Hotel Vancouver Airport (Richmond, BC) wants to reach the production's travel coordinator
 to offer room blocks and extended-stay rates for out-of-town cast and crew.
 
 Return a JSON object with exactly these fields:
 {
-  "general_contractor": "name of studio or production company, or \"unknown\"",
+  "general_contractor": "name of the local production company, or \"unknown\"",
   "project_type": "one of: feature_film, tv_series, unknown",
-  "estimated_crew_size": <integer — use these benchmarks: Feature Film 150–400, TV Series per block 80–200; 0 if unknown>,
-  "estimated_duration_months": <integer — Feature Film 2–4 months of principal photography; TV Series 6–9 months per season; 0 if unknown>,
-  "out_of_town_crew_likely": <true if US studio, major streamer, or international co-production; false for local indie>,
-  "priority_score": <integer 1–10; start at 5, then: +2 if US/international studio (Netflix/A24/Amazon/Disney/etc.), +1 if "Richmond" or "Surrey" appears in the details, +1 if status is "Principal Photography" (crews mobilized now)>,
+  "estimated_crew_size": <integer — Feature Film: 150–400, TV Series per block: 80–200; 0 if unknown>,
+  "estimated_duration_months": <integer — derive from the schedule dates if provided; Feature Film ~2–4 months, TV Series ~6–9 months; 0 if unknown>,
+  "out_of_town_crew_likely": <true if the production company or studio is US/international; false for local BC indie>,
+  "priority_score": <integer 1–10; start at 5, then: +2 if US/international studio, +1 if production address is in Richmond or Surrey (near YVR), +1 if schedule start date is within 4 weeks of today>,
   "priority_reason": "one sentence explaining the score",
-  "suggested_outreach_timing": "Productions typically mobilize 4–6 weeks after appearing on the in-production list — reach out now if status is Principal Photography",
-  "notes": "any details useful to the hotel sales team (streaming platform, location references, production scale)"
+  "suggested_outreach_timing": "reach out now — contact the Production Manager directly if listed; productions are actively crewing when they appear on this list",
+  "notes": "include production manager name and email if present; note address city for proximity to Sandman YVR"
 }
 
 Production data:
-Title:   %s
-Details: %s
-Status:  %s`,
+Title:            %s
+Details:          %s
+Schedule:         %s
+Production Address: %s
+Production Manager: %s`,
 		p.Title,
 		p.Description,
-		status,
+		schedule,
+		address,
+		manager,
 	)
 }
 
