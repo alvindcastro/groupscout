@@ -40,6 +40,16 @@ var skipLineRe = regexp.MustCompile(`(?i)^(folder\s*number|work\s*proposed|statu
 // issueDateRe matches YYYY/MM/DD date strings.
 var issueDateRe = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}$`)
 
+// issueDateHeaderRe matches "ISSUE DATE 2026/03/18" — a date embedded on the ISSUE DATE header
+// line. Richmond PDFs for multi-permit sections output the first permit's date on the same line
+// as the ISSUE DATE column header. Must be checked before skipLineRe, which discards the whole line.
+var issueDateHeaderRe = regexp.MustCompile(`(?i)^issue\s+date\s+(\d{4}/\d{2}/\d{2})$`)
+
+// issueDateWithCountRe matches "2026/03/18 2" — a date followed by a whitespace-separated permit
+// count. Richmond PDFs for multi-permit sections print subsequent dates merged with the section
+// count on the same line (e.g. "2026/03/18 2" means date=2026/03/18, count=2 permits in section).
+var issueDateWithCountRe = regexp.MustCompile(`^(\d{4}/\d{2}/\d{2})\s+\d+$`)
+
 // valueRe matches dollar amounts like $300,000.00
 var valueRe = regexp.MustCompile(`^\$[\d,]+\.?\d*$`)
 
@@ -307,8 +317,8 @@ func parsePermitLines(lines []string) []permitRecord {
 	var currentSubType string
 	var nextLineIsAddress bool
 
-	var sectionIdx int = -1 // increments at each SUB TYPE header
-	var contacts []sectionContact
+	var sectionIdx int = -1                  // increments at each SUB TYPE header
+	contacts := make(map[int]sectionContact) // keyed by sectionIdx — immune to page-break shifts
 	var curContact sectionContact
 	var inContacts bool // true = currently parsing right-column contact blocks
 	var pendingApplicant bool
@@ -322,7 +332,7 @@ func parsePermitLines(lines []string) []permitRecord {
 	}
 
 	saveContact := func() {
-		contacts = append(contacts, curContact)
+		contacts[sectionIdx] = curContact
 		curContact = sectionContact{}
 		pendingApplicant = false
 		pendingContractor = false
@@ -396,6 +406,18 @@ func parsePermitLines(lines []string) []permitRecord {
 
 		// ── Permit field parsing (phase 1) ───────────────────────────────────────
 
+		// "ISSUE DATE 2026/03/18" — date embedded on the ISSUE DATE header line.
+		// Richmond PDFs for multi-permit sections merge the first permit's date onto the
+		// ISSUE DATE column header. Must be checked before skipLineRe which would discard it.
+		if m := issueDateHeaderRe.FindStringSubmatch(line); m != nil {
+			if current != nil {
+				if t, err := time.Parse("2006/01/02", m[1]); err == nil {
+					current.IssueDate = t
+				}
+			}
+			continue
+		}
+
 		// Skip column headers, totals, and page chrome
 		if skipLineRe.MatchString(line) {
 			continue
@@ -447,9 +469,16 @@ func parsePermitLines(lines []string) []permitRecord {
 			continue
 		}
 
-		// Date line
-		if issueDateRe.MatchString(line) {
-			if t, err := time.Parse("2006/01/02", line); err == nil {
+		// Date line — "2026/03/18" standalone, or "2026/03/18 2" with a trailing permit count.
+		// "last date wins": for multi-permit sections pdftotext outputs all dates after all permit
+		// records; the permit still in current is the last one in the section, so we overwrite
+		// rather than guard with IsZero to ensure each permit ends up with its own correct date.
+		dateToParse := line
+		if m := issueDateWithCountRe.FindStringSubmatch(line); m != nil {
+			dateToParse = m[1]
+		}
+		if issueDateRe.MatchString(dateToParse) {
+			if t, err := time.Parse("2006/01/02", dateToParse); err == nil {
 				current.IssueDate = t
 			}
 			continue
@@ -487,9 +516,9 @@ func parsePermitLines(lines []string) []permitRecord {
 	// Zip contacts onto permits by section index
 	for i := range records {
 		si := records[i].SectionIndex
-		if si >= 0 && si < len(contacts) {
-			records[i].Applicant = contacts[si].applicant
-			records[i].Contractor = contacts[si].contractor
+		if c, ok := contacts[si]; ok {
+			records[i].Applicant = c.applicant
+			records[i].Contractor = c.contractor
 		}
 	}
 
