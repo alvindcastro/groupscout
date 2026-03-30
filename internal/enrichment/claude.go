@@ -92,13 +92,18 @@ func (c *ClaudeEnricher) Enrich(ctx context.Context, p collector.RawProject) (*E
 }
 
 // buildRequest assembles the Messages API payload.
+// For Creative BC productions the user turn is source-specific; all other sources use permitPrompt.
 func (c *ClaudeEnricher) buildRequest(p collector.RawProject) map[string]any {
+	userContent := permitPrompt(p)
+	if p.Source == "creativebc" {
+		userContent = creativeBCPrompt(p)
+	}
 	return map[string]any{
 		"model":      c.Model,
 		"max_tokens": 512,
 		"system":     systemPrompt,
 		"messages": []map[string]any{
-			{"role": "user", "content": permitPrompt(p)},
+			{"role": "user", "content": userContent},
 		},
 	}
 }
@@ -152,6 +157,41 @@ Key factors to weigh:
 - Duration: longer projects mean extended-stay demand (room blocks, direct billing, weekly rates)
 
 Respond with ONLY a valid JSON object. No markdown, no explanation, no code fences.`
+
+// creativeBCPrompt builds the user turn for Creative BC film/TV productions.
+// It instructs Claude to estimate crew size and out-of-town ratio rather than permit fields.
+// Score boosters per PHASES.md: US studio → +2; "Richmond" or "Surrey" location reference → +1.
+func creativeBCPrompt(p collector.RawProject) string {
+	status, _ := p.RawData["status"].(string)
+	if status == "" {
+		status = "unknown"
+	}
+	return fmt.Sprintf(`Evaluate this film or TV production appearing on the Creative BC in-production list.
+The Sandman Hotel Vancouver Airport (Richmond, BC) wants to reach the production's travel coordinator
+to offer room blocks and extended-stay rates for out-of-town cast and crew.
+
+Return a JSON object with exactly these fields:
+{
+  "general_contractor": "name of studio or production company, or \"unknown\"",
+  "project_type": "one of: feature_film, tv_series, unknown",
+  "estimated_crew_size": <integer — use these benchmarks: Feature Film 150–400, TV Series per block 80–200; 0 if unknown>,
+  "estimated_duration_months": <integer — Feature Film 2–4 months of principal photography; TV Series 6–9 months per season; 0 if unknown>,
+  "out_of_town_crew_likely": <true if US studio, major streamer, or international co-production; false for local indie>,
+  "priority_score": <integer 1–10; start at 5, then: +2 if US/international studio (Netflix/A24/Amazon/Disney/etc.), +1 if "Richmond" or "Surrey" appears in the details, +1 if status is "Principal Photography" (crews mobilized now)>,
+  "priority_reason": "one sentence explaining the score",
+  "suggested_outreach_timing": "Productions typically mobilize 4–6 weeks after appearing on the in-production list — reach out now if status is Principal Photography",
+  "notes": "any details useful to the hotel sales team (streaming platform, location references, production scale)"
+}
+
+Production data:
+Title:   %s
+Details: %s
+Status:  %s`,
+		p.Title,
+		p.Description,
+		status,
+	)
+}
 
 // permitPrompt formats a RawProject as the user turn sent to Claude.
 func permitPrompt(p collector.RawProject) string {

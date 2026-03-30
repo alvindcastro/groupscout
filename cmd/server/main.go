@@ -67,6 +67,12 @@ func main() {
 		collectors = append(collectors, dc)
 	}
 
+	if cfg.CreativeBCEnabled {
+		cbc := collector.NewCreativeBCCollector()
+		cbc.Verbose = true
+		collectors = append(collectors, cbc)
+	}
+
 	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude)
 	e.Verbose = true
 
