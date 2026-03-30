@@ -317,8 +317,9 @@ func parsePermitLines(lines []string) []permitRecord {
 	var currentSubType string
 	var nextLineIsAddress bool
 
-	var sectionIdx int = -1                  // increments at each SUB TYPE header
-	contacts := make(map[int]sectionContact) // keyed by sectionIdx — immune to page-break shifts
+	var sectionIdx int = -1                  // increments at each SUB TYPE header (permit phase)
+	var contactIdx int                       // increments per saved contact block (contact phase)
+	contacts := make(map[int]sectionContact) // keyed by contactIdx, which mirrors sectionIdx 0,1,2...
 	var curContact sectionContact
 	var inContacts bool // true = currently parsing right-column contact blocks
 	var pendingApplicant bool
@@ -332,7 +333,8 @@ func parsePermitLines(lines []string) []permitRecord {
 	}
 
 	saveContact := func() {
-		contacts[sectionIdx] = curContact
+		contacts[contactIdx] = curContact
+		contactIdx++
 		curContact = sectionContact{}
 		pendingApplicant = false
 		pendingContractor = false
