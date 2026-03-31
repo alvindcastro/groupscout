@@ -4,8 +4,6 @@ PHASES.md
 CHANGELOG.md
 
 # ── Binaries ─────────────────────────────────────────────
-blockscout
-blockscout.exe
 *.exe
 *.out
 dist/
