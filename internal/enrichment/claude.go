@@ -95,8 +95,11 @@ func (c *ClaudeEnricher) Enrich(ctx context.Context, p collector.RawProject) (*E
 // For Creative BC productions the user turn is source-specific; all other sources use permitPrompt.
 func (c *ClaudeEnricher) buildRequest(p collector.RawProject) map[string]any {
 	userContent := permitPrompt(p)
-	if p.Source == "creativebc" {
+	switch p.Source {
+	case "creativebc":
 		userContent = creativeBCPrompt(p)
+	case "vcc_events":
+		userContent = vccEventsPrompt(p)
 	}
 	return map[string]any{
 		"model":      c.Model,
@@ -106,6 +109,38 @@ func (c *ClaudeEnricher) buildRequest(p collector.RawProject) map[string]any {
 			{"role": "user", "content": userContent},
 		},
 	}
+}
+
+// vccEventsPrompt builds the user turn for Vancouver Convention Centre events.
+// It instructs Claude to estimate attendee count and out-of-town ratio.
+// Score boosters per PHASES.md: 3+ day event → +1; 500+ expected attendees → +1;
+// engineering/medical/mining/government → +1; event within 6 weeks → +1.
+func vccEventsPrompt(p collector.RawProject) string {
+	return fmt.Sprintf(`Evaluate this event from the Vancouver Convention Centre calendar.
+The Sandman Hotel Vancouver Airport (Richmond, BC) wants to reach the event organizers
+to offer room blocks and professional rates for out-of-town attendees and speakers.
+
+Return a JSON object with exactly these fields:
+{
+  "general_contractor": "name of the organizing association or company, or \"unknown\"",
+  "project_type": "one of: conference, congress, summit, symposium, trade_show, forum, unknown",
+  "estimated_crew_size": <integer — estimated total attendees; 0 if unknown>,
+  "estimated_duration_months": <integer — duration of event in days; 0 if unknown>,
+  "out_of_town_crew_likely": <true if the event industry is professional/medical/scientific; false for local consumer shows>,
+  "priority_score": <integer 1–10; start at 4, then: +1 if 3+ day event, +1 if 500+ attendees, +1 if industry is medical/engineering/mining/tech/government, +1 if event is within 6 weeks of today>,
+  "priority_reason": "one sentence explaining the score focusing on hotel night potential",
+  "suggested_outreach_timing": "reach out to the organizing association's event manager; professional events book 6–12 months in advance, but last-minute speaker blocks are possible",
+  "notes": "note the specific industry and any likely out-of-town attendee count"
+}
+
+Event data:
+Title:       %s
+Description: %s
+URL:         %s`,
+		p.Title,
+		p.Description,
+		p.SourceURL,
+	)
 }
 
 // extractText pulls the assistant's text block from a Claude API response.

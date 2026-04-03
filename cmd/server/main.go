@@ -134,6 +134,11 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		collectors = append(collectors, cbc)
 	}
 
+	if cfg.VCCEnabled {
+		vc := collector.NewVCCCollector(cfg.VCCURL)
+		collectors = append(collectors, vc)
+	}
+
 	bc := collector.NewBCBidCollector()
 	bc.Verbose = true
 	collectors = append(collectors, bc)
