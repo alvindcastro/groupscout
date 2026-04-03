@@ -174,6 +174,16 @@ func TestLeadBlock_hasFields(t *testing.T) {
 	}
 }
 
+func TestLeadBlock_containsSource(t *testing.T) {
+	block := leadBlock(sampleLead)
+
+	text := block["text"].(map[string]any)
+	content, _ := text["text"].(string)
+	if !strings.Contains(content, "🔌 *Source:* "+sampleLead.Source) {
+		t.Errorf("leadBlock text does not contain source %q\ngot: %s", sampleLead.Source, content)
+	}
+}
+
 // ── leadBlock contact line ────────────────────────────────────────────────────
 
 func TestLeadBlock_contactLine_both(t *testing.T) {

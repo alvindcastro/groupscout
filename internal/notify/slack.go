@@ -129,6 +129,7 @@ func leadBlock(l storage.Lead) map[string]any {
 
 	text := fmt.Sprintf("*%s*\t\t\t%s *Score: %d/10*\n"+
 		"📍 %s  |  💰 $%s CAD  |  🏢 GC: %s%s\n"+
+		"🔌 *Source:* %s\n"+
 		"🕐 *Outreach:* %s\n"+
 		"📝 %s%s",
 		l.Title,
@@ -137,6 +138,7 @@ func leadBlock(l storage.Lead) map[string]any {
 		formatCAD(l.ProjectValue),
 		l.GeneralContractor,
 		contactLine,
+		l.Source,
 		l.SuggestedOutreachTiming,
 		l.Notes,
 		sourceLine,
