@@ -55,6 +55,7 @@ func main() {
 	leadStore := storage.NewLeadStore(db)
 
 	claude := enrichment.NewClaudeEnricher(cfg.ClaudeAPIKey)
+	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
 	rc := collector.NewRichmondCollector()
 	rc.MinValue = cfg.MinPermitValueCAD
 	rc.Verbose = true
@@ -73,7 +74,7 @@ func main() {
 		collectors = append(collectors, cbc)
 	}
 
-	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude)
+	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude, scorer)
 	e.Verbose = true
 
 	log.Println("running pipeline...")

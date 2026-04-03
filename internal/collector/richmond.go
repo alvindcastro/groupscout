@@ -546,25 +546,28 @@ const minPermitValueCAD = 500_000
 // Residential sub-types (One Family Dwelling, Townhouse, etc.) are excluded — they
 // don't generate construction crew lodging demand at scale.
 var commercialSubTypes = map[string]bool{
-	"hotel":                true,
-	"warehouse":            true,
-	"office":               true,
-	"medical office":       true,
-	"dental office":        true,
-	"restaurant":           true,
-	"retail":               true,
-	"apartment":            true,
-	"educational facility": true,
-	"community hall":       true,
-	"recreational":         true,
-	"industrial":           true,
-	"canopy":               true,
+	"hotel":                   true,
+	"warehouse":               true,
+	"manufacturing/warehouse": true, // Richmond uses this combined sub-type
+	"office":                  true,
+	"medical office":          true,
+	"dental office":           true,
+	"financial institute":     true, // banks, credit unions — large TI projects
+	"restaurant":              true,
+	"retail":                  true,
+	"apartment":               true,
+	"educational facility":    true,
+	"community hall":          true,
+	"recreational":            true,
+	"industrial":              true,
+	"canopy":                  true,
+	"nursing home":            true, // extended renovation projects, multi-trade crews
 }
 
 // isRelevant returns true if a permit record is worth enriching.
-// Filters out residential sub-types and permits at or below minValue.
+// Filters out residential sub-types and permits strictly below minValue.
 func isRelevant(rec permitRecord, minValue int64) bool {
-	if rec.ValueCAD <= minValue {
+	if rec.ValueCAD < minValue {
 		return false
 	}
 	return commercialSubTypes[strings.ToLower(strings.TrimSpace(rec.SubType))]

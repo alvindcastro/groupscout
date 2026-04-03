@@ -20,6 +20,7 @@ type Config struct {
 	BCBidRSSURL            string
 	NewsAPIKey             string
 	EnrichmentEnabled      bool
+	EnrichmentThreshold    int
 	PriorityAlertThreshold int
 	MinPermitValueCAD      int64
 	DigestDay              string
@@ -44,6 +45,7 @@ func Load() (*Config, error) {
 		BCBidRSSURL:            os.Getenv("BCBID_RSS_URL"),
 		NewsAPIKey:             os.Getenv("NEWS_API_KEY"),
 		EnrichmentEnabled:      getEnv("ENRICHMENT_ENABLED", "true") == "true",
+		EnrichmentThreshold:    getEnvInt("ENRICHMENT_THRESHOLD", 1),
 		PriorityAlertThreshold: getEnvInt("PRIORITY_ALERT_THRESHOLD", 9),
 		MinPermitValueCAD:      int64(getEnvInt("MIN_PERMIT_VALUE_CAD", 500_000)),
 		DigestDay:              getEnv("DIGEST_DAY", "monday"),

@@ -17,6 +17,7 @@ type Enricher struct {
 	rawStore   storage.RawProjectStore
 	leadStore  storage.LeadStore
 	claude     *ClaudeEnricher
+	scorer     *Scorer
 	Verbose    bool
 }
 
@@ -26,12 +27,14 @@ func NewEnricher(
 	rawStore storage.RawProjectStore,
 	leadStore storage.LeadStore,
 	claude *ClaudeEnricher,
+	scorer *Scorer,
 ) *Enricher {
 	return &Enricher{
 		collectors: collectors,
 		rawStore:   rawStore,
 		leadStore:  leadStore,
 		claude:     claude,
+		scorer:     scorer,
 	}
 }
 
@@ -103,7 +106,31 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		return false, fmt.Errorf("insert raw project: %w", err)
 	}
 
-	// Enrich via Claude
+	// 1. Rule-based pre-scoring
+	score, reason := e.scorer.Score(p)
+	if !e.scorer.ShouldEnrich(score) {
+		if e.Verbose {
+			log.Printf("[enricher] skip enrichment: score=%d reason=%q", score, reason)
+		}
+		// Create a "skipped" lead record
+		lead := storage.Lead{
+			RawProjectID:   p.ExternalID, // or internal ID if we had it, but using Hash/ExternalID for now
+			Source:         p.Source,
+			Title:          p.Title,
+			Location:       p.Location,
+			ProjectValue:   p.Value,
+			PriorityScore:  score,
+			PriorityReason: "Pre-scorer: " + reason,
+			Status:         "skipped",
+			Notes:          "Skipped Claude enrichment due to low pre-score.",
+		}
+		if err := e.leadStore.Insert(ctx, &lead); err != nil {
+			return false, fmt.Errorf("insert skipped lead: %w", err)
+		}
+		return true, nil
+	}
+
+	// 2. Claude enrichment
 	enriched, err := e.claude.Enrich(ctx, p)
 	if err != nil {
 		// Log and skip — don't fail the run over a single API error
