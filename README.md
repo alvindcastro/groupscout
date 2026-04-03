@@ -109,6 +109,15 @@ The application operates in two modes:
 
 #### 1. Server Mode (Default)
 Runs a persistent HTTP server that listens for remote triggers (ideal for n8n/cron automation).
+
+**Endpoints:**
+- `GET /health`: Health check.
+- `POST /run`: Trigger the full collect→enrich→notify pipeline.
+- `POST /digest?to=email@example.com`: Send a weekly summary digest.
+- `POST /n8n/webhook`: Receive a lead manually from external automation.
+
+See [swagger.yaml](./swagger.yaml) for the full OpenAPI specification.
+
 ```bash
 go run cmd/server/main.go
 ```
