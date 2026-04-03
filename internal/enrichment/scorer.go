@@ -10,13 +10,15 @@ import (
 
 var (
 	// Richmond/YVR postal code pattern (e.g. V6V, V6X, V6Y, V7B, V7C, V7E)
-	richmondPC = regexp.MustCompile(`(?i)\bV[67][VBCEYX]\b`)
+	richmondPC = regexp.MustCompile(`(?i)\b(V[67][VBCEYX]|Richmond|YVR)\b`)
 
 	// Keywords that indicate high-value crew lodging potential (+1 each)
 	highValueKeywords = []string{
 		"pipeline", "civil", "electrical", "steel", "concrete",
 		"infrastructure", "sewer", "watermain", "substation",
 		"bridge", "paving", "excavation", "demolition",
+		"manufacturing", "warehouse", "logistics", "industrial",
+		"feature film", "tv series", "production", "season",
 	}
 
 	// Keywords that deprioritize (-5 to effectively skip)
