@@ -21,7 +21,10 @@ type Config struct {
 	VCCURL                 string
 	BCBidEnabled           bool
 	BCBidRSSURL            string
-	NewsAPIKey             string
+	NewsEnabled            bool
+	NewsRSSURL             string
+	EventbriteEnabled      bool
+	EventbriteURL          string
 	EnrichmentEnabled      bool
 	EnrichmentThreshold    int
 	PriorityAlertThreshold int
@@ -51,7 +54,10 @@ func Load() (*Config, error) {
 		VCCURL:                 os.Getenv("VCC_URL"),
 		BCBidEnabled:           getEnv("BCBID_ENABLED", "true") == "true",
 		BCBidRSSURL:            getEnv("BCBID_RSS_URL", "https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53"),
-		NewsAPIKey:             os.Getenv("NEWS_API_KEY"),
+		NewsEnabled:            os.Getenv("NEWS_ENABLED") == "true",
+		NewsRSSURL:             getEnv("NEWS_RSS_URL", "https://news.google.com/rss/search?q=%22Richmond+BC%22+construction+OR+%22Metro+Vancouver%22+infrastructure+contract+awarded+OR+%22YVR%22+expansion&hl=en-CA&gl=CA&ceid=CA:en"),
+		EventbriteEnabled:      getEnv("EVENTBRITE_ENABLED", "true") == "true",
+		EventbriteURL:          getEnv("EVENTBRITE_URL", "https://www.eventbrite.ca/d/canada--vancouver/professional-services--events/"),
 		EnrichmentEnabled:      getEnv("ENRICHMENT_ENABLED", "true") == "true",
 		EnrichmentThreshold:    getEnvInt("ENRICHMENT_THRESHOLD", 1),
 		PriorityAlertThreshold: getEnvInt("PRIORITY_ALERT_THRESHOLD", 9),

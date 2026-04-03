@@ -567,7 +567,7 @@ var commercialSubTypes = map[string]bool{
 // isRelevant returns true if a permit record is worth enriching.
 // Filters out residential sub-types and permits strictly below minValue.
 func isRelevant(rec permitRecord, minValue int64) bool {
-	if rec.ValueCAD < minValue {
+	if rec.ValueCAD <= minValue {
 		return false
 	}
 	return commercialSubTypes[strings.ToLower(strings.TrimSpace(rec.SubType))]

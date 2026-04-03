@@ -148,7 +148,28 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		collectors = append(collectors, bc)
 	}
 
-	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude, scorer)
+	log.Printf("[main] Config NewsEnabled: %v", cfg.NewsEnabled)
+	log.Printf("[main] Config NewsRSSURL: %v", cfg.NewsRSSURL)
+
+	if cfg.NewsEnabled {
+		nc := collector.NewNewsCollector(cfg.NewsRSSURL)
+		nc.Verbose = true
+		collectors = append(collectors, nc)
+	}
+
+	if cfg.EventbriteEnabled {
+		ec := collector.NewEventbriteCollector(cfg.EventbriteURL)
+		ec.Verbose = true
+		collectors = append(collectors, ec)
+	}
+
+	var names []string
+	for _, c := range collectors {
+		names = append(names, c.Name())
+	}
+	log.Printf("[main] Active collectors: %v", names)
+
+	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude, scorer, cfg.PriorityAlertThreshold)
 	e.Verbose = true
 
 	log.Println("running pipeline...")

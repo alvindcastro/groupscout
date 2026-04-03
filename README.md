@@ -1,9 +1,93 @@
-# blockscout
+# groupscout
 
-Group lodging demand intelligence for hotel sales teams.
+`groupscout` is a lead generation and market intelligence platform for hotel sales teams. It monitors public data sources (permits, film productions, conferences, and procurement bids) to identify high-value group lodging opportunities before they reach traditional market reports.
 
-Monitors public data sources for signals that indicate incoming groups needing room blocks — construction crews, sports teams, film productions, government contractors — and delivers prioritized leads to the sales team via Slack.
+### 🚀 Core Features
 
----
+*   **Multi-Source Scrapers:**
+    *   **Richmond & Delta Building Permits:** Weekly PDF scraping for large-scale construction and industrial projects.
+    *   **Creative BC "In Production" List:** Monitors film and TV productions currently filming or in pre-production.
+    *   **Vancouver Convention Centre (VCC):** Scrapes the event calendar for professional conferences and trade shows.
+    *   **CivicInfo BC (BC Bid):** Automated RSS monitoring for construction-related government contract awards.
+*   **Intelligent Pre-Scoring:** A rules-based Go engine filters out low-value leads (residential renovations, small repairs) to save on API costs.
+*   **AI Enrichment:** High-potential leads are enriched via the **Anthropic Claude API** to estimate room night potential, project duration, and lodging requirements.
+*   **Real-time Notifications:** Delivers formatted Block Kit messages directly to **Slack**.
+*   **Secure API Trigger:** Can be integrated with automation tools like **n8n** via a protected HTTP endpoint.
 
-*Go backend — work in progress.*
+### 🛠 Tech Stack
+
+*   **Go (Golang):** Core application logic and concurrent scrapers.
+*   **SQLite:** Local persistent storage for lead tracking and deduplication.
+*   **pdftotext:** Used for high-accuracy PDF parsing (via Poppler or Git for Windows).
+*   **Anthropic Claude API:** Advanced project analysis and room night estimation.
+*   **Slack Webhooks:** Delivery of prioritized leads.
+
+### 🏗 Setup & Installation
+
+1.  **Install Prerequisites:**
+    *   [Go 1.21+](https://go.dev/dl/)
+    *   [pdftotext](https://www.xpdfreader.com/pdftotext-man.html) (included with Git for Windows at `C:\Program Files\Git\mingw64\bin\pdftotext.exe`)
+
+2.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/alvindcastro/groupscout.git
+    cd groupscout
+    ```
+
+3.  **Configure Environment Variables:**
+    Create a `.env` file in the root directory (see sample values below).
+
+4.  **Install Dependencies:**
+    ```bash
+    go mod download
+    ```
+
+### 📋 Sample `.env` File Content
+
+```env
+# --- REQUIRED ---
+CLAUDE_API_KEY=your_anthropic_api_key_here
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+API_TOKEN=a_secure_random_string_for_n8n_authentication
+
+# --- APP SETTINGS ---
+PORT=8080
+DATABASE_URL=groupscout.db
+ENRICHMENT_ENABLED=true
+ENRICHMENT_THRESHOLD=1
+MIN_PERMIT_VALUE_CAD=500000
+
+# --- COLLECTOR TOGGLES ---
+VCC_ENABLED=true
+BCBID_ENABLED=true
+CREATIVEBC_ENABLED=true
+
+# --- SOURCE URLS (Optional Overrides) ---
+RICHMOND_PERMITS_URL=https://www.richmond.ca/shared/assets/Building_Permit_Reports_Current_Year57037.pdf
+DELTA_PERMITS_URL=https://www.delta.ca/sites/default/files/2024-03/Building%20Permit%20Report%20-%20Current.pdf
+VCC_URL=https://www.vancouverconventioncentre.com/events
+BCBID_RSS_URL=https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53
+```
+
+### 🏃 How to Run
+
+The application operates in two modes:
+
+#### 1. Server Mode (Default)
+Runs a persistent HTTP server that listens for remote triggers (ideal for n8n/cron automation).
+```bash
+go run cmd/server/main.go
+```
+*   **Trigger via API:** Send a `POST` request to `http://localhost:8080/run` with `Authorization: Bearer YOUR_API_TOKEN`.
+
+#### 2. CLI Mode (Run Once)
+Executes the full pipeline once and exits immediately.
+```bash
+go run cmd/server/main.go --run-once
+```
+
+### 📄 Documentation
+
+*   [PHASES.md](./PHASES.md) - Roadmap and current development progress.
+*   [CHANGELOG.md](./CHANGELOG.md) - Detailed history of changes and features.
+*   [groupscout-build-log.md](./groupscout-build-log.md) - Developer's narrative and blog-style build notes.
