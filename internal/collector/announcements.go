@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
 // AnnouncementsCollector scrapes major infrastructure announcement pages.
@@ -43,12 +43,12 @@ func (c *AnnouncementsCollector) Collect(ctx context.Context) ([]RawProject, err
 
 	for _, src := range c.Sources {
 		if c.Verbose {
-			log.Printf("[Announcements] Scraping %s: %s", src.Name, src.URL)
+			logger.Log.Info("scraping announcements source", "name", src.Name, "url", src.URL)
 		}
 
 		projects, err := c.scrapeSource(ctx, src)
 		if err != nil {
-			log.Printf("[Announcements] Error scraping %s: %v", src.Name, err)
+			logger.Log.Error("failed to scrape announcements source", "name", src.Name, "error", err)
 			continue
 		}
 		allProjects = append(allProjects, projects...)

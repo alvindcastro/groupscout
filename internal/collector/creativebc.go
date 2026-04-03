@@ -5,14 +5,9 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"regexp"
-	"strings"
-	"time"
-
+	"github.com/alvindcastro/groupscout/internal/logger"
 	"golang.org/x/net/html"
+	"io"
 )
 
 // creativeBCDefaultURL is the Salesforce Visualforce page that server-renders the in-production
@@ -77,18 +72,18 @@ func (c *CreativeBCCollector) Name() string { return "creativebc" }
 func (c *CreativeBCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	body, err := c.fetchHTML(ctx)
 	if err != nil {
-		log.Printf("[creativebc] warning: could not fetch page: %v — skipping", err)
+		logger.Log.Warn("could not fetch creativebc page", "error", err)
 		return nil, nil
 	}
 
 	records, err := parseCreativeBCHTML(body)
 	if err != nil {
-		log.Printf("[creativebc] warning: could not parse page: %v — skipping", err)
+		logger.Log.Warn("could not parse creativebc page", "error", err)
 		return nil, nil
 	}
 
 	if c.Verbose {
-		log.Printf("[creativebc] parsed %d production records from page", len(records))
+		logger.Log.Info("parsed records from creativebc", "count", len(records))
 	}
 
 	var projects []RawProject
@@ -103,7 +98,7 @@ func (c *CreativeBCCollector) Collect(ctx context.Context) ([]RawProject, error)
 	}
 
 	if c.Verbose {
-		log.Printf("[creativebc] %d productions passed filter (Feature Film + TV Series)", len(projects))
+		logger.Log.Info("filtering complete", "source", "creativebc", "passed", len(projects))
 	}
 
 	return projects, nil

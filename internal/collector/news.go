@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"strings"
 
+	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -28,11 +28,11 @@ func (c *NewsCollector) Name() string {
 
 func (c *NewsCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	if c.Verbose {
-		log.Printf("[News] Collect started")
+		logger.Log.Info("collecting news started")
 	}
 	if c.RSSURL == "" {
 		if c.Verbose {
-			log.Printf("[News] RSSURL is empty")
+			logger.Log.Warn("news RSSURL is empty")
 		}
 		return nil, nil
 	}
@@ -48,12 +48,12 @@ func (c *NewsCollector) Collect(ctx context.Context) ([]RawProject, error) {
 		}
 
 		if c.Verbose {
-			log.Printf("[News] Fetching RSS from %s", url)
+			logger.Log.Info("fetching news RSS", "url", url)
 		}
 		feed, err := fp.ParseURLWithContext(url, ctx)
 		if err != nil {
 			if c.Verbose {
-				log.Printf("[News] Error parsing RSS feed %s: %v", url, err)
+				logger.Log.Error("failed to parse news RSS feed", "url", url, "error", err)
 			}
 			continue
 		}
@@ -89,7 +89,7 @@ func (c *NewsCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if c.Verbose {
-		log.Printf("[News] Collected %d potential projects", len(allProjects))
+		logger.Log.Info("news collection complete", "count", len(allProjects))
 	}
 	return allProjects, nil
 }

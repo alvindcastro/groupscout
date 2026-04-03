@@ -7,10 +7,11 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
 // BCBidCollector processes award notices from BC Bid and aggregators like CivicInfo BC.
@@ -39,11 +40,11 @@ func (b *BCBidCollector) Collect(ctx context.Context) ([]RawProject, error) {
 			continue
 		}
 		if b.Verbose {
-			log.Printf("[bcbid] fetching RSS from %s", url)
+			logger.Log.Info("fetching bcbid RSS", "url", url)
 		}
 		projects, err := b.fetchRSS(ctx, url)
 		if err != nil {
-			log.Printf("[bcbid] error fetching RSS from %s: %v", url, err)
+			logger.Log.Error("failed to fetch bcbid RSS", "url", url, "error", err)
 			continue
 		}
 		allProjects = append(allProjects, projects...)
@@ -53,18 +54,18 @@ func (b *BCBidCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	raw, ok := ctx.Value("bcbid_raw_input").(string)
 	if ok && raw != "" {
 		if b.Verbose {
-			log.Println("[bcbid] processing manual raw input from context")
+			logger.Log.Info("processing manual bcbid raw input")
 		}
 		manualProjects, err := b.processRaw(raw)
 		if err != nil {
-			log.Printf("[bcbid] error processing manual input: %v", err)
+			logger.Log.Error("failed to process manual bcbid input", "error", err)
 		} else {
 			allProjects = append(allProjects, manualProjects...)
 		}
 	}
 
 	if len(allProjects) == 0 && b.Verbose {
-		log.Println("[bcbid] no projects collected")
+		logger.Log.Info("no bcbid projects collected")
 	}
 
 	return allProjects, nil

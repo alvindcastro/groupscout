@@ -3,12 +3,12 @@ package collector
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
 // VCCCollector scrapes the Vancouver Convention Centre events page.
@@ -35,7 +35,7 @@ func (c *VCCCollector) Name() string {
 
 func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	if c.Verbose {
-		log.Printf("[vcc] fetching events from: %s", c.url)
+		logger.Log.Info("fetching vcc events", "url", c.url)
 	}
 	// Use a more standard User-Agent to avoid being blocked
 	req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
@@ -55,7 +55,7 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if c.Verbose {
-		log.Printf("[vcc] HTTP 200 OK. Content-Type: %s", resp.Header.Get("Content-Type"))
+		logger.Log.Debug("VCC response", "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"))
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -95,12 +95,12 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 		}
 
 		if c.Verbose {
-			log.Printf("[vcc] candidate: %s | Category: %s | Date: %s", title, category, dateStr)
+			logger.Log.Debug("vcc candidate", "title", title, "category", category, "date", dateStr)
 		}
 
 		if !c.isRelevant(title, category) {
 			if c.Verbose {
-				log.Printf("[vcc] skip irrelevant: %s", title)
+				logger.Log.Debug("vcc skip irrelevant", "title", title)
 			}
 			return
 		}
@@ -121,10 +121,10 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	})
 
 	if c.Verbose {
-		log.Printf("[vcc] found %d relevant events", len(projects))
+		logger.Log.Info("vcc collection complete", "count", len(projects))
 	}
 	if len(projects) == 0 && c.Verbose {
-		log.Println("[vcc] debug: no projects found.")
+		logger.Log.Debug("vcc no projects found")
 	}
 
 	return projects, nil

@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
 const (
@@ -131,7 +132,7 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
 
 	// Always process only the most recent report (first link = latest week).
 	if r.Verbose {
-		log.Printf("[richmond] found %d PDF URLs, using: %s", len(urls), urls[0])
+		logger.Log.Info("processing latest report", "source", "richmond", "count", len(urls), "url", urls[0])
 	}
 
 	path, cleanup, err := r.downloadPDF(ctx, urls[0])
@@ -146,13 +147,13 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if r.Verbose {
-		log.Printf("[richmond] parsed %d raw permit records from PDF", len(records))
+		logger.Log.Info("parsed records from PDF", "source", "richmond", "count", len(records))
 		counts := make(map[string]int)
 		for _, rec := range records {
 			counts[rec.SubType]++
 		}
 		for subType, n := range counts {
-			log.Printf("[richmond]   sub-type %-30q  %d permits", subType, n)
+			logger.Log.Debug("permits by sub-type", "source", "richmond", "sub_type", subType, "count", n)
 		}
 	}
 
@@ -169,7 +170,7 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if r.Verbose {
-		log.Printf("[richmond] %d permits passed filter (commercial + value > $%s CAD)", len(projects), formatCAD(r.MinValue))
+		logger.Log.Info("filtering complete", "source", "richmond", "passed", len(projects), "min_value", r.MinValue)
 	}
 
 	return projects, nil

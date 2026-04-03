@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/alvindcastro/groupscout/config"
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/enrichment"
+	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/alvindcastro/groupscout/internal/notify"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
@@ -23,45 +25,51 @@ var runOnce = flag.Bool("run-once", false, "run the full collect→enrich→noti
 
 func main() {
 	flag.Parse()
-	log.SetFlags(0)
-	log.SetPrefix("[groupscout] ")
 
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
 
+	logger.Init(cfg.JSONLog)
+	l := logger.Log
+
 	db, err := storage.Open(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("db: %v", err)
+		l.Error("failed to open database", "url", cfg.DatabaseURL, "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	if err := storage.Migrate(db); err != nil {
-		log.Fatalf("migrate: %v", err)
+		l.Error("failed to migrate database", "error", err)
+		os.Exit(1)
 	}
-	log.Printf("DB ready at %s", cfg.DatabaseURL)
+	l.Info("database ready", "url", cfg.DatabaseURL)
 
 	if *runOnce {
 		if cfg.ClaudeAPIKey == "" {
-			log.Fatal("CLAUDE_API_KEY is not set")
+			l.Error("CLAUDE_API_KEY is not set")
+			os.Exit(1)
 		}
 		if cfg.SlackWebhookURL == "" {
-			log.Fatal("SLACK_WEBHOOK_URL is not set")
+			l.Error("SLACK_WEBHOOK_URL is not set")
+			os.Exit(1)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
 		if err := runPipeline(ctx, cfg, db); err != nil {
-			log.Fatalf("pipeline: %v", err)
+			l.Error("pipeline failed", "error", err)
+			os.Exit(1)
 		}
 		return
 	}
 
 	// Server mode
 	if cfg.APIToken == "" {
-		log.Println("warn: API_TOKEN not set; server will be insecure (all requests allowed)")
+		l.Warn("API_TOKEN not set; server will be insecure (all requests allowed)")
 	}
 
 	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +87,7 @@ func main() {
 			}
 		}
 
-		log.Println("pipeline triggered via HTTP /run")
+		l.Info("pipeline triggered via HTTP /run")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
@@ -94,7 +102,7 @@ func main() {
 		}
 
 		if err := runPipeline(ctx, cfg, db); err != nil {
-			log.Printf("error: pipeline: %v", err)
+			l.Error("pipeline failed", "error", err)
 			http.Error(w, fmt.Sprintf("Pipeline failed: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -118,14 +126,14 @@ func main() {
 			}
 		}
 
-		log.Println("weekly digest triggered via HTTP /digest")
+		l.Info("weekly digest triggered via HTTP /digest")
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		leadStore := storage.NewLeadStore(db)
 		leads, err := leadStore.ListForDigest(ctx)
 		if err != nil {
-			log.Printf("error: list for digest: %v", err)
+			l.Error("list for digest failed", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -142,7 +150,7 @@ func main() {
 		}
 
 		if err := emailNotifier.SendWeeklyDigest(ctx, toEmail, leads); err != nil {
-			log.Printf("error: send email: %v", err)
+			l.Error("send email failed", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -151,13 +159,15 @@ func main() {
 	})
 
 	addr := ":" + strconv.Itoa(cfg.Port)
-	log.Printf("server listening on %s", addr)
+	l.Info("server listening", "addr", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatalf("server: %v", err)
+		l.Error("server failed", "error", err)
+		os.Exit(1)
 	}
 }
 
 func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
+	l := logger.Log
 	rawStore := storage.NewRawProjectStore(db)
 	leadStore := storage.NewLeadStore(db)
 
@@ -184,10 +194,10 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	if cfg.VCCEnabled {
 		vc := collector.NewVCCCollector(cfg.VCCURL)
 		vc.Verbose = true
-		log.Printf("VCC collector enabled: %s", cfg.VCCURL)
+		l.Info("VCC collector enabled", "url", cfg.VCCURL)
 		collectors = append(collectors, vc)
 	} else {
-		log.Println("VCC collector disabled")
+		l.Info("VCC collector disabled")
 	}
 	if cfg.BCBidEnabled {
 		bc := collector.NewBCBidCollector(strings.Split(cfg.BCBidRSSURL, ","))
@@ -195,8 +205,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		collectors = append(collectors, bc)
 	}
 
-	log.Printf("[main] Config NewsEnabled: %v", cfg.NewsEnabled)
-	log.Printf("[main] Config NewsRSSURL: %v", cfg.NewsRSSURL)
+	l.Debug("config news", "enabled", cfg.NewsEnabled, "url", cfg.NewsRSSURL)
 
 	if cfg.NewsEnabled {
 		nc := collector.NewNewsCollector(cfg.NewsRSSURL)
@@ -220,17 +229,17 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	for _, c := range collectors {
 		names = append(names, c.Name())
 	}
-	log.Printf("[main] Active collectors: %v", names)
+	l.Info("active collectors", "count", len(names), "names", names)
 
 	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude, scorer, cfg.PriorityAlertThreshold)
 	e.Verbose = true
 
-	log.Println("running pipeline...")
+	l.Info("running pipeline...")
 	n, err := e.Run(ctx)
 	if err != nil {
 		return fmt.Errorf("enricher run: %w", err)
 	}
-	log.Printf("enrichment complete: %d new leads", n)
+	l.Info("enrichment complete", "new_leads", n)
 
 	leads, err := leadStore.ListNew(ctx)
 	if err != nil {
@@ -238,7 +247,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 
 	if len(leads) == 0 {
-		log.Println("no new leads to notify")
+		l.Info("no new leads to notify")
 		return nil
 	}
 
@@ -246,12 +255,12 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	if err := notifier.Send(ctx, leads); err != nil {
 		return fmt.Errorf("slack notify: %w", err)
 	}
-	log.Printf("sent %d leads to Slack", len(leads))
+	l.Info("sent leads to Slack", "count", len(leads))
 
 	// Mark leads as notified so they don't re-appear in the next run's digest.
 	for _, l := range leads {
 		if err := leadStore.UpdateStatus(ctx, l.ID, "notified"); err != nil {
-			log.Printf("warn: update status for lead %s: %v", l.ID, err)
+			logger.Log.Warn("failed to update status for lead", "id", l.ID, "error", err)
 		}
 	}
 	return nil

@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
 // EventbriteCollector scrapes Eventbrite for professional events in Vancouver.
@@ -30,7 +30,7 @@ func (c *EventbriteCollector) Name() string {
 
 func (c *EventbriteCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	if c.Verbose {
-		log.Printf("[Eventbrite] Collect started from %s", c.URL)
+		logger.Log.Info("collecting eventbrite started", "url", c.URL)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", c.URL, nil)
@@ -94,7 +94,7 @@ func (c *EventbriteCollector) Collect(ctx context.Context) ([]RawProject, error)
 	})
 
 	if c.Verbose {
-		log.Printf("[Eventbrite] Collected %d potential events", len(projects))
+		logger.Log.Info("eventbrite collection complete", "count", len(projects))
 	}
 
 	return projects, nil

@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
 // deltaHeaderRe identifies the start of a new Delta permit record.
@@ -108,13 +109,13 @@ func (d *DeltaCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if d.Verbose {
-		log.Printf("[delta] parsed %d raw permit records from PDF", len(records))
+		logger.Log.Info("parsed records from PDF", "source", "delta", "count", len(records))
 		counts := make(map[string]int)
 		for _, rec := range records {
 			counts[rec.TypePrefix]++
 		}
 		for t, n := range counts {
-			log.Printf("[delta]   type %-30q  %d permits", t, n)
+			logger.Log.Debug("permits by type", "source", "delta", "type", t, "count", n)
 		}
 	}
 
@@ -130,7 +131,7 @@ func (d *DeltaCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	if d.Verbose {
-		log.Printf("[delta] %d permits passed filter (commercial/industrial + value > $%s CAD)", len(projects), formatCAD(d.MinValue))
+		logger.Log.Info("filtering complete", "source", "delta", "passed", len(projects), "min_value", d.MinValue)
 	}
 
 	return projects, nil

@@ -34,6 +34,7 @@ type Config struct {
 	APIToken               string
 	DigestDay              string
 	DigestHour             int
+	JSONLog                bool
 }
 
 // Load reads config from environment variables, falling back to sensible defaults.
@@ -68,6 +69,7 @@ func Load() (*Config, error) {
 		APIToken:               os.Getenv("API_TOKEN"),
 		DigestDay:              getEnv("DIGEST_DAY", "monday"),
 		DigestHour:             getEnvInt("DIGEST_HOUR", 8),
+		JSONLog:                getEnv("JSON_LOG", "false") == "true",
 	}, nil
 }
 

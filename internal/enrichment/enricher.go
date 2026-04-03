@@ -3,9 +3,9 @@ package enrichment
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/alvindcastro/groupscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
@@ -61,18 +61,20 @@ func (e *Enricher) Run(ctx context.Context) (int, error) {
 
 // runCollector processes all projects from a single Collector.
 func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int, error) {
+	l := logger.Log.With("collector", c.Name())
+
 	if e.Verbose {
-		log.Printf("[enricher] %s: starting collection...", c.Name())
+		l.Info("starting collection...")
 	}
 	projects, err := c.Collect(ctx)
 	if err != nil {
 		// Log and skip — don't abort the whole run for one collector
-		log.Printf("[enricher] %s: collect failed: %v", c.Name(), err)
+		l.Error("collection failed", "error", err)
 		return 0, nil
 	}
 
 	if e.Verbose {
-		log.Printf("[enricher] %s: %d projects collected", c.Name(), len(projects))
+		l.Info("collection complete", "count", len(projects))
 	}
 
 	var newLeads int
@@ -87,7 +89,7 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 	}
 
 	if e.Verbose {
-		log.Printf("[enricher] %s: %d new leads inserted", c.Name(), newLeads)
+		l.Info("collector finished", "new_leads", newLeads)
 	}
 	return newLeads, nil
 }
@@ -95,6 +97,8 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 // processProject deduplicates, enriches, and stores a single RawProject.
 // Returns true if a new lead was inserted.
 func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (bool, error) {
+	l := logger.Log.With("project", p.ExternalID, "source", p.Source)
+
 	// Dedup check — skip if we've seen this permit before
 	exists, err := e.rawStore.ExistsByHash(ctx, p.Hash)
 	if err != nil {
@@ -102,7 +106,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	}
 	if exists {
 		if e.Verbose {
-			log.Printf("[enricher] skip duplicate: %s", p.ExternalID)
+			l.Debug("skipping duplicate")
 		}
 		return false, nil
 	}
@@ -116,7 +120,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	score, reason := e.scorer.Score(p)
 	if !e.scorer.ShouldEnrich(score) {
 		if e.Verbose {
-			log.Printf("[enricher] skip enrichment: score=%d reason=%q", score, reason)
+			l.Info("skipping enrichment: low score", "score", score, "reason", reason)
 		}
 		// Create a "skipped" lead record
 		lead := storage.Lead{
@@ -140,7 +144,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	enriched, err := e.claude.Enrich(ctx, p)
 	if err != nil {
 		// Log and skip — don't fail the run over a single API error
-		log.Printf("[enricher] enrich failed for %q: %v", p.Title, err)
+		l.Error("enrichment failed", "title", p.Title, "error", err)
 		return false, nil
 	}
 
@@ -153,7 +157,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	// 3. Priority Alert
 	if e.PriorityAlertThreshold > 0 && enriched.PriorityScore >= e.PriorityAlertThreshold {
 		if e.Verbose {
-			log.Printf("[enricher] high priority lead detected: score=%d", enriched.PriorityScore)
+			l.Info("high priority lead detected", "score", enriched.PriorityScore)
 		}
 		// Send immediate Slack notification (if configured)
 		// For now, the main Run loop sends notifications for all new leads at the end,
@@ -165,8 +169,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	}
 
 	if e.Verbose {
-		log.Printf("[enricher] new lead: %q  score=%d  gc=%q",
-			p.Title, enriched.PriorityScore, enriched.GeneralContractor)
+		l.Info("new lead inserted", "title", p.Title, "score", enriched.PriorityScore, "gc", enriched.GeneralContractor)
 	}
 	return true, nil
 }
