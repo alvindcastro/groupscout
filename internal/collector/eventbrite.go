@@ -106,8 +106,8 @@ func (c *EventbriteCollector) isRelevant(title, metadata string) bool {
 	// Positive keywords for professional/lodging-heavy events
 	keywords := []string{
 		"conference", "summit", "forum", "convention", "trade show", "symposium",
-		"professional", "industry", "business", "networking", "workshop", "seminar",
-		"corporate", "training", "association", "government", "tech", "summit",
+		"professional", "industry", "business", "networking", "corporate",
+		"training", "association", "government", "tech",
 	}
 
 	relevant := false
