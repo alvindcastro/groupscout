@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
+	"fmt"
 	"log"
+	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/alvindcastro/blockscout/config"
@@ -36,21 +41,65 @@ func main() {
 	}
 	log.Printf("DB ready at %s", cfg.DatabaseURL)
 
-	if !*runOnce {
-		log.Println("nothing to do — pass --run-once to run the pipeline")
+	if *runOnce {
+		if cfg.ClaudeAPIKey == "" {
+			log.Fatal("CLAUDE_API_KEY is not set")
+		}
+		if cfg.SlackWebhookURL == "" {
+			log.Fatal("SLACK_WEBHOOK_URL is not set")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+
+		if err := runPipeline(ctx, cfg, db); err != nil {
+			log.Fatalf("pipeline: %v", err)
+		}
 		return
 	}
 
-	if cfg.ClaudeAPIKey == "" {
-		log.Fatal("CLAUDE_API_KEY is not set")
-	}
-	if cfg.SlackWebhookURL == "" {
-		log.Fatal("SLACK_WEBHOOK_URL is not set")
+	// Server mode
+	if cfg.APIToken == "" {
+		log.Println("warn: API_TOKEN not set; server will be insecure (all requests allowed)")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 
+		// Auth check
+		if cfg.APIToken != "" {
+			authHeader := r.Header.Get("Authorization")
+			if !strings.HasPrefix(authHeader, "Bearer ") || strings.TrimPrefix(authHeader, "Bearer ") != cfg.APIToken {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+
+		log.Println("pipeline triggered via HTTP /run")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+
+		if err := runPipeline(ctx, cfg, db); err != nil {
+			log.Printf("error: pipeline: %v", err)
+			http.Error(w, fmt.Sprintf("Pipeline failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "Pipeline completed successfully")
+	})
+
+	addr := ":" + strconv.Itoa(cfg.Port)
+	log.Printf("server listening on %s", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		log.Fatalf("server: %v", err)
+	}
+}
+
+func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	rawStore := storage.NewRawProjectStore(db)
 	leadStore := storage.NewLeadStore(db)
 
@@ -80,23 +129,23 @@ func main() {
 	log.Println("running pipeline...")
 	n, err := e.Run(ctx)
 	if err != nil {
-		log.Fatalf("pipeline: %v", err)
+		return fmt.Errorf("enricher run: %w", err)
 	}
 	log.Printf("enrichment complete: %d new leads", n)
 
 	leads, err := leadStore.ListNew(ctx)
 	if err != nil {
-		log.Fatalf("list leads: %v", err)
+		return fmt.Errorf("list leads: %w", err)
 	}
 
 	if len(leads) == 0 {
 		log.Println("no new leads to notify")
-		return
+		return nil
 	}
 
 	notifier := notify.NewSlackNotifier(cfg.SlackWebhookURL)
 	if err := notifier.Send(ctx, leads); err != nil {
-		log.Fatalf("slack: %v", err)
+		return fmt.Errorf("slack notify: %w", err)
 	}
 	log.Printf("sent %d leads to Slack", len(leads))
 
@@ -106,4 +155,5 @@ func main() {
 			log.Printf("warn: update status for lead %s: %v", l.ID, err)
 		}
 	}
+	return nil
 }

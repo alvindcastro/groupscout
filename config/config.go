@@ -23,6 +23,8 @@ type Config struct {
 	EnrichmentThreshold    int
 	PriorityAlertThreshold int
 	MinPermitValueCAD      int64
+	Port                   int
+	APIToken               string
 	DigestDay              string
 	DigestHour             int
 }
@@ -48,6 +50,8 @@ func Load() (*Config, error) {
 		EnrichmentThreshold:    getEnvInt("ENRICHMENT_THRESHOLD", 1),
 		PriorityAlertThreshold: getEnvInt("PRIORITY_ALERT_THRESHOLD", 9),
 		MinPermitValueCAD:      int64(getEnvInt("MIN_PERMIT_VALUE_CAD", 500_000)),
+		Port:                   getEnvInt("PORT", 8080),
+		APIToken:               os.Getenv("API_TOKEN"),
 		DigestDay:              getEnv("DIGEST_DAY", "monday"),
 		DigestHour:             getEnvInt("DIGEST_HOUR", 8),
 	}, nil
