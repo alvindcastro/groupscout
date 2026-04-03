@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getsentry/sentry-go"
+
 	"github.com/alvindcastro/groupscout/config"
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/enrichment"
@@ -31,8 +33,12 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
-	logger.Init(cfg.JSONLog)
+	logger.Init(cfg.JSONLog, cfg.SentryDSN)
 	l := logger.Log
+
+	if cfg.SentryDSN != "" {
+		defer sentry.Flush(2 * time.Second)
+	}
 
 	db, err := storage.Open(cfg.DatabaseURL)
 	if err != nil {
@@ -62,6 +68,7 @@ func main() {
 
 		if err := runPipeline(ctx, cfg, db); err != nil {
 			l.Error("pipeline failed", "error", err)
+			sentry.CaptureException(err)
 			os.Exit(1)
 		}
 		return
@@ -103,6 +110,7 @@ func main() {
 
 		if err := runPipeline(ctx, cfg, db); err != nil {
 			l.Error("pipeline failed", "error", err)
+			sentry.CaptureException(err)
 			http.Error(w, fmt.Sprintf("Pipeline failed: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -151,6 +159,7 @@ func main() {
 
 		if err := emailNotifier.SendWeeklyDigest(ctx, toEmail, leads); err != nil {
 			l.Error("send email failed", "error", err)
+			sentry.CaptureException(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

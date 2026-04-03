@@ -35,6 +35,7 @@ type Config struct {
 	DigestDay              string
 	DigestHour             int
 	JSONLog                bool
+	SentryDSN              string
 }
 
 // Load reads config from environment variables, falling back to sensible defaults.
@@ -70,6 +71,7 @@ func Load() (*Config, error) {
 		DigestDay:              getEnv("DIGEST_DAY", "monday"),
 		DigestHour:             getEnvInt("DIGEST_HOUR", 8),
 		JSONLog:                getEnv("JSON_LOG", "false") == "true",
+		SentryDSN:              os.Getenv("SENTRY_DSN"),
 	}, nil
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/alvindcastro/groupscout/internal/storage"
+	"github.com/getsentry/sentry-go"
 )
 
 // Enricher orchestrates the collect → dedup → enrich → store pipeline.
@@ -70,6 +71,7 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 	if err != nil {
 		// Log and skip — don't abort the whole run for one collector
 		l.Error("collection failed", "error", err)
+		sentry.CaptureException(err)
 		return 0, nil
 	}
 
