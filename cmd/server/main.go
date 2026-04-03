@@ -82,6 +82,16 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
+		// Extract BC Bid raw input if provided in JSON body
+		type runRequest struct {
+			BCBidRawInput string `json:"bcbid_raw_input"`
+		}
+		var req runRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.BCBidRawInput != "" {
+			ctx = context.WithValue(ctx, "bcbid_raw_input", req.BCBidRawInput)
+		}
+
 		if err := runPipeline(ctx, cfg, db); err != nil {
 			log.Printf("error: pipeline: %v", err)
 			http.Error(w, fmt.Sprintf("Pipeline failed: %v", err), http.StatusInternalServerError)
@@ -122,6 +132,10 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		cbc.Verbose = true
 		collectors = append(collectors, cbc)
 	}
+
+	bc := collector.NewBCBidCollector()
+	bc.Verbose = true
+	collectors = append(collectors, bc)
 
 	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude, scorer)
 	e.Verbose = true
