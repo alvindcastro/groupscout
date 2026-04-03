@@ -50,7 +50,7 @@ func NewLeadStore(db *sql.DB) LeadStore {
 func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
 	now := time.Now().UTC()
 	if l.ID == "" {
-		l.ID = newUUID()
+		l.ID = NewUUID()
 	}
 	if l.Status == "" {
 		l.Status = "new"

@@ -22,6 +22,7 @@
 
 *   **Go (Golang):** Core application logic and concurrent scrapers.
 *   **SQLite:** Local persistent storage for lead tracking and deduplication.
+*   **Sentry:** Production-grade error monitoring and real-time alerting.
 *   **pdftotext:** Used for high-accuracy PDF parsing (via Poppler or Git for Windows).
 *   **Anthropic Claude API:** Advanced project analysis and room night estimation.
 *   **SendGrid:** Delivery of weekly HTML email digests.
@@ -31,7 +32,8 @@
 
 1.  **Install Prerequisites:**
     *   [Go 1.21+](https://go.dev/dl/)
-    *   [pdftotext](https://www.xpdfreader.com/pdftotext-man.html) (included with Git for Windows at `C:\Program Files\Git\mingw64\bin\pdftotext.exe`)
+    *   [Docker & Docker Compose](https://docs.docker.com/get-docker/) (Optional, for simplified deployment)
+    *   [pdftotext](https://www.xpdfreader.com/pdftotext-man.html) (Included with Git for Windows at `C:\Program Files\Git\mingw64\bin\pdftotext.exe`)
 
 2.  **Clone the Repository:**
     ```bash
@@ -40,12 +42,29 @@
     ```
 
 3.  **Configure Environment Variables:**
-    Create a `.env` file in the root directory (see sample values below).
+    Create a `.env` file in the root directory. You **must** define an `API_TOKEN` (a secret string of your choice) to secure the API.
+    *   **To generate a secure token**: Run `go run -e "import 'crypto/rand'; import 'encoding/hex'; func main() { b := make([]byte, 32); rand.Read(b); println(hex.EncodeToString(b)) }"` or `openssl rand -hex 32`.
+    *   Set it in `.env`: `API_TOKEN=your_generated_token_here`.
 
 4.  **Install Dependencies:**
     ```bash
     go mod download
     ```
+
+### 🐳 Docker Deployment (Recommended)
+
+GroupScout includes a `docker-compose.yml` that starts the app along with **n8n** (automation), **Prometheus/Grafana** (monitoring), and **Loki** (logging).
+
+```bash
+# Define your keys in .env first, then:
+docker-compose up -d
+```
+
+*   **GroupScout API**: `http://localhost:8080`
+*   **n8n Dashboard**: `http://localhost:5678`
+*   **Grafana Dashboard**: `http://localhost:3000`
+
+---
 
 ### 📋 Sample `.env` File Content
 
@@ -55,6 +74,10 @@ CLAUDE_API_KEY=your_anthropic_api_key_here
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 SENDGRID_API_KEY=your_sendgrid_api_key_here
 API_TOKEN=a_secure_random_string_for_n8n_authentication
+
+# --- OBSERVABILITY ---
+SENTRY_DSN=https://your_sentry_dsn_here
+JSON_LOG=true
 
 # --- APP SETTINGS ---
 PORT=8080

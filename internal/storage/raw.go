@@ -34,7 +34,7 @@ func (s *sqliteRawStore) Insert(ctx context.Context, p *collector.RawProject) er
 		INSERT INTO raw_projects (id, source, external_id, raw_data, collected_at, hash)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(hash) DO NOTHING
-	`, newUUID(), p.Source, p.ExternalID, string(raw), time.Now().UTC(), p.Hash)
+	`, NewUUID(), p.Source, p.ExternalID, string(raw), time.Now().UTC(), p.Hash)
 	return err
 }
 
@@ -55,8 +55,8 @@ func HashProject(source, externalID, title string, issuedAt time.Time) string {
 	return fmt.Sprintf("%x", h)
 }
 
-// newUUID generates a random UUID v4.
-func newUUID() string {
+// NewUUID generates a random UUID v4.
+func NewUUID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4

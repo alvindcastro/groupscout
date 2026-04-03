@@ -79,6 +79,16 @@ func main() {
 		l.Warn("API_TOKEN not set; server will be insecure (all requests allowed)")
 	}
 
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		if err := db.Ping(); err != nil {
+			l.Error("health check failed: DB ping", "error", err)
+			http.Error(w, "Service Unavailable: Database Ping Failed", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "OK")
+	})
+
 	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -165,6 +175,53 @@ func main() {
 		}
 
 		fmt.Fprintf(w, "Digest sent with %d leads to %s\n", len(leads), toEmail)
+	})
+	http.HandleFunc("/n8n/webhook", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Auth check
+		if cfg.APIToken != "" {
+			authHeader := r.Header.Get("Authorization")
+			if !strings.HasPrefix(authHeader, "Bearer ") || strings.TrimPrefix(authHeader, "Bearer ") != cfg.APIToken {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+
+		var l storage.Lead
+		if err := json.NewDecoder(r.Body).Decode(&l); err != nil {
+			logger.Log.Error("failed to decode n8n lead", "error", err)
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		if l.Source == "" {
+			l.Source = "n8n"
+		}
+		if l.ID == "" {
+			l.ID = storage.NewUUID()
+		}
+
+		leadStore := storage.NewLeadStore(db)
+		if err := leadStore.Insert(context.Background(), &l); err != nil {
+			logger.Log.Error("failed to insert n8n lead", "error", err)
+			http.Error(w, fmt.Sprintf("Failed to store lead: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		logger.Log.Info("lead received from n8n", "source", l.Source, "title", l.Title)
+
+		// Optionally notify Slack immediately
+		notifier := notify.NewSlackNotifier(cfg.SlackWebhookURL)
+		if err := notifier.Send(context.Background(), []storage.Lead{l}); err != nil {
+			logger.Log.Warn("failed to notify Slack for n8n lead", "error", err)
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"status": "success", "id": l.ID})
 	})
 
 	addr := ":" + strconv.Itoa(cfg.Port)

@@ -8,6 +8,10 @@ import (
 	"github.com/alvindcastro/groupscout/internal/logger"
 	"golang.org/x/net/html"
 	"io"
+	"net/http"
+	"regexp"
+	"strings"
+	"time"
 )
 
 // creativeBCDefaultURL is the Salesforce Visualforce page that server-renders the in-production
