@@ -69,23 +69,39 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	// Based on common patterns and PHASES.md, we want to extract:
 	// name, start date, end date, category tag.
 
-	doc.Find("h2, h3, h4").Each(func(i int, s *goquery.Selection) {
+	doc.Find("article, .event-card, .event, .listing-item, .views-row").Each(func(i int, sel *goquery.Selection) {
+		s := sel.Find("h2, h3, h4, .event-title, .title, a").First()
 		title := strings.TrimSpace(s.Text())
-		if title == "" || len(title) > 100 || strings.Contains(strings.ToLower(title), "search") {
+		if title == "" || len(title) > 150 || len(title) < 5 {
+			return
+		}
+		titleLower := strings.ToLower(title)
+		if titleLower == "events" || strings.Contains(titleLower, "organize") || strings.Contains(titleLower, "attend") ||
+			strings.Contains(titleLower, "news") || strings.Contains(titleLower, "about") || strings.Contains(titleLower, "contact") ||
+			strings.Contains(titleLower, "career") || strings.Contains(titleLower, "privacy") || strings.Contains(titleLower, "term") {
 			return
 		}
 
-		// Find the closest parent that might contain date/category
-		// Usually VCC titles are inside a container with other info
-		parent := s.Parent()
-		dateStr := strings.TrimSpace(parent.Find(".event-date, .date, .time").First().Text())
-		category := strings.TrimSpace(parent.Find(".event-category, .category, .type").First().Text())
-		link, _ := parent.Find("a").First().Attr("href")
+		// Find metadata by looking inside the container
+		dateStr := strings.TrimSpace(sel.Find(".event-date, .date, .time, .field--name-field-event-date").First().Text())
+		category := strings.TrimSpace(sel.Find(".event-category, .category, .type, .field--name-field-event-category").First().Text())
+
+		link, _ := s.Attr("href")
 		if link == "" {
 			link, _ = s.Find("a").First().Attr("href")
 		}
+		if link == "" {
+			link, _ = sel.Find("a").First().Attr("href")
+		}
+
+		if c.Verbose {
+			log.Printf("[vcc] candidate: %s | Category: %s | Date: %s", title, category, dateStr)
+		}
 
 		if !c.isRelevant(title, category) {
+			if c.Verbose {
+				log.Printf("[vcc] skip irrelevant: %s", title)
+			}
 			return
 		}
 
@@ -101,10 +117,6 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 			Description: fmt.Sprintf("Category: %s | Date: %s", category, dateStr),
 			SourceURL:   link,
 		}
-		// In actual production, hashing would happen in storage/raw.go if using the repository pattern
-		// but since collectors return RawProject, we'll let the pipeline handle hashing if needed.
-		// However, other collectors seem to set the Hash themselves.
-		// Actually, let's see how others do it.
 		projects = append(projects, project)
 	})
 
