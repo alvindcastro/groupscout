@@ -7,7 +7,7 @@ import (
 )
 
 func TestBCBidCollector_Collect(t *testing.T) {
-	col := NewBCBidCollector()
+	col := NewBCBidCollector(nil)
 
 	t.Run("Empty input", func(t *testing.T) {
 		ctx := context.Background()
@@ -75,7 +75,7 @@ func TestBCBidCollector_Collect(t *testing.T) {
 }
 
 func TestBCBidCollector_ParseValue(t *testing.T) {
-	col := NewBCBidCollector()
+	col := NewBCBidCollector(nil)
 	tests := []struct {
 		input    any
 		expected int64
@@ -96,8 +96,9 @@ func TestBCBidCollector_ParseValue(t *testing.T) {
 }
 
 func TestBCBidCollector_ParseDate(t *testing.T) {
-	col := NewBCBidCollector()
+	col := NewBCBidCollector(nil)
 	t1, _ := time.Parse("2006-01-02", "2026-04-01")
+	t2, _ := time.Parse(time.RFC1123, "Fri, 03 Apr 2026 20:37:58 GMT")
 
 	tests := []struct {
 		input    string
@@ -105,6 +106,7 @@ func TestBCBidCollector_ParseDate(t *testing.T) {
 	}{
 		{"2026-04-01", t1},
 		{"Apr 01, 2026", t1},
+		{"Fri, 03 Apr 2026 20:37:58 GMT", t2},
 		{"invalid", time.Now()}, // Should return now
 	}
 

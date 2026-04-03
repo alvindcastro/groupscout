@@ -143,7 +143,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		log.Println("VCC collector disabled")
 	}
 	if cfg.BCBidEnabled {
-		bc := collector.NewBCBidCollector()
+		bc := collector.NewBCBidCollector(strings.Split(cfg.BCBidRSSURL, ","))
 		bc.Verbose = true
 		collectors = append(collectors, bc)
 	}

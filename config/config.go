@@ -50,7 +50,7 @@ func Load() (*Config, error) {
 		VCCEnabled:             getEnv("VCC_ENABLED", "false") == "true",
 		VCCURL:                 os.Getenv("VCC_URL"),
 		BCBidEnabled:           getEnv("BCBID_ENABLED", "true") == "true",
-		BCBidRSSURL:            os.Getenv("BCBID_RSS_URL"),
+		BCBidRSSURL:            getEnv("BCBID_RSS_URL", "https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53"),
 		NewsAPIKey:             os.Getenv("NEWS_API_KEY"),
 		EnrichmentEnabled:      getEnv("ENRICHMENT_ENABLED", "true") == "true",
 		EnrichmentThreshold:    getEnvInt("ENRICHMENT_THRESHOLD", 1),

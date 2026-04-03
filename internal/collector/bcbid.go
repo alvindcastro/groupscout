@@ -4,50 +4,146 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 )
 
-// BCBidCollector processes award notices from BC Bid.
-// Since the new BC Bid portal is JavaScript-heavy and lacks a public RSS feed,
-// this collector is designed for a hybrid approach:
-// 1. External trigger (e.g. n8n with Playwright) scrapes the award notice.
-// 2. The raw HTML or JSON is passed to the /run endpoint in the RawData map.
-// 3. This collector parses that raw data (potentially via Claude) into RawProjects.
+// BCBidCollector processes award notices from BC Bid and aggregators like CivicInfo BC.
 type BCBidCollector struct {
 	Verbose bool
+	RSSURLs []string
 }
 
 // NewBCBidCollector returns a new BCBidCollector.
-func NewBCBidCollector() *BCBidCollector {
-	return &BCBidCollector{}
+func NewBCBidCollector(rssURLs []string) *BCBidCollector {
+	return &BCBidCollector{
+		RSSURLs: rssURLs,
+	}
 }
 
 // Name satisfies the Collector interface.
 func (b *BCBidCollector) Name() string { return "bcbid" }
 
 // Collect satisfies the Collector interface.
-// For BC Bid, we primarily expect data to be passed in via the context or a side-channel,
-// as a direct scrape is restricted by the portal's architecture.
 func (b *BCBidCollector) Collect(ctx context.Context) ([]RawProject, error) {
-	// Look for raw data in the context if provided by the caller (e.g. from an HTTP request body).
-	raw, ok := ctx.Value("bcbid_raw_input").(string)
-	if !ok || raw == "" {
-		if b.Verbose {
-			log.Println("[bcbid] no raw input provided in context; skipping collection")
+	var allProjects []RawProject
+
+	// 1. Check for automated RSS feeds if enabled
+	for _, url := range b.RSSURLs {
+		if url == "" {
+			continue
 		}
-		return nil, nil
+		if b.Verbose {
+			log.Printf("[bcbid] fetching RSS from %s", url)
+		}
+		projects, err := b.fetchRSS(ctx, url)
+		if err != nil {
+			log.Printf("[bcbid] error fetching RSS from %s: %v", url, err)
+			continue
+		}
+		allProjects = append(allProjects, projects...)
 	}
 
-	// For now, we assume the raw input is a JSON array of award objects
-	// or a single award object, likely pre-processed by a scraper or Claude.
-	// If it's raw HTML, we would eventually pass it to Claude in the enrichment phase.
+	// 2. Check for manual raw input in the context (legacy/override support)
+	raw, ok := ctx.Value("bcbid_raw_input").(string)
+	if ok && raw != "" {
+		if b.Verbose {
+			log.Println("[bcbid] processing manual raw input from context")
+		}
+		manualProjects, err := b.processRaw(raw)
+		if err != nil {
+			log.Printf("[bcbid] error processing manual input: %v", err)
+		} else {
+			allProjects = append(allProjects, manualProjects...)
+		}
+	}
 
-	// Implementation note: In a true 'AI-first' collector, we might store the
-	// raw HTML in the RawProject and let the Enricher use Claude to extract fields.
+	if len(allProjects) == 0 && b.Verbose {
+		log.Println("[bcbid] no projects collected")
+	}
 
+	return allProjects, nil
+}
+
+func (b *BCBidCollector) fetchRSS(ctx context.Context, url string) ([]RawProject, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.parseRSS(body, url)
+}
+
+type rssFeed struct {
+	XMLName xml.Name `xml:"rss"`
+	Channel struct {
+		Items []rssItem `xml:"item"`
+	} `xml:"channel"`
+}
+
+type rssItem struct {
+	Title       string `xml:"title"`
+	Link        string `xml:"link"`
+	Description string `xml:"description"`
+	PubDate     string `xml:"pubDate"`
+	Guid        string `xml:"guid"`
+}
+
+func (b *BCBidCollector) parseRSS(data []byte, sourceURL string) ([]RawProject, error) {
+	var feed rssFeed
+	if err := xml.Unmarshal(data, &feed); err != nil {
+		return nil, err
+	}
+
+	var projects []RawProject
+	for _, item := range feed.Channel.Items {
+		id := item.Guid
+		if id == "" {
+			id = item.Link
+		}
+
+		// Clean description (CivicInfo RSS descriptions often contain HTML)
+		desc := item.Description
+		// Basic HTML tag removal if needed, but for now keep it for Enricher
+
+		projects = append(projects, RawProject{
+			Source:      "bcbid",
+			ExternalID:  id,
+			Title:       item.Title,
+			Description: desc,
+			IssuedAt:    b.parseDate(item.PubDate),
+			SourceURL:   item.Link,
+			Hash:        b.hashRaw(fmt.Sprintf("%s|%s|%s", id, item.Title, item.Link)),
+			RawData: map[string]any{
+				"rss_source": sourceURL,
+				"pub_date":   item.PubDate,
+			},
+		})
+	}
+	return projects, nil
+}
+
+func (b *BCBidCollector) processRaw(raw string) ([]RawProject, error) {
 	if strings.HasPrefix(strings.TrimSpace(raw), "<") {
 		// It's HTML. Wrap it in a single RawProject for the Enricher to handle.
 		return []RawProject{
@@ -71,7 +167,7 @@ func (b *BCBidCollector) Collect(ctx context.Context) ([]RawProject, error) {
 		if err2 := json.Unmarshal([]byte(raw), &single); err2 == nil {
 			awards = []map[string]any{single}
 		} else {
-			return nil, fmt.Errorf("bcbid: failed to parse input as JSON or HTML: %w", err)
+			return nil, fmt.Errorf("failed to parse input as JSON or HTML: %w", err)
 		}
 	}
 
@@ -144,7 +240,7 @@ func (b *BCBidCollector) parseDate(s string) time.Time {
 		return time.Now()
 	}
 	// Try common formats
-	formats := []string{"2006-01-02", "Jan 02, 2006", "01/02/2006"}
+	formats := []string{"2006-01-02", "Jan 02, 2006", "01/02/2006", time.RFC1123, time.RFC1123Z, time.RFC822, time.RFC822Z}
 	for _, f := range formats {
 		if t, err := time.Parse(f, s); err == nil {
 			return t
