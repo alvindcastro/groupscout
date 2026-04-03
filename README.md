@@ -9,9 +9,13 @@
     *   **Creative BC "In Production" List:** Monitors film and TV productions currently filming or in pre-production.
     *   **Vancouver Convention Centre (VCC):** Scrapes the event calendar for professional conferences and trade shows.
     *   **CivicInfo BC (BC Bid):** Automated RSS monitoring for construction-related government contract awards.
+    *   **Infrastructure Announcements:** Monitors major project updates from BCIB, TransLink, and YVR Newsroom.
+    *   **Professional Events:** Scrapes Eventbrite for conferences and industry summits in Vancouver.
 *   **Intelligent Pre-Scoring:** A rules-based Go engine filters out low-value leads (residential renovations, small repairs) to save on API costs.
 *   **AI Enrichment:** High-potential leads are enriched via the **Anthropic Claude API** to estimate room night potential, project duration, and lodging requirements.
+*   **Automated Outreach:** Generates personalized cold email drafts for each lead using AI.
 *   **Real-time Notifications:** Delivers formatted Block Kit messages directly to **Slack**.
+*   **Weekly Digest:** Sends a formatted HTML email digest of the week's best leads via **SendGrid**.
 *   **Secure API Trigger:** Can be integrated with automation tools like **n8n** via a protected HTTP endpoint.
 
 ### 🛠 Tech Stack
@@ -20,7 +24,8 @@
 *   **SQLite:** Local persistent storage for lead tracking and deduplication.
 *   **pdftotext:** Used for high-accuracy PDF parsing (via Poppler or Git for Windows).
 *   **Anthropic Claude API:** Advanced project analysis and room night estimation.
-*   **Slack Webhooks:** Delivery of prioritized leads.
+*   **SendGrid:** Delivery of weekly HTML email digests.
+*   **Slack Webhooks:** Real-time delivery of prioritized leads.
 
 ### 🏗 Setup & Installation
 
@@ -48,6 +53,7 @@
 # --- REQUIRED ---
 CLAUDE_API_KEY=your_anthropic_api_key_here
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+SENDGRID_API_KEY=your_sendgrid_api_key_here
 API_TOKEN=a_secure_random_string_for_n8n_authentication
 
 # --- APP SETTINGS ---
@@ -55,18 +61,23 @@ PORT=8080
 DATABASE_URL=groupscout.db
 ENRICHMENT_ENABLED=true
 ENRICHMENT_THRESHOLD=1
+PRIORITY_ALERT_THRESHOLD=9
 MIN_PERMIT_VALUE_CAD=500000
 
 # --- COLLECTOR TOGGLES ---
 VCC_ENABLED=true
 BCBID_ENABLED=true
 CREATIVEBC_ENABLED=true
+NEWS_ENABLED=true
+ANNOUNCEMENTS_ENABLED=true
+EVENTBRITE_ENABLED=true
 
 # --- SOURCE URLS (Optional Overrides) ---
 RICHMOND_PERMITS_URL=https://www.richmond.ca/shared/assets/Building_Permit_Reports_Current_Year57037.pdf
 DELTA_PERMITS_URL=https://www.delta.ca/sites/default/files/2024-03/Building%20Permit%20Report%20-%20Current.pdf
 VCC_URL=https://www.vancouverconventioncentre.com/events
 BCBID_RSS_URL=https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53
+EVENTBRITE_URL=https://www.eventbrite.ca/d/canada--vancouver/professional-services--events/
 ```
 
 ### 🏃 How to Run

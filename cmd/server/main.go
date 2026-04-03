@@ -103,6 +103,53 @@ func main() {
 		fmt.Fprintln(w, "Pipeline completed successfully")
 	})
 
+	http.HandleFunc("/digest", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Auth check
+		if cfg.APIToken != "" {
+			authHeader := r.Header.Get("Authorization")
+			if !strings.HasPrefix(authHeader, "Bearer ") || strings.TrimPrefix(authHeader, "Bearer ") != cfg.APIToken {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+
+		log.Println("weekly digest triggered via HTTP /digest")
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		leadStore := storage.NewLeadStore(db)
+		leads, err := leadStore.ListForDigest(ctx)
+		if err != nil {
+			log.Printf("error: list for digest: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if len(leads) == 0 {
+			fmt.Fprintln(w, "No leads for digest")
+			return
+		}
+
+		emailNotifier := notify.NewEmailNotifier(cfg.SendGridAPIKey)
+		toEmail := r.URL.Query().Get("to")
+		if toEmail == "" {
+			toEmail = "alvin@groupscout.ai" // default
+		}
+
+		if err := emailNotifier.SendWeeklyDigest(ctx, toEmail, leads); err != nil {
+			log.Printf("error: send email: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Fprintf(w, "Digest sent with %d leads to %s\n", len(leads), toEmail)
+	})
+
 	addr := ":" + strconv.Itoa(cfg.Port)
 	log.Printf("server listening on %s", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
@@ -155,6 +202,12 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		nc := collector.NewNewsCollector(cfg.NewsRSSURL)
 		nc.Verbose = true
 		collectors = append(collectors, nc)
+	}
+
+	if cfg.AnnouncementsEnabled {
+		ac := collector.NewAnnouncementsCollector()
+		ac.Verbose = true
+		collectors = append(collectors, ac)
 	}
 
 	if cfg.EventbriteEnabled {

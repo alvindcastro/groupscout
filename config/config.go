@@ -23,6 +23,7 @@ type Config struct {
 	BCBidRSSURL            string
 	NewsEnabled            bool
 	NewsRSSURL             string
+	AnnouncementsEnabled   bool
 	EventbriteEnabled      bool
 	EventbriteURL          string
 	EnrichmentEnabled      bool
@@ -56,6 +57,7 @@ func Load() (*Config, error) {
 		BCBidRSSURL:            getEnv("BCBID_RSS_URL", "https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53"),
 		NewsEnabled:            os.Getenv("NEWS_ENABLED") == "true",
 		NewsRSSURL:             getEnv("NEWS_RSS_URL", "https://news.google.com/rss/search?q=%22Richmond+BC%22+construction+OR+%22Metro+Vancouver%22+infrastructure+contract+awarded+OR+%22YVR%22+expansion&hl=en-CA&gl=CA&ceid=CA:en"),
+		AnnouncementsEnabled:   getEnv("ANNOUNCEMENTS_ENABLED", "true") == "true",
 		EventbriteEnabled:      getEnv("EVENTBRITE_ENABLED", "true") == "true",
 		EventbriteURL:          getEnv("EVENTBRITE_URL", "https://www.eventbrite.ca/d/canada--vancouver/professional-services--events/"),
 		EnrichmentEnabled:      getEnv("ENRICHMENT_ENABLED", "true") == "true",

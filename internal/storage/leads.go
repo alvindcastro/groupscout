@@ -37,6 +37,7 @@ type LeadStore interface {
 	Insert(ctx context.Context, l *Lead) error
 	ListNew(ctx context.Context) ([]Lead, error)
 	UpdateStatus(ctx context.Context, id, status string) error
+	ListForDigest(ctx context.Context) ([]Lead, error)
 }
 
 type sqliteLeadStore struct{ db *sql.DB }
@@ -86,6 +87,42 @@ func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
 		WHERE status = 'new'
 		ORDER BY priority_score DESC, created_at DESC
 	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var leads []Lead
+	for rows.Next() {
+		var l Lead
+		var oot int
+		if err := rows.Scan(
+			&l.ID, &l.RawProjectID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
+			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
+			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &oot,
+			&l.PriorityScore, &l.PriorityReason, &l.SuggestedOutreachTiming,
+			&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		l.OutOfTownCrewLikely = oot == 1
+		leads = append(leads, l)
+	}
+	return nil, rows.Err()
+}
+
+func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, raw_project_id, source, title, location, project_value,
+		       general_contractor, applicant, contractor, source_url, project_type,
+		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
+		       priority_score, priority_reason, suggested_outreach_timing,
+		       notes, status, created_at, updated_at
+		FROM leads
+		WHERE (status = 'notified' OR status = 'new')
+		  AND created_at >= ?
+		ORDER BY priority_score DESC, created_at DESC
+	`, time.Now().Add(-7*24*time.Hour))
 	if err != nil {
 		return nil, err
 	}

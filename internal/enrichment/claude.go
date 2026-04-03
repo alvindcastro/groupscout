@@ -91,6 +91,62 @@ func (c *ClaudeEnricher) Enrich(ctx context.Context, p collector.RawProject) (*E
 	return &lead, nil
 }
 
+// DraftOutreach generates a cold outreach email for a lead using Claude.
+func (c *ClaudeEnricher) DraftOutreach(ctx context.Context, l storage.Lead) (string, error) {
+	prompt := fmt.Sprintf(`Draft a short, professional cold outreach email from the Sandman Hotel Vancouver Airport sales team to the following lead.
+The goal is to offer room blocks and professional rates for their upcoming project/event.
+
+Lead Details:
+Title: %s
+Location: %s
+General Contractor/Organizer: %s
+Project Type: %s
+Priority Reason: %s
+Notes: %s
+
+Guidelines:
+- Keep it under 150 words.
+- Focus on proximity to YVR and Richmond-based projects.
+- Mention that we specialize in construction crew and event speaker lodging.
+- Professional but approachable tone.`,
+		l.Title, l.Location, l.GeneralContractor, l.ProjectType, l.PriorityReason, l.Notes)
+
+	reqBody := map[string]any{
+		"model":      c.Model,
+		"max_tokens": 512,
+		"system":     "You are a senior hotel sales manager. Draft professional outreach emails.",
+		"messages": []map[string]any{
+			{"role": "user", "content": prompt},
+		},
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, claudeAPIURL, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("x-api-key", c.APIKey)
+	req.Header.Set("anthropic-version", claudeAPIVersion)
+	req.Header.Set("content-type", "application/json")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("claude error %d: %s", resp.StatusCode, raw)
+	}
+
+	return extractText(raw)
+}
+
 // buildRequest assembles the Messages API payload.
 // For Creative BC productions the user turn is source-specific; all other sources use permitPrompt.
 func (c *ClaudeEnricher) buildRequest(p collector.RawProject) map[string]any {
@@ -100,6 +156,12 @@ func (c *ClaudeEnricher) buildRequest(p collector.RawProject) map[string]any {
 		userContent = creativeBCPrompt(p)
 	case "vcc_events":
 		userContent = vccEventsPrompt(p)
+	case "google_news":
+		userContent = newsPrompt(p)
+	case "announcements":
+		userContent = announcementsPrompt(p)
+	case "eventbrite":
+		userContent = eventbritePrompt(p)
 	}
 	return map[string]any{
 		"model":      c.Model,
@@ -228,6 +290,90 @@ Production Manager: %s`,
 		schedule,
 		address,
 		manager,
+	)
+}
+
+// newsPrompt builds the user turn for Google News signals.
+func newsPrompt(p collector.RawProject) string {
+	return fmt.Sprintf(`Evaluate this news article for infrastructure or construction signals.
+The Sandman Hotel Vancouver Airport (Richmond, BC) wants to identify projects that will bring large out-of-town crews.
+
+Return a JSON object with exactly these fields:
+{
+  "general_contractor": "name of the company or developer mentioned, or \"unknown\"",
+  "project_type": "one of: civil, commercial, industrial, residential, unknown",
+  "estimated_crew_size": <integer — estimate based on project scale; 0 if unknown>,
+  "estimated_duration_months": <integer — estimate based on project type; 0 if unknown>,
+  "out_of_town_crew_likely": <true if it's a major infrastructure/industrial project; false for local retail or small housing>,
+  "priority_score": <integer 1–10; start at 5, then: +1 if Richmond/YVR location, +1 if large value mentioned, +1 if civil/industrial type>,
+  "priority_reason": "one sentence explaining the score",
+  "suggested_outreach_timing": "reach out to the mentioned company's business development or logistics manager",
+  "notes": "note any specific contractors or developers mentioned in the snippet"
+}
+
+Article data:
+Title:       %s
+Description: %s
+URL:         %s`,
+		p.Title,
+		p.Description,
+		p.SourceURL,
+	)
+}
+
+// announcementsPrompt builds the user turn for major project announcements.
+func announcementsPrompt(p collector.RawProject) string {
+	return fmt.Sprintf(`Evaluate this infrastructure project announcement.
+The Sandman Hotel Vancouver Airport (Richmond, BC) wants to identify projects that will bring large out-of-town crews.
+
+Return a JSON object with exactly these fields:
+{
+  "general_contractor": "name of the primary contractor or 'unknown'",
+  "project_type": "one of: civil, commercial, industrial, residential, unknown",
+  "estimated_crew_size": <integer — estimate based on project scale; 0 if unknown>,
+  "estimated_duration_months": <integer — estimate based on project type; 0 if unknown>,
+  "out_of_town_crew_likely": <true if it's a major infrastructure/industrial project; false for local retail or small housing>,
+  "priority_score": <integer 1–10; start at 5, then: +1 if Richmond/YVR location, +1 if major infrastructure (bridge/tunnel/airport), +1 if multi-year duration>,
+  "priority_reason": "one sentence explaining the score",
+  "suggested_outreach_timing": "reach out to the project's procurement or logistics manager",
+  "notes": "note any specific location or scope details"
+}
+
+Announcement data:
+Title:       %s
+Description: %s
+URL:         %s`,
+		p.Title,
+		p.Description,
+		p.SourceURL,
+	)
+}
+
+// eventbritePrompt builds the user turn for Eventbrite professional events.
+func eventbritePrompt(p collector.RawProject) string {
+	return fmt.Sprintf(`Evaluate this event from Eventbrite.
+The Sandman Hotel Vancouver Airport (Richmond, BC) wants to offer room blocks for out-of-town attendees.
+
+Return a JSON object with exactly these fields:
+{
+  "general_contractor": "name of the organizer, or \"unknown\"",
+  "project_type": "one of: conference, summit, trade_show, professional_event, unknown",
+  "estimated_crew_size": <integer — estimated attendees; 0 if unknown>,
+  "estimated_duration_months": <integer — duration in days; 0 if unknown>,
+  "out_of_town_crew_likely": <true if it's a professional/industry event; false for local workshops>,
+  "priority_score": <integer 1–10; start at 4, then: +1 if 2+ days, +1 if industry is medical/tech/mining/gov, +1 if 200+ attendees>,
+  "priority_reason": "one sentence explaining the score",
+  "suggested_outreach_timing": "reach out to the organizer via Eventbrite or LinkedIn",
+  "notes": "note the organizer name and industry"
+}
+
+Event data:
+Title:       %s
+Description: %s
+URL:         %s`,
+		p.Title,
+		p.Description,
+		p.SourceURL,
 	)
 }
 
