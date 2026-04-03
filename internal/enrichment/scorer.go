@@ -19,6 +19,7 @@ var (
 		"bridge", "paving", "excavation", "demolition",
 		"manufacturing", "warehouse", "logistics", "industrial",
 		"feature film", "tv series", "production", "season",
+		"conference", "summit", "congress", "trade show", "convention", "symposium",
 	}
 
 	// Keywords that deprioritize (-5 to effectively skip)

@@ -136,12 +136,17 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 
 	if cfg.VCCEnabled {
 		vc := collector.NewVCCCollector(cfg.VCCURL)
+		vc.Verbose = true
+		log.Printf("VCC collector enabled: %s", cfg.VCCURL)
 		collectors = append(collectors, vc)
+	} else {
+		log.Println("VCC collector disabled")
 	}
-
-	bc := collector.NewBCBidCollector()
-	bc.Verbose = true
-	collectors = append(collectors, bc)
+	if cfg.BCBidEnabled {
+		bc := collector.NewBCBidCollector()
+		bc.Verbose = true
+		collectors = append(collectors, bc)
+	}
 
 	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude, scorer)
 	e.Verbose = true

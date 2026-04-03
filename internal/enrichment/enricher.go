@@ -58,6 +58,9 @@ func (e *Enricher) Run(ctx context.Context) (int, error) {
 
 // runCollector processes all projects from a single Collector.
 func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int, error) {
+	if e.Verbose {
+		log.Printf("[enricher] %s: starting collection...", c.Name())
+	}
 	projects, err := c.Collect(ctx)
 	if err != nil {
 		// Log and skip — don't abort the whole run for one collector

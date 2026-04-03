@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -12,8 +13,9 @@ import (
 
 // VCCCollector scrapes the Vancouver Convention Centre events page.
 type VCCCollector struct {
-	client *http.Client
-	url    string
+	client  *http.Client
+	url     string
+	Verbose bool
 }
 
 // NewVCCCollector creates a new VCCCollector.
@@ -32,10 +34,15 @@ func (c *VCCCollector) Name() string {
 }
 
 func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
+	if c.Verbose {
+		log.Printf("[vcc] fetching events from: %s", c.url)
+	}
+	// Use a more standard User-Agent to avoid being blocked
 	req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -45,6 +52,10 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	if c.Verbose {
+		log.Printf("[vcc] HTTP 200 OK. Content-Type: %s", resp.Header.Get("Content-Type"))
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -58,14 +69,20 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	// Based on common patterns and PHASES.md, we want to extract:
 	// name, start date, end date, category tag.
 
-	doc.Find(".event-card, .views-row").Each(func(i int, s *goquery.Selection) {
-		title := strings.TrimSpace(s.Find(".event-title, h3, h4").First().Text())
-		dateStr := strings.TrimSpace(s.Find(".event-date, .date").First().Text())
-		category := strings.TrimSpace(s.Find(".event-category, .category").First().Text())
-		link, _ := s.Find("a").First().Attr("href")
-
-		if title == "" {
+	doc.Find("h2, h3, h4").Each(func(i int, s *goquery.Selection) {
+		title := strings.TrimSpace(s.Text())
+		if title == "" || len(title) > 100 || strings.Contains(strings.ToLower(title), "search") {
 			return
+		}
+
+		// Find the closest parent that might contain date/category
+		// Usually VCC titles are inside a container with other info
+		parent := s.Parent()
+		dateStr := strings.TrimSpace(parent.Find(".event-date, .date, .time").First().Text())
+		category := strings.TrimSpace(parent.Find(".event-category, .category, .type").First().Text())
+		link, _ := parent.Find("a").First().Attr("href")
+		if link == "" {
+			link, _ = s.Find("a").First().Attr("href")
 		}
 
 		if !c.isRelevant(title, category) {
@@ -90,6 +107,13 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 		// Actually, let's see how others do it.
 		projects = append(projects, project)
 	})
+
+	if c.Verbose {
+		log.Printf("[vcc] found %d relevant events", len(projects))
+	}
+	if len(projects) == 0 && c.Verbose {
+		log.Println("[vcc] debug: no projects found.")
+	}
 
 	return projects, nil
 }
