@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/alvindcastro/blockscout/internal/collector"
-	"github.com/alvindcastro/blockscout/internal/storage"
+	"github.com/alvindcastro/groupscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
 // Enricher orchestrates the collect → dedup → enrich → store pipeline.

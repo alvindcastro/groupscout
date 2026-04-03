@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alvindcastro/blockscout/internal/storage"
+	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
 // sampleLead is a realistic lead fixture used across multiple tests.

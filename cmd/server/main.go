@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alvindcastro/blockscout/config"
-	"github.com/alvindcastro/blockscout/internal/collector"
-	"github.com/alvindcastro/blockscout/internal/enrichment"
-	"github.com/alvindcastro/blockscout/internal/notify"
-	"github.com/alvindcastro/blockscout/internal/storage"
+	"github.com/alvindcastro/groupscout/config"
+	"github.com/alvindcastro/groupscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/enrichment"
+	"github.com/alvindcastro/groupscout/internal/notify"
+	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
 var runOnce = flag.Bool("run-once", false, "run the full collect→enrich→notify pipeline once and exit")
@@ -24,7 +24,7 @@ var runOnce = flag.Bool("run-once", false, "run the full collect→enrich→noti
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
-	log.SetPrefix("[blockscout] ")
+	log.SetPrefix("[groupscout] ")
 
 	cfg, err := config.Load()
 	if err != nil {

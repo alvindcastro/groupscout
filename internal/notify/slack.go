@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/alvindcastro/blockscout/internal/storage"
+	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
 // Notifier is the interface every notification channel must implement.
@@ -90,7 +90,7 @@ func headerBlock(n int) map[string]any {
 		"type": "header",
 		"text": map[string]any{
 			"type": "plain_text",
-			"text": fmt.Sprintf("🏗️  blockscout — %d new %s  (%s)", n, label, time.Now().Format("Jan 2, 2006")),
+			"text": fmt.Sprintf("🏗️  groupscout — %d new %s  (%s)", n, label, time.Now().Format("Jan 2, 2006")),
 		},
 	}
 }

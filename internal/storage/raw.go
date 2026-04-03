@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alvindcastro/blockscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/collector"
 )
 
 // RawProjectStore is the interface for persisting raw ingest records.

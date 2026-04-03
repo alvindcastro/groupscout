@@ -1,4 +1,4 @@
-module github.com/alvindcastro/blockscout
+module github.com/alvindcastro/groupscout
 
 go 1.26
 

@@ -182,7 +182,7 @@ func (r *RichmondCollector) fetchPDFURLs(ctx context.Context) ([]string, error) 
 	if err != nil {
 		return nil, fmt.Errorf("richmond: build request: %w", err)
 	}
-	req.Header.Set("User-Agent", "blockscout-leadgen/1.0 (hotel group sales intelligence)")
+	req.Header.Set("User-Agent", "groupscout-leadgen/1.0 (hotel group sales intelligence)")
 
 	resp, err := r.client.Do(req)
 	if err != nil {
@@ -222,7 +222,7 @@ func (r *RichmondCollector) downloadPDF(ctx context.Context, url string) (path s
 	if err != nil {
 		return "", nil, fmt.Errorf("richmond: build pdf request: %w", err)
 	}
-	req.Header.Set("User-Agent", "blockscout-leadgen/1.0 (hotel group sales intelligence)")
+	req.Header.Set("User-Agent", "groupscout-leadgen/1.0 (hotel group sales intelligence)")
 
 	resp, err := r.client.Do(req)
 	if err != nil {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alvindcastro/blockscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/collector"
 )
 
 func TestScorer_Score(t *testing.T) {

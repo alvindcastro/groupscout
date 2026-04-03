@@ -1,5 +1,5 @@
 -- 001_init.up.sql
--- Initial schema for blockscout.
+-- Initial schema for groupscout.
 -- For local dev this is applied inline by storage.Migrate().
 -- In production (Phase 5) golang-migrate will version and apply these files.
 

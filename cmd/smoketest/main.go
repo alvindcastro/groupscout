@@ -1,4 +1,4 @@
-// smoketest is a dev-only tool for testing blockscout components against live services.
+// smoketest is a dev-only tool for testing groupscout components against live services.
 //
 // Usage:
 //
@@ -20,10 +20,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alvindcastro/blockscout/config"
-	"github.com/alvindcastro/blockscout/internal/collector"
-	"github.com/alvindcastro/blockscout/internal/notify"
-	"github.com/alvindcastro/blockscout/internal/storage"
+	"github.com/alvindcastro/groupscout/config"
+	"github.com/alvindcastro/groupscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/notify"
+	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
 var rawPDF = flag.Bool("rawpdf", false, "print raw text extracted from the latest PDF and exit")
@@ -151,7 +151,7 @@ func dumpRawPDF(ctx context.Context) {
 
 	// Fetch reports page to get first PDF URL
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, reportsURL, nil)
-	req.Header.Set("User-Agent", "blockscout-leadgen/1.0")
+	req.Header.Set("User-Agent", "groupscout-leadgen/1.0")
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatalf("fetch reports page: %v", err)
@@ -172,7 +172,7 @@ func dumpRawPDF(ctx context.Context) {
 
 	// Download PDF to temp file
 	req2, _ := http.NewRequestWithContext(ctx, http.MethodGet, pdfURL, nil)
-	req2.Header.Set("User-Agent", "blockscout-leadgen/1.0")
+	req2.Header.Set("User-Agent", "groupscout-leadgen/1.0")
 	resp2, err := client.Do(req2)
 	if err != nil {
 		log.Fatalf("download pdf: %v", err)

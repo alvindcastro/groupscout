@@ -43,7 +43,7 @@ type Config struct {
 func Load() (*Config, error) {
 	loadDotEnv(".env")
 	return &Config{
-		DatabaseURL:            getEnv("DATABASE_URL", "blockscout.db"),
+		DatabaseURL:            getEnv("DATABASE_URL", "groupscout.db"),
 		ClaudeAPIKey:           os.Getenv("CLAUDE_API_KEY"),
 		SlackWebhookURL:        os.Getenv("SLACK_WEBHOOK_URL"),
 		SendGridAPIKey:         os.Getenv("SENDGRID_API_KEY"),

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alvindcastro/blockscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/collector"
 )
 
 // ── toLeadRecord ──────────────────────────────────────────────────────────────

@@ -108,7 +108,7 @@ func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
 		l.OutOfTownCrewLikely = oot == 1
 		leads = append(leads, l)
 	}
-	return nil, rows.Err()
+	return leads, rows.Err()
 }
 
 func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {

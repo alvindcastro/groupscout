@@ -142,7 +142,7 @@ func (d *DeltaCollector) downloadPDF(ctx context.Context) (path string, cleanup 
 	if err != nil {
 		return "", nil, fmt.Errorf("delta: build request: %w", err)
 	}
-	req.Header.Set("User-Agent", "blockscout-leadgen/1.0 (hotel group sales intelligence)")
+	req.Header.Set("User-Agent", "groupscout-leadgen/1.0 (hotel group sales intelligence)")
 
 	resp, err := d.client.Do(req)
 	if err != nil {

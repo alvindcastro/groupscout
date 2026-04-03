@@ -10,7 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alvindcastro/blockscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
 const (

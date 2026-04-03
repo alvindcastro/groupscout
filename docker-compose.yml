@@ -1,0 +1,25 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/root/data
+    environment:
+      - DATABASE_URL=/root/data/groupscout.db
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - API_TOKEN=${API_TOKEN}
+      - RICHMOND_PERMITS_URL=${RICHMOND_PERMITS_URL}
+      - DELTA_PERMITS_URL=${DELTA_PERMITS_URL}
+      - CREATIVEBC_ENABLED=true
+      - CREATIVEBC_URL=https://www.creativebc.com/search-projects/in-production/
+      - VCC_ENABLED=true
+      - VCC_URL=https://www.vancouverconventioncentre.com/events/calendar
+      - BCBID_ENABLED=true
+      - NEWS_ENABLED=true
+      - ANNOUNCEMENTS_ENABLED=true
+      - EVENTBRITE_ENABLED=true
+      - MIN_PERMIT_VALUE_CAD=500000
+    restart: unless-stopped

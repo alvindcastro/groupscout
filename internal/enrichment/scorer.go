@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/alvindcastro/blockscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/collector"
 )
 
 var (
