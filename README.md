@@ -31,7 +31,7 @@
 ### 🏗 Setup & Installation
 
 1.  **Install Prerequisites:**
-    *   [Go 1.21+](https://go.dev/dl/)
+    *   [Go 1.26+](https://go.dev/dl/)
     *   [Docker & Docker Compose](https://docs.docker.com/get-docker/) (Optional, for simplified deployment)
     *   [pdftotext](https://www.xpdfreader.com/pdftotext-man.html) (Included with Git for Windows at `C:\Program Files\Git\mingw64\bin\pdftotext.exe`)
 
