@@ -69,7 +69,7 @@ func Load() (*Config, error) {
 		Port:                   getEnvInt("PORT", 8080),
 		APIToken:               os.Getenv("API_TOKEN"),
 		DigestDay:              getEnv("DIGEST_DAY", "monday"),
-		DigestHour:             getEnvInt("DIGEST_HOUR", 8),
+		DigestHour:             getEnvInt("DIGEST_HOUR", 9),
 		JSONLog:                getEnv("JSON_LOG", "false") == "true",
 		SentryDSN:              os.Getenv("SENTRY_DSN"),
 	}, nil
