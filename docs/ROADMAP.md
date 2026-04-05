@@ -24,8 +24,9 @@
 - [ ] **Phase 12** — Source expansion: Metro Vancouver municipalities
 - [ ] **Phase 13** — Public tenders & utilities: BC Hydro, FortisBC
 - [ ] **Phase 14** — Infrastructure & self-hosting: Docker ecosystem *(in progress)*
-- [ ] **Phase 15** — AI/LLM enhancements: hybrid scoring, multi-agent, RAG
-- [ ] **Phase 16** — Future integrations: cloud-native, event-driven, IaC
+- [ ] **Phase 15** — PostgreSQL + pgvector migration: production storage + RAG foundation 🔴 *top priority*
+- [ ] **Phase 16** — LLM provider abstraction: no vendor lock-in (Claude / OpenAI / Azure / Groq / Ollama)
+- [ ] **Phase 17** — Future integrations: cloud-native, event-driven, IaC
 
 ---
 
@@ -165,20 +166,103 @@
 
 ## Phase 14 — Infrastructure & Self-Hosting 🔄
 
+> Full tool options (Docker vs cloud) for embeddings, vector stores, and observability: see [AI_DATA_STRATEGY.md](./AI_DATA_STRATEGY.md).
+
+**Automation (existing):**
 - [x] Docker Compose — GroupScout + n8n + Redis
 - [x] n8n workflow — trigger `/run` and `/digest` on schedule
 - [x] `/n8n/webhook` endpoint — receive external leads from n8n
+
+**Monitoring (existing):**
 - [x] Prometheus + Grafana Loki — infrastructure monitoring + log aggregation
+
+**Analytics:**
 - [ ] Metabase or Grafana — connect to `groupscout.db` for lead analytics dashboard
-- [ ] Meilisearch — fast lead search for Admin UI
+
+**LLM Observability:**
+- [ ] Langfuse — track Claude API calls, token costs, prompt versions, hallucinations
+  - Cloud: free hobby tier (start here)
+  - Docker: `langfuse/langfuse` + Postgres backend (add at Phase 6)
+
+**Embeddings (for RAG):**
+- [ ] Ollama (`ollama/ollama`) — local embedding server (`nomic-embed-text`); free, no external API
+  - Cloud alternative: Voyage AI `voyage-3-lite` (free 200M tokens/month, best Claude pairing)
+
+**Vector Store (for RAG):**
+- [ ] Qdrant (`qdrant/qdrant`) — REST API, Go client, lightweight; replaces in-memory cosine at scale
+  - Postgres path: pgvector extension instead (no extra container; preferred if on Phase 6 Postgres)
+
+**Search:**
+- [ ] Meilisearch — fast full-text lead search for Admin UI
+
+**Notifications:**
 - [ ] Gotify or Apprise — alternative/secondary notification channels
+
+**Error Tracking:**
 - [ ] Sentry self-hosted (Docker) — if data privacy becomes a concern
 
 ---
 
-## Phase 15 — AI/LLM Enhancements 🔭
+## Phase 16 — AI/LLM Enhancements 🔭
 
 > All items from `AI.md`. Organized by effort and dependency order.
+
+### LLM Provider Abstraction — no vendor lock-in (see [AI_DATA_STRATEGY.md](./AI_DATA_STRATEGY.md))
+
+> Two concrete implementations cover all providers: `ClaudeClient` (Anthropic format) and `OpenAICompatibleClient` (covers OpenAI, Azure OpenAI, Groq, Mistral, Ollama — same code, configurable base URL).
+> Full task breakdown with commit-level steps: see `PHASES.md` Phase 16.
+
+**Part A — Interface extraction (internal refactor, no behavior change):**
+- [ ] `internal/enrichment/llm.go` — `LLMClient` interface + `CompletionRequest` struct
+- [ ] `internal/enrichment/claude.go` — refactor `ClaudeEnricher` → `ClaudeClient` implementing `LLMClient`
+- [ ] `internal/enrichment/llm_factory.go` — factory returning `ClaudeClient` only (for now)
+- [ ] `config/config.go` — `LLMProvider`, `LLMModel`, `LLMAPIKey`, `LLMBaseURL` env vars
+- [ ] `internal/enrichment/enricher.go` — swap `*ClaudeEnricher` field for `LLMClient` interface
+- [ ] Verify: `go test ./...` passes; pipeline output unchanged
+
+**Part B — OpenAI-compatible client (covers OpenAI, Groq, Mistral):**
+- [ ] `internal/enrichment/openai_compat.go` — `OpenAICompatibleClient` implementing `LLMClient`
+- [ ] `internal/enrichment/llm_factory.go` — wire `LLM_PROVIDER=openai|groq|mistral`
+- [ ] Verify: `LLM_PROVIDER=openai LLM_MODEL=gpt-4o-mini` produces valid enrichment JSON
+
+**Part C — Azure OpenAI:**
+- [ ] `internal/enrichment/openai_compat.go` — Azure URL builder + `api-key` auth header
+- [ ] `config/config.go` — `AzureResourceName`, `AzureDeploymentName`, `AzureAPIVersion`
+- [ ] Verify: `LLM_PROVIDER=azure` produces valid enrichment JSON
+
+**Part D — Ollama (local / Docker, free):**
+- [ ] `internal/enrichment/llm_factory.go` — wire `LLM_PROVIDER=ollama`; skip auth header if no key set
+- [ ] `docker-compose.yml` — add `ollama` service + model volume
+- [ ] Verify: full pipeline with Ollama, zero external API calls
+
+**Part E — Fallback & resilience:**
+- [ ] `internal/enrichment/llm.go` — `FallbackClient` struct (primary → secondary on error)
+- [ ] `config/config.go` — `LLMFallbackProvider`, `LLMFallbackModel`, `LLMFallbackAPIKey`
+- [ ] Verify: invalid primary key → fallback activates → Sentry captures failure
+
+---
+
+### AI-Ready SQL + RAG (see [AI_DATA_STRATEGY.md](./AI_DATA_STRATEGY.md))
+
+**Phase A — AI-Ready SQL (SQLite, no new infra, do first):**
+- [ ] `migrations/003_ai_context.up.sql` — `v_lead_context` view (denormalized LLM context string)
+- [ ] `internal/storage/leads.go` — `GetContext(ctx, id) string` method
+- [ ] `internal/enrichment/claude.go` — refactor all `*Prompt()` functions to use `GetContext()` instead of hand-built strings
+
+**Phase B — Embeddings + in-memory RAG:**
+- [ ] `migrations/003_ai_context.up.sql` — `lead_embeddings` table (`lead_id`, `model`, `embedding TEXT`, `created_at`)
+- [ ] `internal/enrichment/embeddings.go` — `Embedder` interface + `VoyageEmbedder` HTTP impl (free tier)
+- [ ] `internal/storage/embeddings.go` — `EmbeddingStore` interface + SQLite impl + Go cosine similarity
+- [ ] `config/config.go` — `VoyageAPIKey`, `EmbeddingModel`, `RAGEnabled`, `RAGTopK` (default 3)
+- [ ] `internal/enrichment/enricher.go` — generate + save embedding after enrichment; retrieve top-k before Claude call
+- [ ] `internal/enrichment/claude.go` — update `permitPrompt()` to accept `[]Lead` similar leads as context param
+
+**Phase C — pgvector (Phase 6 Postgres migration):**
+- [ ] `migrations/004_pgvector.up.sql` — `vector(512)` column + ivfflat index on `lead_embeddings`
+- [ ] `internal/storage/embeddings.go` — add `PostgresEmbeddingStore` impl using `<=>` cosine operator
+- [ ] Wire via `DATABASE_URL` prefix: `postgres://` → pgvector; `*.db` → Go cosine
+
+---
 
 ### Near-Term AI Upgrades
 
@@ -240,7 +324,45 @@
 
 ---
 
-## Phase 16 — Future Integrations & Cloud-Native 🔭
+## Phase 15 — PostgreSQL + pgvector Migration 🔴 (Top Priority)
+
+> **Why now:** repository pattern already in place; Docker already running; data is tiny; pgvector unlocks RAG.
+> **Replaces** the Postgres portion of Phase 6.
+> Full atomic tasks: see `PHASES.md` Phase 15.
+
+**Part A — Postgres container + driver:**
+- [ ] `docker-compose.yml` — add `pgvector/pgvector:pg17` + named volume + health check
+- [ ] `go.mod` — add `github.com/jackc/pgx/v5` (pure Go, no CGO); keep SQLite for local dev fallback
+- [ ] `config/config.go` — `DriverName()` helper; selects driver from `DATABASE_URL` prefix
+- [ ] `internal/storage/db.go` — `Open()` routes to pgx or SQLite based on driver
+- [ ] Verify: connects to Postgres; no migrations yet
+
+**Part B — Schema (Postgres-compatible migrations):**
+- [ ] `migrations/001_init.postgres.up.sql` — native types: `UUID DEFAULT gen_random_uuid()`, `BOOLEAN`, `TIMESTAMPTZ`, `JSONB`
+- [ ] `internal/storage/db.go` — wire `golang-migrate/migrate` for both drivers
+- [ ] Verify: migrations run clean; tests pass
+
+**Part C — Storage layer fixes:**
+- [ ] `internal/storage/leads.go` — remove `boolToInt()`; `?` → `$N` placeholders; native `bool` + `time.Time`
+- [ ] `internal/storage/raw.go` — `?` → `$N`; `raw_data` writes as JSONB
+- [ ] Verify: full pipeline end-to-end against Postgres
+
+**Part D — pgvector:**
+- [ ] `migrations/003_pgvector.up.sql` — `CREATE EXTENSION vector`; `lead_embeddings` with `vector(512)` + ivfflat index
+- [ ] `internal/storage/embeddings.go` — `PostgresEmbeddingStore` using `<=>` cosine distance
+- [ ] `internal/enrichment/embeddings.go` — factory: `postgres://` → pgvector; `*.db` → Go cosine
+- [ ] Verify: similarity search uses index (`EXPLAIN`)
+
+**Part E — Data migration + productionize:**
+- [ ] `scripts/migrate_to_postgres/main.go` — copy SQLite rows to Postgres in batches
+- [ ] `.env.example` — update `DATABASE_URL` to Postgres format
+- [ ] `docker-compose.yml` — app `depends_on` Postgres health check
+- [ ] `docs/SETUP.md` — update setup instructions
+- [ ] Verify: `docker compose up` → migrations → full pipeline on Postgres
+
+---
+
+## Phase 17 — Future Integrations & Cloud-Native 🔭
 
 > Items from `FUTURE_INTEGRATION.md`. Long-horizon / architectural ambition.
 
