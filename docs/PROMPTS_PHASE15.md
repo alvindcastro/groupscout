@@ -1,8 +1,17 @@
-# PROMPTS_PHASE15.md — PostgreSQL + pgvector Migration
+# PROMPTS_PHASE15.md — PostgreSQL + pgvector Migration (TDD)
 
 > Copy-paste prompts for each part of Phase 15.
-> Each prompt is self-contained — paste it with the relevant file(s) attached or quoted.
+> Every part follows **Red → Green → Refactor**: write the failing tests first, then implement until they pass.
 > Parts must be done in order: A → B → C → D → E → F.
+>
+> **Test conventions in this project:**
+> - Standard `testing` package only (no testify wrappers, even though it is in go.mod)
+> - Table-driven tests using `[]struct{ name string; ... }` slices
+> - `t.Errorf()` for assertions, not `t.Fatal` unless setup failure
+> - Same package as production code (e.g. `package storage`, not `package storage_test`)
+> - Integration tests (require Docker/Postgres): `//go:build integration` build tag at top of file
+> - Run unit tests: `go test ./...`
+> - Run integration tests: `go test -tags integration ./...`
 
 ---
 
@@ -10,14 +19,16 @@
 
 ```
 You are working on a Go project called groupscout (module: github.com/alvindcastro/groupscout, Go 1.26).
+Follow TDD: write the failing tests first, then implement until they pass.
 
 ## Context
 
-The project currently uses SQLite via `modernc.org/sqlite` (pure Go, no CGO). We are migrating to PostgreSQL. The database layer uses `database/sql` throughout — we are NOT switching away from `database/sql`. We will use `github.com/jackc/pgx/v5/stdlib` as the Postgres driver, which registers as a `database/sql`-compatible driver. This keeps all existing store code working with minimal changes.
+The project currently uses SQLite via `modernc.org/sqlite` (pure Go, no CGO).
+We are adding Postgres support via `github.com/jackc/pgx/v5/stdlib` (pure Go, registers as a
+`database/sql`-compatible driver named "pgx"). SQLite stays as a local dev fallback.
+The DATABASE_URL value determines which driver is used.
 
-SQLite stays available as a local dev fallback, detected by the DATABASE_URL value.
-
-## Current file: internal/storage/db.go
+## Current internal/storage/db.go
 
 ```go
 package storage
@@ -25,81 +36,126 @@ package storage
 import (
     "database/sql"
     "strings"
-
     _ "modernc.org/sqlite"
 )
 
-const schema = `
-CREATE TABLE IF NOT EXISTS raw_projects ( ... );
-CREATE TABLE IF NOT EXISTS leads ( ... );
-CREATE TABLE IF NOT EXISTS outreach_log ( ... );
-`
-
 func Open(dsn string) (*sql.DB, error) {
     db, err := sql.Open("sqlite", dsn)
-    if err != nil {
-        return nil, err
-    }
-    if err := db.Ping(); err != nil {
-        db.Close()
-        return nil, err
-    }
-    return db, nil
+    ...
 }
 
 func Migrate(db *sql.DB) error { ... }
 ```
 
-## Current file: go.mod (relevant lines)
-
+## Current go.mod (relevant lines)
 ```
 module github.com/alvindcastro/groupscout
 go 1.26
-
 require (
     modernc.org/sqlite v1.33.1
-    ...
 )
 ```
 
-## Current file: config/config.go
+## Step 1 — Write this test file first (it must FAIL before you write any implementation)
 
-Read this file first before making changes. It loads DATABASE_URL from the environment.
+Create `internal/storage/db_test.go`:
 
-## Task
+```go
+package storage
 
-1. Add `github.com/jackc/pgx/v5` to go.mod (run `go get github.com/jackc/pgx/v5`).
+import "testing"
 
-2. Add a `DriverName(dsn string) string` helper function to `internal/storage/db.go`:
-   - Returns `"pgx"` if dsn starts with `"postgres://"` or `"postgresql://"`
-   - Returns `"sqlite"` otherwise
+func TestDriverName(t *testing.T) {
+    tests := []struct {
+        dsn  string
+        want string
+    }{
+        {"groupscout.db", "sqlite"},
+        {"./data/groupscout.db", "sqlite"},
+        {"postgres://user:pass@localhost:5432/groupscout", "pgx"},
+        {"postgresql://user:pass@localhost:5432/groupscout", "pgx"},
+        {"postgres://localhost/groupscout?sslmode=disable", "pgx"},
+    }
+    for _, tt := range tests {
+        t.Run(tt.dsn, func(t *testing.T) {
+            got := DriverName(tt.dsn)
+            if got != tt.want {
+                t.Errorf("DriverName(%q) = %q, want %q", tt.dsn, got, tt.want)
+            }
+        })
+    }
+}
+```
 
-3. Update `Open(dsn string)` in `internal/storage/db.go` to:
-   - Import `_ "github.com/jackc/pgx/v5/stdlib"` alongside the existing SQLite import
-   - Call `sql.Open(DriverName(dsn), dsn)` instead of hardcoding `"sqlite"`
-   - Keep all other logic identical
+Create `internal/storage/db_integration_test.go` (requires Docker):
 
-4. Update `docker-compose.yml`:
-   - Add a `postgres` service using the `pgvector/pgvector:pg17` image
-   - Named volume: `pgdata`
-   - Environment: `POSTGRES_DB=groupscout`, `POSTGRES_USER=groupscout`, `POSTGRES_PASSWORD=groupscout`
+```go
+//go:build integration
+
+package storage
+
+import (
+    "os"
+    "testing"
+)
+
+func TestOpen_postgres(t *testing.T) {
+    dsn := os.Getenv("TEST_POSTGRES_URL")
+    if dsn == "" {
+        t.Skip("TEST_POSTGRES_URL not set")
+    }
+    db, err := Open(dsn)
+    if err != nil {
+        t.Fatalf("Open(%q) error: %v", dsn, err)
+    }
+    defer db.Close()
+    if err := db.Ping(); err != nil {
+        t.Fatalf("Ping() error: %v", err)
+    }
+}
+
+func TestOpen_sqlite_still_works(t *testing.T) {
+    db, err := Open(":memory:")
+    if err != nil {
+        t.Fatalf("Open(':memory:') error: %v", err)
+    }
+    defer db.Close()
+}
+```
+
+## Step 2 — Confirm tests fail
+
+Run `go test ./internal/storage/` — it should fail with "undefined: DriverName".
+
+## Step 3 — Implement
+
+1. Add `github.com/jackc/pgx/v5` to go.mod: `go get github.com/jackc/pgx/v5`
+
+2. Add to `internal/storage/db.go`:
+   - Import `_ "github.com/jackc/pgx/v5/stdlib"` alongside existing SQLite import
+   - Add `DriverName(dsn string) string` — returns "pgx" if dsn has prefix "postgres://" or "postgresql://", else "sqlite"
+   - Update `Open()` to call `sql.Open(DriverName(dsn), dsn)` instead of hardcoding "sqlite"
+
+3. Add to `docker-compose.yml`:
+   - Service `postgres` using image `pgvector/pgvector:pg17`
+   - Environment: POSTGRES_DB=groupscout, POSTGRES_USER=groupscout, POSTGRES_PASSWORD=groupscout
+   - Named volume `pgdata`
    - Health check: `pg_isready -U groupscout`
-   - Expose port `5432`
+   - Port 5432:5432
 
-5. Update `.env.example`:
-   - Add commented example: `# DATABASE_URL=postgres://groupscout:groupscout@localhost:5432/groupscout`
-   - Keep the existing SQLite example as the default
+4. Add to `.env.example`:
+   - `# DATABASE_URL=postgres://groupscout:groupscout@localhost:5432/groupscout`
+   - Keep existing SQLite line as the uncommented default
 
 ## Constraints
-- Do NOT remove the `modernc.org/sqlite` import — SQLite stays for local dev
-- Do NOT change the Migrate() function yet — that is Part B
-- Do NOT change any store files (leads.go, raw.go) — that is Part C
-- `pgx/v5/stdlib` registers itself as driver name `"pgx"` — use that exact string
+- Do NOT remove `modernc.org/sqlite` — SQLite must still work
+- Do NOT change Migrate() yet — that is Part B
+- Do NOT change leads.go or raw.go — that is Part C
 
-## Acceptance criteria
-- `go build ./...` passes
-- `DATABASE_URL=groupscout.db go run ./cmd/server/ --run-once` still works (SQLite path)
-- `DATABASE_URL=postgres://groupscout:groupscout@localhost:5432/groupscout` connects successfully when Postgres container is running (no migrations yet, just a ping)
+## Done when
+- `go test ./internal/storage/` passes (DriverName unit tests)
+- `go test -tags integration ./internal/storage/` passes with TEST_POSTGRES_URL set
+- `DATABASE_URL=groupscout.db go run ./cmd/server/ --run-once` still works
 ```
 
 ---
@@ -108,19 +164,10 @@ Read this file first before making changes. It loads DATABASE_URL from the envir
 
 ```
 You are working on groupscout (module: github.com/alvindcastro/groupscout, Go 1.26).
+Follow TDD: write the failing tests first, then implement until they pass.
+Part A is complete: DriverName() exists, pgx/v5 is in go.mod, Postgres container is in docker-compose.yml.
 
-## Context
-
-Part A is complete. We now have:
-- `pgx/v5` in go.mod
-- `Open(dsn)` auto-selects the driver based on DATABASE_URL prefix
-- `pgvector/pgvector:pg17` running in Docker Compose
-
-We need to write Postgres-compatible SQL migrations and wire `golang-migrate/migrate` to run them.
-
-## Current schema (SQLite, from internal/storage/db.go)
-
-The current schema uses SQLite-specific types. Here is the exact DDL:
+## Current SQLite schema (from internal/storage/db.go)
 
 ```sql
 CREATE TABLE IF NOT EXISTS raw_projects (
@@ -131,74 +178,166 @@ CREATE TABLE IF NOT EXISTS raw_projects (
     collected_at DATETIME NOT NULL,
     hash         TEXT UNIQUE NOT NULL
 );
-
 CREATE TABLE IF NOT EXISTS leads (
     id                        TEXT PRIMARY KEY,
     raw_project_id            TEXT REFERENCES raw_projects(id),
-    source                    TEXT,
-    title                     TEXT,
-    location                  TEXT,
+    source                    TEXT, title TEXT, location TEXT,
     project_value             INTEGER,
-    general_contractor        TEXT,
-    project_type              TEXT,
-    estimated_crew_size       INTEGER,
-    estimated_duration_months INTEGER,
+    general_contractor        TEXT, project_type TEXT,
+    estimated_crew_size       INTEGER, estimated_duration_months INTEGER,
     out_of_town_crew_likely   INTEGER DEFAULT 0,
     priority_score            INTEGER,
-    priority_reason           TEXT,
-    suggested_outreach_timing TEXT,
-    applicant                 TEXT,
-    contractor                TEXT,
-    source_url                TEXT,
-    notes                     TEXT,
+    priority_reason           TEXT, suggested_outreach_timing TEXT,
+    applicant TEXT, contractor TEXT, source_url TEXT, notes TEXT,
     status                    TEXT DEFAULT 'new',
     created_at                DATETIME NOT NULL,
     updated_at                DATETIME NOT NULL
 );
-
 CREATE TABLE IF NOT EXISTS outreach_log (
-    id        TEXT PRIMARY KEY,
-    lead_id   TEXT REFERENCES leads(id),
-    contact   TEXT,
-    channel   TEXT,
-    notes     TEXT,
-    outcome   TEXT,
+    id TEXT PRIMARY KEY, lead_id TEXT REFERENCES leads(id),
+    contact TEXT, channel TEXT, notes TEXT, outcome TEXT,
     logged_at DATETIME NOT NULL
 );
 ```
 
-## Task
+## Step 1 — Write this test file first (it must FAIL before you write any implementation)
 
-1. Create `migrations/001_init.postgres.up.sql` with Postgres-native types:
+Create `internal/storage/migrate_integration_test.go`:
+
+```go
+//go:build integration
+
+package storage
+
+import (
+    "database/sql"
+    "os"
+    "testing"
+)
+
+func TestMigrate_postgres_tables_exist(t *testing.T) {
+    dsn := os.Getenv("TEST_POSTGRES_URL")
+    if dsn == "" {
+        t.Skip("TEST_POSTGRES_URL not set")
+    }
+    db, err := Open(dsn)
+    if err != nil {
+        t.Fatalf("Open: %v", err)
+    }
+    defer db.Close()
+    if err := Migrate(db, dsn); err != nil {
+        t.Fatalf("Migrate: %v", err)
+    }
+
+    tables := []string{"raw_projects", "leads", "outreach_log"}
+    for _, table := range tables {
+        var count int
+        err := db.QueryRow(
+            `SELECT COUNT(*) FROM information_schema.tables
+             WHERE table_schema='public' AND table_name=$1`, table,
+        ).Scan(&count)
+        if err != nil || count == 0 {
+            t.Errorf("table %q does not exist after migration", table)
+        }
+    }
+}
+
+func TestMigrate_postgres_column_types(t *testing.T) {
+    dsn := os.Getenv("TEST_POSTGRES_URL")
+    if dsn == "" {
+        t.Skip("TEST_POSTGRES_URL not set")
+    }
+    db, _ := Open(dsn)
+    defer db.Close()
+    Migrate(db, dsn)
+
+    tests := []struct {
+        table, column, wantType string
+    }{
+        {"leads", "id", "uuid"},
+        {"leads", "out_of_town_crew_likely", "boolean"},
+        {"leads", "created_at", "timestamp with time zone"},
+        {"leads", "project_value", "bigint"},
+        {"raw_projects", "raw_data", "jsonb"},
+    }
+    for _, tt := range tests {
+        var dataType string
+        err := db.QueryRow(`
+            SELECT data_type FROM information_schema.columns
+            WHERE table_name=$1 AND column_name=$2`, tt.table, tt.column,
+        ).Scan(&dataType)
+        if err != nil {
+            t.Errorf("%s.%s: query error: %v", tt.table, tt.column, err)
+            continue
+        }
+        if dataType != tt.wantType {
+            t.Errorf("%s.%s type = %q, want %q", tt.table, tt.column, dataType, tt.wantType)
+        }
+    }
+}
+
+func TestMigrate_idempotent(t *testing.T) {
+    dsn := os.Getenv("TEST_POSTGRES_URL")
+    if dsn == "" {
+        t.Skip("TEST_POSTGRES_URL not set")
+    }
+    db, _ := Open(dsn)
+    defer db.Close()
+    // Running twice must not error
+    if err := Migrate(db, dsn); err != nil {
+        t.Fatalf("first Migrate: %v", err)
+    }
+    if err := Migrate(db, dsn); err != nil {
+        t.Fatalf("second Migrate: %v", err)
+    }
+}
+
+func TestMigrate_sqlite_still_works(t *testing.T) {
+    db, _ := Open(":memory:")
+    defer db.Close()
+    if err := Migrate(db, ":memory:"); err != nil {
+        t.Fatalf("SQLite Migrate: %v", err)
+    }
+}
+```
+
+Note: `Migrate` signature changes to `Migrate(db *sql.DB, dsn string) error` so it can detect the driver.
+Update all callers (cmd/server/main.go) accordingly.
+
+## Step 2 — Confirm tests fail
+
+Run `go test -tags integration ./internal/storage/` — should fail because Migrate() has wrong signature.
+
+## Step 3 — Implement
+
+1. Add `github.com/golang-migrate/migrate/v4` to go.mod.
+
+2. Create `migrations/001_init.postgres.up.sql` with Postgres-native types:
+   - `CREATE EXTENSION IF NOT EXISTS "pgcrypto";`
    - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
-   - `BOOLEAN` for out_of_town_crew_likely (not INTEGER)
+   - `BOOLEAN` for out_of_town_crew_likely
    - `TIMESTAMPTZ DEFAULT NOW()` for all timestamp columns
-   - `JSONB` for raw_data (not TEXT) — enables JSON indexing
-   - `BIGINT` for project_value (not INTEGER)
-   - Keep all column names identical to the SQLite schema
-   - Add `CREATE EXTENSION IF NOT EXISTS "pgcrypto";` at the top (needed for gen_random_uuid())
+   - `JSONB` for raw_data
+   - `BIGINT` for project_value
+   - All column names identical to the SQLite schema
 
-2. Create `migrations/001_init.postgres.down.sql`:
-   - DROP TABLE statements in reverse dependency order
+3. Create `migrations/001_init.postgres.down.sql` — DROP TABLE in reverse FK order.
 
-3. Add `github.com/golang-migrate/migrate/v4` to go.mod.
+4. Update `Migrate(db *sql.DB, dsn string) error` in `internal/storage/db.go`:
+   - Postgres path (DriverName(dsn) == "pgx"): use golang-migrate to run files from `migrations/` directory
+   - SQLite path: keep the existing inline schema string approach unchanged
 
-4. Update `internal/storage/db.go` — replace the current `Migrate(db *sql.DB)` function:
-   - For SQLite path: keep the existing inline schema approach (no migrate needed)
-   - For Postgres path: use `golang-migrate` to run migrations from the `migrations/` directory
-   - The function signature stays: `Migrate(db *sql.DB) error`
-   - Detect which path to use via `DriverName()` applied to the DSN — pass dsn into Migrate or store it on a struct; your choice, keep it simple
+5. Update callers: in `cmd/server/main.go`, pass `dsn` as second argument to `Migrate`.
 
 ## Constraints
 - Do NOT change leads.go or raw.go yet — that is Part C
-- The SQLite schema and Migrate() path must continue to work unchanged for local dev
-- Migration files must be named following golang-migrate convention: `{version}_{name}.{direction}.sql`
+- SQLite path must work unchanged with `:memory:` and a file path
+- The Postgres migration must be idempotent (IF NOT EXISTS everywhere)
 
-## Acceptance criteria
-- `go build ./...` passes
-- SQLite path: `DATABASE_URL=groupscout.db go run ./cmd/server/ --run-once` works identically
-- Postgres path: running with `DATABASE_URL=postgres://...` creates all three tables with correct Postgres types
-- `\d leads` in psql shows UUID, BOOLEAN, TIMESTAMPTZ, JSONB columns
+## Done when
+- `go test -tags integration ./internal/storage/` passes all four tests
+- `go test ./internal/storage/` (no tag) passes (SQLite path)
+- `\d leads` in psql shows UUID, BOOLEAN, TIMESTAMPTZ, JSONB
 ```
 
 ---
@@ -207,100 +346,234 @@ CREATE TABLE IF NOT EXISTS outreach_log (
 
 ```
 You are working on groupscout (module: github.com/alvindcastro/groupscout, Go 1.26).
+Follow TDD: write the failing tests first, then implement until they pass.
+Parts A and B are complete. Postgres schema exists and migrations run.
 
-## Context
+## Problems in the current storage layer
 
-Parts A and B are complete. The Postgres schema exists. Now we need to fix the Go storage layer — it has SQLite-specific patterns that don't work with Postgres.
-
-## Problems to fix
-
-### 1. Boolean handling in internal/storage/leads.go
-
-Current code uses a `boolToInt()` helper and scans booleans as `int`:
-
+### 1. internal/storage/leads.go — boolToInt() and integer scanning
 ```go
-// Insert — passes integer instead of bool
-boolToInt(l.OutOfTownCrewLikely),  // sends 0 or 1
+// Insert passes an int instead of bool:
+boolToInt(l.OutOfTownCrewLikely)   // Postgres BOOLEAN rejects this
 
-// ListNew and ListForDigest — scans as int then converts
+// ListNew and ListForDigest scan as int then convert:
 var oot int
 rows.Scan(..., &oot, ...)
-l.OutOfTownCrewLikely = oot == 1
+l.OutOfTownCrewLikely = oot == 1  // works in SQLite, breaks in Postgres
 
-// The helper at the bottom of the file:
-func boolToInt(b bool) int {
-    if b { return 1 }
-    return 0
+// Helper at bottom of file:
+func boolToInt(b bool) int { if b { return 1 }; return 0 }
+```
+
+### 2. Both files — SQLite ? placeholders
+```go
+// leads.go: VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+// raw.go:   VALUES (?, ?, ?, ?, ?, ?)
+// Postgres requires $1, $2, $3... not ?
+```
+
+## Step 1 — Write these test files first (they must FAIL before you touch production code)
+
+Create `internal/storage/leads_integration_test.go`:
+
+```go
+//go:build integration
+
+package storage
+
+import (
+    "context"
+    "os"
+    "testing"
+    "time"
+)
+
+func newTestDB(t *testing.T) (*sql.DB, string) {
+    t.Helper()
+    dsn := os.Getenv("TEST_POSTGRES_URL")
+    if dsn == "" {
+        t.Skip("TEST_POSTGRES_URL not set")
+    }
+    db, err := Open(dsn)
+    if err != nil {
+        t.Fatalf("Open: %v", err)
+    }
+    if err := Migrate(db, dsn); err != nil {
+        t.Fatalf("Migrate: %v", err)
+    }
+    t.Cleanup(func() {
+        db.Exec("DELETE FROM leads")
+        db.Exec("DELETE FROM raw_projects")
+        db.Close()
+    })
+    return db, dsn
+}
+
+func TestLeadStore_Insert_and_ListNew(t *testing.T) {
+    db, _ := newTestDB(t)
+    store := NewLeadStore(db)
+    ctx := context.Background()
+
+    lead := &Lead{
+        Source:                  "richmond_permits",
+        Title:                   "Test Warehouse — 1234 No. 3 Road",
+        Location:                "Richmond, BC",
+        ProjectValue:            5_000_000,
+        GeneralContractor:       "PCL Construction",
+        ProjectType:             "industrial",
+        EstimatedCrewSize:       80,
+        EstimatedDurationMonths: 6,
+        OutOfTownCrewLikely:     true,
+        PriorityScore:           9,
+        PriorityReason:          "Large industrial near YVR",
+        Status:                  "new",
+    }
+
+    if err := store.Insert(ctx, lead); err != nil {
+        t.Fatalf("Insert: %v", err)
+    }
+    if lead.ID == "" {
+        t.Error("ID should be populated after Insert")
+    }
+
+    leads, err := store.ListNew(ctx)
+    if err != nil {
+        t.Fatalf("ListNew: %v", err)
+    }
+    if len(leads) == 0 {
+        t.Fatal("expected at least one lead")
+    }
+
+    got := leads[0]
+    if got.OutOfTownCrewLikely != true {
+        t.Errorf("OutOfTownCrewLikely = %v, want true (bool round-trip failed)", got.OutOfTownCrewLikely)
+    }
+    if got.ProjectValue != 5_000_000 {
+        t.Errorf("ProjectValue = %d, want 5000000", got.ProjectValue)
+    }
+    if got.PriorityScore != 9 {
+        t.Errorf("PriorityScore = %d, want 9", got.PriorityScore)
+    }
+}
+
+func TestLeadStore_bool_false_roundtrip(t *testing.T) {
+    db, _ := newTestDB(t)
+    store := NewLeadStore(db)
+    ctx := context.Background()
+
+    lead := &Lead{
+        Source:              "test",
+        Title:               "Local renovation",
+        OutOfTownCrewLikely: false,
+        Status:              "new",
+    }
+    store.Insert(ctx, lead)
+
+    leads, _ := store.ListNew(ctx)
+    for _, l := range leads {
+        if l.Title == "Local renovation" && l.OutOfTownCrewLikely != false {
+            t.Errorf("OutOfTownCrewLikely = %v, want false", l.OutOfTownCrewLikely)
+        }
+    }
+}
+
+func TestLeadStore_UpdateStatus(t *testing.T) {
+    db, _ := newTestDB(t)
+    store := NewLeadStore(db)
+    ctx := context.Background()
+
+    lead := &Lead{Source: "test", Title: "Status test", Status: "new"}
+    store.Insert(ctx, lead)
+
+    if err := store.UpdateStatus(ctx, lead.ID, "contacted"); err != nil {
+        t.Fatalf("UpdateStatus: %v", err)
+    }
+    // Should not appear in ListNew (status != 'new')
+    leads, _ := store.ListNew(ctx)
+    for _, l := range leads {
+        if l.ID == lead.ID {
+            t.Error("lead with status 'contacted' should not appear in ListNew")
+        }
+    }
 }
 ```
 
-Postgres has a native BOOLEAN type. pgx handles `bool` natively — no conversion needed.
+Create `internal/storage/raw_integration_test.go`:
 
-### 2. Parameter placeholders
-
-SQLite uses `?`. Postgres uses `$1, $2, $3...`. All SQL in leads.go and raw.go must use `$N` style.
-
-Current examples:
 ```go
-// leads.go Insert
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+//go:build integration
 
-// leads.go ListForDigest
-AND created_at >= ?
+package storage
 
-// leads.go UpdateStatus
-UPDATE leads SET status = ?, updated_at = ? WHERE id = ?
+import (
+    "context"
+    "testing"
+    "time"
 
-// raw.go Insert
-INSERT INTO raw_projects (id, source, external_id, raw_data, collected_at, hash)
-VALUES (?, ?, ?, ?, ?, ?)
-ON CONFLICT(hash) DO NOTHING
+    "github.com/alvindcastro/groupscout/internal/collector"
+)
 
-// raw.go ExistsByHash
-SELECT COUNT(1) FROM raw_projects WHERE hash = ?
+func TestRawProjectStore_Insert_and_ExistsByHash(t *testing.T) {
+    db, _ := newTestDB(t)
+    store := NewRawProjectStore(db)
+    ctx := context.Background()
+
+    p := &collector.RawProject{
+        Source:     "richmond_permits",
+        ExternalID: "BP2026-001",
+        Title:      "Test Permit",
+        IssuedAt:   time.Now(),
+        RawData:    map[string]any{"key": "value"},
+    }
+    p.Hash = HashProject(p.Source, p.ExternalID, p.Title, p.IssuedAt)
+
+    if err := store.Insert(ctx, p); err != nil {
+        t.Fatalf("Insert: %v", err)
+    }
+
+    exists, err := store.ExistsByHash(ctx, p.Hash)
+    if err != nil {
+        t.Fatalf("ExistsByHash: %v", err)
+    }
+    if !exists {
+        t.Error("ExistsByHash = false, want true after Insert")
+    }
+
+    // Insert same hash again — must not error (ON CONFLICT DO NOTHING)
+    if err := store.Insert(ctx, p); err != nil {
+        t.Errorf("second Insert of same hash errored: %v", err)
+    }
+}
 ```
 
-### 3. UUID generation
+## Step 2 — Confirm tests fail
 
-Current `NewUUID()` in raw.go generates UUIDs in Go. This works for both SQLite and Postgres. Keep it — do NOT switch to `gen_random_uuid()` in SQL. Go-side generation is simpler and avoids driver differences.
+`go test -tags integration ./internal/storage/` — fails with placeholder or boolean errors.
 
-### 4. Time scanning
+## Step 3 — Implement
 
-pgx/v5/stdlib scans `TIMESTAMPTZ` directly into `time.Time` — no changes needed there. But verify that `time.Now().UTC()` is what gets stored.
+Update `internal/storage/leads.go`:
+- Remove `boolToInt()` helper
+- `Insert()`: pass `l.OutOfTownCrewLikely` (bool) directly; replace `?` with `$1, $2, ...` (21 params)
+- `ListNew()`: scan `out_of_town_crew_likely` directly into `&l.OutOfTownCrewLikely`; remove `var oot int`; replace `?` in WHERE clause with `$1`
+- `ListForDigest()`: same bool fix; replace `?` with `$1`
+- `UpdateStatus()`: replace `?` with `$1, $2, $3`
+- Rename struct `sqliteLeadStore` → `sqlLeadStore`
 
-## Full current content of internal/storage/leads.go
-
-[Attach the full leads.go file here]
-
-## Full current content of internal/storage/raw.go
-
-[Attach the full raw.go file here]
-
-## Task
-
-1. Update `internal/storage/leads.go`:
-   - Remove `boolToInt()` helper function
-   - In `Insert()`: pass `l.OutOfTownCrewLikely` (bool) directly — no conversion
-   - In `ListNew()` and `ListForDigest()`: scan `out_of_town_crew_likely` directly into `l.OutOfTownCrewLikely` (bool) — remove `var oot int` and the `oot == 1` conversion
-   - Replace ALL `?` placeholders with `$1, $2...` (numbered sequentially per query)
-   - Rename struct and constructor: `sqliteLeadStore` → `sqlLeadStore`, `NewLeadStore` keeps same signature
-
-2. Update `internal/storage/raw.go`:
-   - Replace ALL `?` placeholders with `$1, $2...`
-   - `ON CONFLICT(hash) DO NOTHING` is valid Postgres syntax — keep it
-   - Rename struct: `sqliteRawStore` → `sqlRawStore`
+Update `internal/storage/raw.go`:
+- `Insert()`: replace all `?` with `$1, $2, $3, $4, $5, $6`
+- `ExistsByHash()`: replace `?` with `$1`
+- Rename struct `sqliteRawStore` → `sqlRawStore`
 
 ## Constraints
-- Keep all interface signatures identical (`LeadStore`, `RawProjectStore`)
-- Keep `NewUUID()` in raw.go as-is
-- Do NOT add any build tags or conditional compilation — one code path works for both drivers
-- pgx/v5/stdlib with database/sql handles both `bool` and `time.Time` natively for Postgres
+- Keep all interface signatures identical (LeadStore, RawProjectStore)
+- Keep NewUUID() exactly as-is — do NOT switch to gen_random_uuid() in SQL
+- One code path for both drivers — no build tags in production files
 
-## Acceptance criteria
-- `go test ./...` passes
-- `go build ./...` passes
-- Full pipeline end-to-end against Postgres: permits collected, enriched, stored, Slack notification sent
-- Full pipeline end-to-end against SQLite still works (DATABASE_URL=groupscout.db)
+## Done when
+- `go test -tags integration ./internal/storage/` — all integration tests pass
+- `go test ./internal/storage/` — unit tests pass
+- Full pipeline against Postgres: `DATABASE_URL=postgres://... go run ./cmd/server/ --run-once`
 ```
 
 ---
@@ -309,24 +582,192 @@ pgx/v5/stdlib scans `TIMESTAMPTZ` directly into `time.Time` — no changes neede
 
 ```
 You are working on groupscout (module: github.com/alvindcastro/groupscout, Go 1.26).
+Follow TDD: write the failing tests first, then implement until they pass.
+Parts A, B, C are complete. Postgres storage layer is working.
 
-## Context
+## What we are building
 
-Parts A, B, C are complete. We have a working Postgres storage layer. Now we add pgvector for vector similarity search — this is the foundation for the RAG enrichment roadmap.
+An EmbeddingStore interface with two implementations:
+- PostgresEmbeddingStore: uses pgvector <=> cosine distance (Postgres only)
+- InMemoryEmbeddingStore: loads all embeddings from SQLite, computes cosine similarity in Go
 
-The project uses `database/sql` throughout. pgvector values are stored as `[]float32` and passed as JSON text in SQLite, or as the native `vector` type in Postgres.
+The interface is used later by the enrichment pipeline (Phase 16 RAG work).
+We are only building the storage layer here — no enricher.go wiring yet.
 
-## What pgvector provides
+## Step 1 — Write these test files first (they must FAIL before any implementation)
 
-- A `vector(N)` column type in Postgres
-- The `<=>` operator for cosine distance: `ORDER BY embedding <=> $1 LIMIT $2`
-- An `ivfflat` index for fast approximate nearest-neighbor search
-- The `pgvector/pgvector-go` Go package for encoding vectors
+Create `internal/storage/embeddings_test.go` (unit tests, no Docker needed):
 
-## Task
+```go
+package storage
 
-### 1. Create migration: migrations/003_pgvector.up.sql
+import "testing"
 
+func TestCosineSimilarity(t *testing.T) {
+    tests := []struct {
+        name    string
+        a, b    []float32
+        wantMin float32
+        wantMax float32
+    }{
+        {
+            name:    "identical vectors",
+            a:       []float32{1, 0, 0},
+            b:       []float32{1, 0, 0},
+            wantMin: 0.999,
+            wantMax: 1.001,
+        },
+        {
+            name:    "orthogonal vectors",
+            a:       []float32{1, 0, 0},
+            b:       []float32{0, 1, 0},
+            wantMin: -0.001,
+            wantMax: 0.001,
+        },
+        {
+            name:    "opposite vectors",
+            a:       []float32{1, 0, 0},
+            b:       []float32{-1, 0, 0},
+            wantMin: -1.001,
+            wantMax: -0.999,
+        },
+        {
+            name:    "zero vector returns 0",
+            a:       []float32{0, 0, 0},
+            b:       []float32{1, 0, 0},
+            wantMin: -0.001,
+            wantMax: 0.001,
+        },
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got := cosineSimilarity(tt.a, tt.b)
+            if got < tt.wantMin || got > tt.wantMax {
+                t.Errorf("cosineSimilarity = %f, want [%f, %f]", got, tt.wantMin, tt.wantMax)
+            }
+        })
+    }
+}
+
+func TestInMemoryEmbeddingStore_Similar(t *testing.T) {
+    db, err := Open(":memory:")
+    if err != nil {
+        t.Fatalf("Open: %v", err)
+    }
+    defer db.Close()
+    Migrate(db, ":memory:")
+
+    store := NewEmbeddingStore(db, ":memory:")
+    ctx := context.Background()
+
+    // Seed three leads with known embeddings
+    // vec1 and vec2 are similar; vec3 is different
+    vec1 := []float32{1.0, 0.0, 0.0}
+    vec2 := []float32{0.9, 0.1, 0.0}
+    vec3 := []float32{0.0, 0.0, 1.0}
+
+    store.Save(ctx, "lead-1", "test-model", vec1)
+    store.Save(ctx, "lead-2", "test-model", vec2)
+    store.Save(ctx, "lead-3", "test-model", vec3)
+
+    // Query similar to vec1 — should return lead-1 and lead-2 first
+    ids, err := store.Similar(ctx, vec1, 2)
+    if err != nil {
+        t.Fatalf("Similar: %v", err)
+    }
+    if len(ids) != 2 {
+        t.Fatalf("Similar returned %d results, want 2", len(ids))
+    }
+    if ids[0] != "lead-1" {
+        t.Errorf("top result = %q, want lead-1", ids[0])
+    }
+    if ids[1] != "lead-2" {
+        t.Errorf("second result = %q, want lead-2", ids[1])
+    }
+}
+```
+
+Create `internal/storage/embeddings_integration_test.go`:
+
+```go
+//go:build integration
+
+package storage
+
+import (
+    "context"
+    "os"
+    "testing"
+)
+
+func TestPostgresEmbeddingStore_SaveAndSimilar(t *testing.T) {
+    dsn := os.Getenv("TEST_POSTGRES_URL")
+    if dsn == "" {
+        t.Skip("TEST_POSTGRES_URL not set")
+    }
+    db, _ := Open(dsn)
+    defer db.Close()
+    Migrate(db, dsn)
+
+    store := NewEmbeddingStore(db, dsn)
+    ctx := context.Background()
+
+    // Insert a lead to satisfy the FK constraint
+    leadStore := NewLeadStore(db)
+    lead := &Lead{Source: "test", Title: "pgvector test lead", Status: "new"}
+    leadStore.Insert(ctx, lead)
+    defer db.Exec("DELETE FROM lead_embeddings WHERE lead_id = $1", lead.ID)
+    defer db.Exec("DELETE FROM leads WHERE id = $1", lead.ID)
+
+    vec := make([]float32, 512)
+    vec[0] = 1.0 // simple non-zero vector
+
+    if err := store.Save(ctx, lead.ID, "voyage-3-lite", vec); err != nil {
+        t.Fatalf("Save: %v", err)
+    }
+
+    ids, err := store.Similar(ctx, vec, 1)
+    if err != nil {
+        t.Fatalf("Similar: %v", err)
+    }
+    if len(ids) == 0 {
+        t.Fatal("Similar returned no results")
+    }
+    if ids[0] != lead.ID {
+        t.Errorf("Similar[0] = %q, want %q", ids[0], lead.ID)
+    }
+}
+
+func TestPostgresEmbeddingStore_index_used(t *testing.T) {
+    dsn := os.Getenv("TEST_POSTGRES_URL")
+    if dsn == "" {
+        t.Skip("TEST_POSTGRES_URL not set")
+    }
+    db, _ := Open(dsn)
+    defer db.Close()
+    Migrate(db, dsn)
+
+    var plan string
+    vec := make([]float32, 512)
+    // pgvector-go encodes the vector; we just check the query plan mentions the index
+    // This is a smoke test — the index name contains "ivfflat"
+    db.QueryRow(`EXPLAIN SELECT lead_id FROM lead_embeddings
+        ORDER BY embedding <=> $1 LIMIT 3`, "["+strings.Repeat("0,", 511)+"0]",
+    ).Scan(&plan)
+    // Just verify the query runs without error — index usage depends on data volume
+    t.Logf("query plan: %s", plan)
+}
+```
+
+## Step 2 — Confirm tests fail
+
+`go test ./internal/storage/` — fails with "undefined: cosineSimilarity", "undefined: EmbeddingStore".
+
+## Step 3 — Implement
+
+1. Add to go.mod: `go get github.com/pgvector/pgvector-go`
+
+2. Create `migrations/003_pgvector.up.sql`:
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 
@@ -337,142 +778,135 @@ CREATE TABLE IF NOT EXISTS lead_embeddings (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX ON lead_embeddings USING ivfflat (embedding vector_cosine_ops)
+CREATE INDEX IF NOT EXISTS lead_embeddings_ivfflat_idx
+    ON lead_embeddings USING ivfflat (embedding vector_cosine_ops)
     WITH (lists = 10);
 ```
 
-### 2. Create migration: migrations/003_pgvector.down.sql
+3. Create `migrations/003_pgvector.down.sql` — DROP TABLE lead_embeddings; DROP EXTENSION vector;
 
-Drop the table and extension (drop index is implicit with table drop).
+4. Create `internal/storage/embeddings.go` with:
+   - `EmbeddingStore` interface (Save + Similar)
+   - `NewEmbeddingStore(db, dsn)` factory
+   - `postgresEmbeddingStore` — uses pgvector-go to encode []float32; queries with <=>
+   - `inMemoryEmbeddingStore` — SQLite fallback table + Go cosineSimilarity
+   - unexported `cosineSimilarity(a, b []float32) float32` helper
 
-### 3. Create internal/storage/embeddings.go
-
-Define the interface and both implementations:
-
-```go
-package storage
-
-import (
-    "context"
-    "math"
-)
-
-// EmbeddingStore persists and queries lead vector embeddings.
-type EmbeddingStore interface {
-    Save(ctx context.Context, leadID, model string, vec []float32) error
-    // Similar returns up to k lead IDs whose embeddings are closest to vec.
-    Similar(ctx context.Context, vec []float32, k int) ([]string, error)
-}
-
-// NewEmbeddingStore returns the correct implementation based on DATABASE_URL.
-// Postgres URL → PostgresEmbeddingStore (uses pgvector <=> operator)
-// SQLite path  → InMemoryEmbeddingStore (Go cosine similarity, loads all from DB)
-func NewEmbeddingStore(db *sql.DB, dsn string) EmbeddingStore {
-    if DriverName(dsn) == "pgx" {
-        return &postgresEmbeddingStore{db: db}
-    }
-    return &inMemoryEmbeddingStore{db: db}
-}
-```
-
-**PostgresEmbeddingStore:**
-- `Save`: INSERT into `lead_embeddings`; use `github.com/pgvector/pgvector-go` to encode `[]float32` as a pgvector value
-- `Similar`: `SELECT lead_id FROM lead_embeddings ORDER BY embedding <=> $1 LIMIT $2`; return lead IDs
-
-**InMemoryEmbeddingStore (SQLite fallback):**
-- Store embeddings as a JSON text blob in a `lead_embeddings_sqlite` table:
-  `CREATE TABLE IF NOT EXISTS lead_embeddings_sqlite (lead_id TEXT PRIMARY KEY, model TEXT, embedding TEXT, created_at DATETIME)`
-- `Save`: marshal `[]float32` to JSON, store as TEXT
-- `Similar`: load ALL rows, unmarshal each embedding, compute cosine similarity in Go, return top-k
-
-Cosine similarity helper (add to embeddings.go, unexported):
-```go
-func cosineSimilarity(a, b []float32) float32 {
-    var dot, na, nb float32
-    for i := range a {
-        dot += a[i] * b[i]
-        na += a[i] * a[i]
-        nb += b[i] * b[i]
-    }
-    if na == 0 || nb == 0 {
-        return 0
-    }
-    return dot / (float32(math.Sqrt(float64(na))) * float32(math.Sqrt(float64(nb))))
-}
-```
-
-### 4. Add to go.mod
-
-Run: `go get github.com/pgvector/pgvector-go`
+5. Update `Migrate()` in db.go to also run migration 003 for Postgres.
+   (SQLite: create the `lead_embeddings_sqlite` table inline.)
 
 ## Constraints
-- Do NOT change enricher.go or claude.go — the embedding calls will be wired in Phase 16 (RAG)
-- The SQLite InMemoryEmbeddingStore is a dev fallback; performance is acceptable for <500 leads
-- Lists = 10 in the ivfflat index is appropriate for small datasets; increase when leads > 10k
+- `inMemoryEmbeddingStore` stores embeddings in a separate SQLite table, not in-process memory,
+  so they survive restarts
+- Do NOT wire into enricher.go yet — that is Phase 16 RAG work
+- Keep the 512-dimension size consistent with voyage-3-lite output
 
-## Acceptance criteria
-- `go build ./...` passes
-- Postgres: `SELECT * FROM lead_embeddings LIMIT 1` returns rows after a manual Save() call
-- Postgres: `EXPLAIN SELECT lead_id FROM lead_embeddings ORDER BY embedding <=> '[0.1,0.2,...]' LIMIT 3` uses the ivfflat index
-- SQLite: `Similar()` returns lead IDs sorted by cosine similarity (unit test with known vectors)
+## Done when
+- `go test ./internal/storage/` — all unit tests pass (cosineSimilarity + in-memory store)
+- `go test -tags integration ./internal/storage/` — all integration tests pass
 ```
 
 ---
 
-## Part E — SQLite → Postgres Data Migration
+## Part E — SQLite → Postgres Data Migration Script
 
 ```
 You are working on groupscout (module: github.com/alvindcastro/groupscout, Go 1.26).
+Follow TDD: write the failing tests first, then implement until they pass.
+Parts A–D are complete.
 
-## Context
+## What we are building
 
-Parts A–D are complete. Postgres is fully wired. We now need a one-time script to migrate existing data from the SQLite file to Postgres. This is safe to skip if starting fresh (no production data yet).
+A one-shot CLI script at scripts/migrate_to_postgres/main.go that copies rows from
+an existing groupscout.db (SQLite) to a Postgres database.
 
-## Current SQLite schema
+Key type differences to handle:
+- out_of_town_crew_likely: SQLite stores as INTEGER (0/1) → read as int, pass as bool to Postgres
+- id columns: TEXT UUID strings are valid in Postgres UUID columns — no conversion needed
+- raw_data: SQLite TEXT (JSON string) → pass as-is; Postgres JSONB accepts JSON strings directly
+- Timestamps: SQLite stores as TEXT — parse with time.Parse RFC3339, write as time.Time
 
-Three tables: `raw_projects`, `leads`, `outreach_log`. See migrations/001_init.postgres.up.sql for the Postgres equivalents.
+## Step 1 — Write this test file first (it must FAIL before implementation)
 
-Key type differences to handle during migration:
-- `out_of_town_crew_likely`: SQLite stores as INTEGER (0/1) → read as int, write as bool to Postgres
-- `id` columns: SQLite stores as TEXT (UUID string) → Postgres UUID column accepts the same string format
-- `raw_data`: SQLite stores as TEXT (JSON string) → Postgres JSONB accepts the same JSON string via `::jsonb` cast or direct insertion
-- Timestamps: SQLite stores as TEXT (Go time.Time serialized) → parse with `time.Parse` and write as `time.Time` to Postgres
+Create `scripts/migrate_to_postgres/migrate_test.go`:
 
-## Task
+```go
+package main
+
+import "testing"
+
+func TestParseArgs_defaults(t *testing.T) {
+    args, err := parseArgs([]string{
+        "--sqlite", "groupscout.db",
+        "--postgres", "postgres://localhost/groupscout",
+    })
+    if err != nil {
+        t.Fatalf("parseArgs: %v", err)
+    }
+    if args.sqliteDSN != "groupscout.db" {
+        t.Errorf("sqliteDSN = %q, want groupscout.db", args.sqliteDSN)
+    }
+    if args.postgresDSN != "postgres://localhost/groupscout" {
+        t.Errorf("postgresDSN wrong")
+    }
+    if args.dryRun != false {
+        t.Error("dryRun should default to false")
+    }
+}
+
+func TestParseArgs_dry_run(t *testing.T) {
+    args, _ := parseArgs([]string{
+        "--sqlite", "x.db",
+        "--postgres", "postgres://localhost/x",
+        "--dry-run",
+    })
+    if !args.dryRun {
+        t.Error("dryRun should be true when flag set")
+    }
+}
+
+func TestParseArgs_missing_required(t *testing.T) {
+    _, err := parseArgs([]string{"--sqlite", "x.db"})
+    if err == nil {
+        t.Error("expected error when --postgres is missing")
+    }
+}
+```
+
+## Step 2 — Confirm tests fail
+
+`go test ./scripts/migrate_to_postgres/` — fails because main.go does not exist yet.
+
+## Step 3 — Implement
 
 Create `scripts/migrate_to_postgres/main.go`:
 
 ```
-Usage: migrate_to_postgres --sqlite groupscout.db --postgres "postgres://groupscout:groupscout@localhost:5432/groupscout"
+Usage:
+  migrate_to_postgres --sqlite groupscout.db --postgres "postgres://groupscout:groupscout@localhost:5432/groupscout" [--dry-run]
 ```
 
-The script should:
-1. Open both databases (SQLite via `modernc.org/sqlite`, Postgres via `pgx/v5/stdlib`)
-2. Migrate in this order (respect foreign keys): raw_projects → leads → outreach_log
-3. For each table: SELECT all rows from SQLite, INSERT into Postgres in batches of 100
-4. Use `ON CONFLICT (id) DO NOTHING` on all inserts — safe to re-run
-5. Print progress: "Migrated N raw_projects", "Migrated N leads", "Migrated N outreach_log entries"
-6. Print final row counts for both databases as a verification check
+The script must:
+1. Define `type args struct { sqliteDSN, postgresDSN string; dryRun bool }` and `parseArgs([]string) (args, error)`
+2. Open both DBs using `database/sql` (same drivers in go.mod)
+3. Migrate in FK order: raw_projects → leads → outreach_log
+4. For each table: SELECT all from SQLite, INSERT into Postgres with `ON CONFLICT (id) DO NOTHING`
+5. Handle out_of_town_crew_likely: scan as int, pass as bool
+6. Print: "Migrated N raw_projects", "Migrated N leads", "Migrated N outreach_log entries"
+7. Print row count comparison between SQLite and Postgres for each table
+8. --dry-run: print counts from SQLite only, write nothing to Postgres
 
-Handle the boolean conversion:
-```go
-// SQLite returns 0 or 1 for INTEGER columns
-var ootInt int
-rows.Scan(..., &ootInt, ...)
-ootBool := ootInt == 1
-// Then pass ootBool to Postgres INSERT
-```
+Batch size: 100 rows per INSERT for efficiency.
+Do NOT import internal packages — copy the minimum SQL inline.
 
 ## Constraints
-- This is a one-shot utility script — simple, no retry logic needed
-- Use `database/sql` for both sides (same drivers already in go.mod)
-- Do not import internal packages — copy the minimum SQL needed inline
-- Add a `--dry-run` flag that prints counts without writing to Postgres
+- Script must be idempotent (safe to run multiple times)
+- Do NOT use ORM or migration framework — plain database/sql only
 
-## Acceptance criteria
-- Script compiles: `go build ./scripts/migrate_to_postgres/`
-- Running against real data: row counts match between SQLite and Postgres for all three tables
-- Re-running is idempotent (ON CONFLICT DO NOTHING prevents duplicates)
+## Done when
+- `go test ./scripts/migrate_to_postgres/` passes (parseArgs unit tests)
+- Manual run against real data: row counts match between SQLite and Postgres
+- Re-running produces identical output (idempotent)
 ```
 
 ---
@@ -481,71 +915,133 @@ ootBool := ootInt == 1
 
 ```
 You are working on groupscout (module: github.com/alvindcastro/groupscout, Go 1.26).
+Parts A–E are complete. This part is config and documentation cleanup.
+There is minimal new code, so tests here are smoke/integration checks.
 
-## Context
+## Step 1 — Write this integration test first
 
-Parts A–E are complete. The migration works. Now we clean up configs, Docker Compose, and docs so the Postgres path is the default for deployment while SQLite remains available for local dev.
+Create `internal/storage/integration_smoke_test.go`:
 
-## Task
+```go
+//go:build integration
 
-### 1. Update .env.example
+package storage
 
-Read the current .env.example file first. Then:
-- Set the primary DATABASE_URL example to Postgres format
-- Keep the SQLite example as a comment for local dev
-- Add any missing env vars introduced in Parts A–D (check config/config.go for new fields)
+import (
+    "context"
+    "os"
+    "testing"
+)
 
-Target result:
-```env
-# --- Database ---
-DATABASE_URL=postgres://groupscout:groupscout@localhost:5432/groupscout
-# Local dev (SQLite): DATABASE_URL=groupscout.db
+// TestFullStack_postgres runs the minimum pipeline operations against Postgres
+// to confirm the production config works end to end.
+func TestFullStack_postgres(t *testing.T) {
+    dsn := os.Getenv("TEST_POSTGRES_URL")
+    if dsn == "" {
+        t.Skip("TEST_POSTGRES_URL not set")
+    }
+
+    db, err := Open(dsn)
+    if err != nil {
+        t.Fatalf("Open: %v", err)
+    }
+    defer db.Close()
+
+    if err := Migrate(db, dsn); err != nil {
+        t.Fatalf("Migrate: %v", err)
+    }
+
+    ctx := context.Background()
+    leadStore := NewLeadStore(db)
+    rawStore := NewRawProjectStore(db)
+    embStore := NewEmbeddingStore(db, dsn)
+
+    // Raw project
+    p := &collector.RawProject{
+        Source: "smoke_test", Title: "Smoke test permit",
+        ExternalID: "SMOKE-001", IssuedAt: time.Now(),
+        RawData: map[string]any{"test": true},
+    }
+    p.Hash = HashProject(p.Source, p.ExternalID, p.Title, p.IssuedAt)
+    if err := rawStore.Insert(ctx, p); err != nil {
+        t.Errorf("rawStore.Insert: %v", err)
+    }
+
+    // Lead
+    lead := &Lead{
+        RawProjectID: p.Hash, Source: "smoke_test",
+        Title: "Smoke test lead", OutOfTownCrewLikely: true,
+        PriorityScore: 8, Status: "new",
+    }
+    if err := leadStore.Insert(ctx, lead); err != nil {
+        t.Errorf("leadStore.Insert: %v", err)
+    }
+
+    // Embedding
+    vec := make([]float32, 512)
+    vec[0] = 1.0
+    if err := embStore.Save(ctx, lead.ID, "test", vec); err != nil {
+        t.Errorf("embStore.Save: %v", err)
+    }
+
+    // Cleanup
+    db.Exec("DELETE FROM lead_embeddings WHERE lead_id = $1", lead.ID)
+    db.Exec("DELETE FROM leads WHERE source = 'smoke_test'")
+    db.Exec("DELETE FROM raw_projects WHERE source = 'smoke_test'")
+}
 ```
 
-### 2. Update docker-compose.yml
+## Step 2 — Confirm test passes (it should, given Parts A–D are done)
 
-Read the current docker-compose.yml first. Then:
-- Ensure the `groupscout` app service has `depends_on: postgres: condition: service_healthy`
-- Ensure the `postgres` service (added in Part A) has the correct health check
-- Set `DATABASE_URL` in the app service environment to the Postgres URL
-- Remove any SQLite file volume reference from the app service if present
+`go test -tags integration ./internal/storage/ -run TestFullStack_postgres`
 
-### 3. Update docs/SETUP.md
+## Step 3 — Config + docs
 
-Read the current SETUP.md first. Then add a section **"Postgres Setup (recommended)"** above any existing SQLite instructions:
+1. Read the current `.env.example`. Update it:
+   - Postgres DATABASE_URL as the primary (uncommented) example
+   - SQLite as a commented fallback
 
-```markdown
+2. Read the current `docker-compose.yml`. Update it:
+   - `groupscout` service: `depends_on: postgres: condition: service_healthy`
+   - `groupscout` environment: `DATABASE_URL=postgres://groupscout:groupscout@postgres:5432/groupscout`
+   - Remove any SQLite file volume mount from the app service
+
+3. Read the current `docs/SETUP.md`. Add a **"Postgres Setup"** section before the SQLite section:
+```
 ## Postgres Setup (recommended)
-
-1. Start Postgres: `docker compose up postgres -d`
-2. Wait for healthy: `docker compose ps`
-3. Set in .env: `DATABASE_URL=postgres://groupscout:groupscout@localhost:5432/groupscout`
-4. Run: `go run ./cmd/server/ --run-once`
-   Migrations run automatically on startup.
+1. `docker compose up postgres -d` and wait for healthy: `docker compose ps`
+2. Set DATABASE_URL=postgres://groupscout:groupscout@localhost:5432/groupscout in .env
+3. `go run ./cmd/server/ --run-once` — migrations run automatically on first boot
 
 ## SQLite (local dev only)
-
-Set `DATABASE_URL=groupscout.db`. No Docker required.
+DATABASE_URL=groupscout.db — no Docker required.
 ```
 
-### 4. Verify the full Docker Compose stack
-
-Run through this checklist manually and confirm each step:
-- [ ] `docker compose up -d` — all services start, Postgres is healthy
-- [ ] `DATABASE_URL=postgres://... go run ./cmd/server/ --run-once` — migrations run, pipeline completes
-- [ ] Slack receives a digest message
-- [ ] `psql -U groupscout -d groupscout -c "SELECT COUNT(*) FROM leads"` — returns > 0
-
-## Constraints
-- Do not remove SQLite support — it must still work with `DATABASE_URL=groupscout.db`
-- Do not add complexity; these are config and doc changes only
+## Done when
+- `go test -tags integration ./internal/storage/ -run TestFullStack` passes
+- `docker compose up -d` → all services healthy
+- `DATABASE_URL=postgres://... go run ./cmd/server/ --run-once` → Slack receives a digest
 ```
 
 ---
 
+## Running All Tests
+
+```bash
+# Unit tests only (no Docker)
+go test ./...
+
+# Integration tests (requires: docker compose up postgres -d)
+TEST_POSTGRES_URL=postgres://groupscout:groupscout@localhost:5432/groupscout \
+  go test -tags integration ./...
+
+# Single part
+TEST_POSTGRES_URL=postgres://... go test -tags integration ./internal/storage/ -v -run TestLeadStore
+```
+
 ## Tips for Using These Prompts
 
-- **Attach files:** When a prompt says "read this file first" or "[Attach X here]", paste the full file content into your message alongside the prompt. Most AI assistants work best when given the actual code, not just descriptions.
-- **One part at a time:** Complete and verify each part before starting the next. The parts have hard dependencies.
-- **Verify steps are non-negotiable:** Each part ends with acceptance criteria — run them before moving on.
-- **If something breaks:** Parts C and D touch the most code. If the pipeline breaks, check placeholder style (`$N` vs `?`) and boolean handling first.
+- **Attach the actual files** when a prompt says "current file" — paste the full content alongside the prompt.
+- **Red first:** paste the test step into your AI, confirm the error, then paste the implement step.
+- **Parts are hard-dependencies** — do not skip or reorder.
+- **If a test is flaky:** check placeholder style (`$N` vs `?`) and boolean handling first — those are the two most common failure modes in Part C.
