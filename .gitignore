@@ -1,7 +1,15 @@
-# ── Local-only docs ──────────────────────────────────────
-PLANNING.md
-PHASES.md
-CHANGELOG.md
+# ── Local-only docs & planning ──────────────────────────────
+docs/PLANNING.md
+docs/PHASES.md
+docs/CHANGELOG.md
+docs/AI.md
+docs/TECH_IDEAS.md
+docs/groupscout-build-log.md
+CLAUDE.md
+
+# ── Agent metadata ──────────────────────────────────────────
+.claude/
+.junie/
 
 # ── Binaries ─────────────────────────────────────────────
 *.exe

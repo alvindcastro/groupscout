@@ -131,6 +131,6 @@ go run cmd/server/main.go --run-once
 
 ### 📄 Documentation
 
-*   [PHASES.md](./PHASES.md) - Roadmap and current development progress.
-*   [CHANGELOG.md](./CHANGELOG.md) - Detailed history of changes and features.
-*   [groupscout-build-log.md](./groupscout-build-log.md) - Developer's narrative and blog-style build notes.
+*   [PHASES.md](./docs/PHASES.md) - Roadmap and current development progress.
+*   [CHANGELOG.md](./docs/CHANGELOG.md) - Detailed history of changes and features.
+*   [groupscout-build-log.md](./docs/groupscout-build-log.md) - Developer's narrative and blog-style build notes.
