@@ -54,8 +54,12 @@ func main() {
 	l.Info("database ready", "url", cfg.DatabaseURL)
 
 	if *runOnce {
-		if cfg.ClaudeAPIKey == "" {
-			l.Error("CLAUDE_API_KEY is not set")
+		if cfg.AIProvider == "claude" && cfg.ClaudeAPIKey == "" {
+			l.Error("CLAUDE_API_KEY is not set but AI_PROVIDER is claude")
+			os.Exit(1)
+		}
+		if cfg.AIProvider == "gemini" && cfg.GeminiAPIKey == "" {
+			l.Error("GEMINI_API_KEY is not set but AI_PROVIDER is gemini")
 			os.Exit(1)
 		}
 		if cfg.SlackWebhookURL == "" {
@@ -161,7 +165,7 @@ func main() {
 			return
 		}
 
-		emailNotifier := notify.NewEmailNotifier(cfg.SendGridAPIKey)
+		emailNotifier := notify.NewEmailNotifier(cfg.ResendAPIKey)
 		toEmail := r.URL.Query().Get("to")
 		if toEmail == "" {
 			toEmail = "alvin@groupscout.ai" // default
@@ -237,7 +241,15 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	rawStore := storage.NewRawProjectStoreWithDSN(db, cfg.DatabaseURL)
 	leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
 
-	claude := enrichment.NewClaudeEnricher(cfg.ClaudeAPIKey)
+	var ai enrichment.EnricherAI
+	if cfg.AIProvider == "gemini" {
+		ai = enrichment.NewGeminiEnricher(cfg.GeminiAPIKey)
+		l.Info("using Gemini for enrichment")
+	} else {
+		ai = enrichment.NewClaudeEnricher(cfg.ClaudeAPIKey)
+		l.Info("using Claude for enrichment")
+	}
+
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
 	rc := collector.NewRichmondCollector()
 	rc.MinValue = cfg.MinPermitValueCAD
@@ -297,7 +309,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 	l.Info("active collectors", "count", len(names), "names", names)
 
-	e := enrichment.NewEnricher(collectors, rawStore, leadStore, claude, scorer, cfg.PriorityAlertThreshold)
+	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold)
 	e.Verbose = true
 
 	l.Info("running pipeline...")

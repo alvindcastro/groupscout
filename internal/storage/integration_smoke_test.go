@@ -47,8 +47,8 @@ func TestFullStack_postgres(t *testing.T) {
 
 	// Lead
 	lead := &Lead{
-		RawProjectID: p.Hash, Source: "smoke_test",
-		Title: "Smoke test lead", OutOfTownCrewLikely: true,
+		Source: "smoke_test",
+		Title:  "Smoke test lead", OutOfTownCrewLikely: true,
 		PriorityScore: 8, Status: "new",
 	}
 	if err := leadStore.Insert(ctx, lead); err != nil {

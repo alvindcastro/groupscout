@@ -42,7 +42,7 @@
 
 ### Notifications
 - [x] Instant alert for priority score ≥ 9 (`internal/enrichment/enricher.go`)
-- [x] Weekly email digest via SendGrid (`internal/notify/email.go`)
+- [x] Weekly email digest via Resend (`internal/notify/email.go`)
 - [x] Claude outreach draft generation (`internal/enrichment/claude.go`)
 - [x] `/digest` HTTP endpoint for n8n triggers
 

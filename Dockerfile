@@ -21,10 +21,11 @@ FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates
 
-WORKDIR /root/
+WORKDIR /app
 
-# Copy the binary from the builder stage
+# Copy the binary and migrations from the builder stage
 COPY --from=builder /groupscout .
+COPY --from=builder /app/migrations ./migrations
 
 # Expose port
 EXPOSE 8080

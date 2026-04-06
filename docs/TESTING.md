@@ -57,12 +57,12 @@ curl -X POST http://localhost:8080/run \
 
 **Check what happened after a run:**
 ```bash
-docker-compose logs app --tail=50
+docker compose logs app --tail=50
 ```
 
 **Follow logs in real time during a run:**
 ```bash
-docker-compose logs -f app
+docker compose logs -f app
 ```
 
 #### 5. Collector Test Pattern

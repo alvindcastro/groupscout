@@ -79,8 +79,12 @@ func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
 			notes, status, created_at, updated_at
 		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 	`
+	var rawProjectID any
+	if l.RawProjectID != "" {
+		rawProjectID = l.RawProjectID
+	}
 	_, err := s.db.ExecContext(ctx, Rebind(s.dsn, query),
-		l.ID, l.RawProjectID, l.Source, l.Title, l.Location, l.ProjectValue,
+		l.ID, rawProjectID, l.Source, l.Title, l.Location, l.ProjectValue,
 		l.GeneralContractor, l.Applicant, l.Contractor, l.SourceURL, l.ProjectType,
 		l.EstimatedCrewSize, l.EstimatedDurationMonths, l.OutOfTownCrewLikely,
 		l.PriorityScore, l.PriorityReason, l.SuggestedOutreachTiming,
@@ -109,8 +113,9 @@ func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
 	var leads []Lead
 	for rows.Next() {
 		var l Lead
+		var rawProjectID sql.NullString
 		if err := rows.Scan(
-			&l.ID, &l.RawProjectID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
+			&l.ID, &rawProjectID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
 			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
 			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
 			&l.PriorityScore, &l.PriorityReason, &l.SuggestedOutreachTiming,
@@ -118,6 +123,7 @@ func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
 		); err != nil {
 			return nil, err
 		}
+		l.RawProjectID = rawProjectID.String
 		leads = append(leads, l)
 	}
 	return leads, rows.Err()
@@ -144,8 +150,9 @@ func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
 	var leads []Lead
 	for rows.Next() {
 		var l Lead
+		var rawProjectID sql.NullString
 		if err := rows.Scan(
-			&l.ID, &l.RawProjectID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
+			&l.ID, &rawProjectID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
 			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
 			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
 			&l.PriorityScore, &l.PriorityReason, &l.SuggestedOutreachTiming,
@@ -153,6 +160,7 @@ func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
 		); err != nil {
 			return nil, err
 		}
+		l.RawProjectID = rawProjectID.String
 		leads = append(leads, l)
 	}
 	return leads, rows.Err()

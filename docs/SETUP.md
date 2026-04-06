@@ -80,10 +80,10 @@ go run cmd/server/main.go --run-once
 Starts GroupScout + **Postgres (with pgvector/pgvector:pg17)** + n8n + Prometheus + Grafana + Loki in one command.
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-> **WSL2 users:** Use `docker-compose` (with hyphen, v1). The `docker compose` (v2 plugin) requires Docker Desktop WSL integration to be enabled for your distro — go to **Docker Desktop → Settings → Resources → WSL Integration** and toggle your distro on.
+> **WSL2 users:** Modern Docker installations use the `docker compose` (v2 plugin) command. If you get a "'docker-compose' could not be found" error, ensure you are using the space-separated command `docker compose` instead of the hyphenated `docker-compose`. Ensure **Docker Desktop → Settings → Resources → WSL Integration** is enabled for your distro.
 
 > **Permission denied on Docker socket?** Run `sudo usermod -aG docker $USER && newgrp docker` then retry.
 
@@ -104,35 +104,35 @@ Services that come up:
 
 Check container status:
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 Follow GroupScout logs in real time:
 ```bash
-docker-compose logs -f app
+docker compose logs -f app
 ```
 
 View recent logs (last 50 lines):
 ```bash
-docker-compose logs app --tail=50
+docker compose logs app --tail=50
 ```
 
 Follow logs for all services:
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 View logs for a specific service:
 ```bash
-docker-compose logs n8n --tail=30
-docker-compose logs grafana --tail=30
+docker compose logs n8n --tail=30
+docker compose logs grafana --tail=30
 ```
 
 ---
 
 #### Docker — Reading a Pipeline Run
 
-After triggering `/run`, check `docker-compose logs app --tail=50`. A healthy run looks like:
+After triggering `/run`, check `docker compose logs app --tail=50`. A healthy run looks like:
 
 ```
 INFO  pipeline triggered via HTTP /run
@@ -148,7 +148,7 @@ INFO  sent leads to Slack  count=1
 ```
 
 **Known warnings (safe to ignore):**
-- `"SENDGRID_API_KEY" variable is not set` — expected if email digest isn't configured
+- `"RESEND_API_KEY" variable is not set` — expected if email digest isn't configured
 - `"RICHMOND_PERMITS_URL" variable is not set` — uses the hardcoded default URL
 
 **Known errors (not yet fixed):**
@@ -159,7 +159,7 @@ INFO  sent leads to Slack  count=1
 #### Docker — Rebuild After Code Changes
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 > If `go mod download` fails during build, check that the Go version in `Dockerfile` matches `go.mod`. `go.mod` currently declares `go 1.26` — the Dockerfile must use `golang:1.26-alpine` or higher.
@@ -170,12 +170,12 @@ docker-compose up -d --build
 
 Stop containers (keep volumes/images):
 ```bash
-docker-compose down
+docker compose down
 ```
 
 Stop and remove everything including volumes:
 ```bash
-docker-compose down --rmi all --volumes
+docker compose down --rmi all --volumes
 ```
 
 ---
@@ -263,7 +263,7 @@ Check:
 
 If you've been using SQLite (`groupscout.db`) and want to move your data to a new PostgreSQL instance:
 
-1.  **Ensure Postgres is running** and accessible (e.g., via `docker-compose up -d`).
+1.  **Ensure Postgres is running** and accessible (e.g., via `docker compose up -d`).
 2.  **Run the migration script**:
 
     ```bash
@@ -305,4 +305,4 @@ All endpoints except `/health` require `Authorization: Bearer YOUR_API_TOKEN`.
 | `go mod download` fails during Docker build | Go version mismatch — `Dockerfile` must use `golang:1.26-alpine` to match `go.mod` |
 | `Failed to initialize: protocol not available` | Docker Desktop WSL integration not enabled for your distro — see Docker Desktop → Settings → Resources → WSL Integration |
 | `permission denied` on Docker socket | Run `sudo usermod -aG docker $USER && newgrp docker` |
-| Docker Desktop UI stuck on stale compose entry | Run `docker-compose down` from the project directory, then restart Docker Desktop |
+| Docker Desktop UI stuck on stale compose entry | Run `docker compose down` from the project directory, then restart Docker Desktop |
