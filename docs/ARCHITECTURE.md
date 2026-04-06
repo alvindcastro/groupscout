@@ -63,7 +63,7 @@ Dispatches alerts and monitors system health.
 ### Technology Stack
 
 -   **Language**: Go (Golang)
--   **Database**: PostgreSQL (with `pgvector`) and SQLite (local-first, easily portable)
+-   **Database**: PostgreSQL (with `pgvector`) and SQLite (local-first, easily portable). Includes a one-way migration script (`scripts/migrate_to_postgres/main.go`).
 -   **AI**: Anthropic Claude API (3.5 Sonnet/Haiku)
 -   **Integrations**: Slack Webhooks, SendGrid API, Sentry, **n8n**, Prometheus, Grafana Loki
 -   **Configuration**: Environment variables (supporting `.env` files)
