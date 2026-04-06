@@ -10,6 +10,12 @@ import (
 	"github.com/getsentry/sentry-go"
 )
 
+// EnricherAI defines the interface for AI models to enrich lead data.
+type EnricherAI interface {
+	Enrich(ctx context.Context, p collector.RawProject) (*EnrichedLead, error)
+	DraftOutreach(ctx context.Context, l storage.Lead) (string, error)
+}
+
 // Enricher orchestrates the collect → dedup → enrich → store pipeline.
 // It runs every registered Collector, skips permits already in the DB,
 // calls Claude to enrich new ones, and writes the resulting Lead records.
@@ -17,7 +23,7 @@ type Enricher struct {
 	collectors             []collector.Collector
 	rawStore               storage.RawProjectStore
 	leadStore              storage.LeadStore
-	claude                 *ClaudeEnricher
+	ai                     EnricherAI
 	scorer                 *Scorer
 	PriorityAlertThreshold int
 	Verbose                bool
@@ -28,7 +34,7 @@ func NewEnricher(
 	collectors []collector.Collector,
 	rawStore storage.RawProjectStore,
 	leadStore storage.LeadStore,
-	claude *ClaudeEnricher,
+	ai EnricherAI,
 	scorer *Scorer,
 	priorityAlertThreshold int,
 ) *Enricher {
@@ -36,7 +42,7 @@ func NewEnricher(
 		collectors:             collectors,
 		rawStore:               rawStore,
 		leadStore:              leadStore,
-		claude:                 claude,
+		ai:                     ai,
 		scorer:                 scorer,
 		PriorityAlertThreshold: priorityAlertThreshold,
 	}
@@ -126,7 +132,6 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		}
 		// Create a "skipped" lead record
 		lead := storage.Lead{
-			RawProjectID:   p.ExternalID,
 			Source:         p.Source,
 			Title:          p.Title,
 			Location:       p.Location,
@@ -142,8 +147,8 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		return true, nil
 	}
 
-	// 2. Claude enrichment
-	enriched, err := e.claude.Enrich(ctx, p)
+	// 2. AI enrichment
+	enriched, err := e.ai.Enrich(ctx, p)
 	if err != nil {
 		// Log and skip — don't fail the run over a single API error
 		l.Error("enrichment failed", "title", p.Title, "error", err)

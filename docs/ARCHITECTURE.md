@@ -42,7 +42,7 @@ Responsible for identifying high-value leads and preparing them for outreach.
 #### 4. Notification & Observability Layer (`internal/notify`)
 Dispatches alerts and monitors system health.
 - **Slack**: Sends real-time alerts and lead digests to configured webhooks.
-- **Email**: Sends weekly HTML summaries and outreach drafts via SendGrid.
+- **Email**: Sends weekly HTML summaries and outreach drafts via Resend.
 - **Sentry**: Captures and reports runtime errors and pipeline failures.
 - **Health Check**: Exposes a `/health` endpoint to verify database and API connectivity.
 - **Monitoring**: Integrates with Prometheus and Grafana Loki (via Docker) for infrastructure-level observability.
@@ -65,7 +65,7 @@ Dispatches alerts and monitors system health.
 -   **Language**: Go (Golang)
 -   **Database**: PostgreSQL (with `pgvector`) and SQLite (local-first, easily portable). Includes a one-way migration script (`scripts/migrate_to_postgres/main.go`).
 -   **AI**: Anthropic Claude API (3.5 Sonnet/Haiku)
--   **Integrations**: Slack Webhooks, SendGrid API, Sentry, **n8n**, Prometheus, Grafana Loki
+-   **Integrations**: Slack Webhooks, Resend API, Sentry, **n8n**, Prometheus, Grafana Loki
 -   **Configuration**: Environment variables (supporting `.env` files)
 -   **Observability**: Structured JSON logging (slog), Sentry Error Tracking
 

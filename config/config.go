@@ -11,8 +11,10 @@ import (
 type Config struct {
 	DatabaseURL            string
 	ClaudeAPIKey           string
+	GeminiAPIKey           string
+	AIProvider             string
 	SlackWebhookURL        string
-	SendGridAPIKey         string
+	ResendAPIKey           string
 	RichmondPermitsURL     string
 	DeltaPermitsURL        string
 	CreativeBCEnabled      bool
@@ -47,8 +49,10 @@ func Load() (*Config, error) {
 	return &Config{
 		DatabaseURL:            getEnv("DATABASE_URL", "groupscout.db"),
 		ClaudeAPIKey:           os.Getenv("CLAUDE_API_KEY"),
+		GeminiAPIKey:           os.Getenv("GEMINI_API_KEY"),
+		AIProvider:             getEnv("AI_PROVIDER", "claude"),
 		SlackWebhookURL:        os.Getenv("SLACK_WEBHOOK_URL"),
-		SendGridAPIKey:         os.Getenv("SENDGRID_API_KEY"),
+		ResendAPIKey:           os.Getenv("RESEND_API_KEY"),
 		RichmondPermitsURL:     os.Getenv("RICHMOND_PERMITS_URL"),
 		DeltaPermitsURL:        os.Getenv("DELTA_PERMITS_URL"),
 		CreativeBCEnabled:      os.Getenv("CREATIVEBC_ENABLED") == "true",

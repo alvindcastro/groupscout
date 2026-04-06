@@ -240,9 +240,11 @@ The `EmbeddingStore` interface means only the implementation swaps — `enricher
 ## Implementation Status
 
 ### Phase A — AI-Ready SQL only (no embeddings yet)
-- [ ] `v_lead_context` view
-- [ ] `GetContext(ctx, id) string` method
-- [ ] refactor `*Prompt()` functions to use `GetContext()`
+> Coding prompts: [PROMPTS_AI_READY_SQL.md](./PROMPTS_AI_READY_SQL.md)
+- [ ] `migrations/004_lead_context_view.up.sql` — `v_lead_context` view
+- [ ] `GetContext(ctx, id string) (string, error)` on `LeadStore`
+- [ ] Refactor `DraftOutreach()` to accept and use `contextText string`
+- [ ] Wire `GetContext()` into the outreach draft endpoint
 
 ### Phase B — Embeddings + storage
 - [x] `lead_embeddings` table (Postgres/SQLite)

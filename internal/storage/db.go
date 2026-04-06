@@ -98,7 +98,9 @@ func Migrate(db *sql.DB, dsn string) error {
 		_, b, _, _ := runtime.Caller(0)
 		basepath := filepath.Dir(b)
 		migrationsPath := filepath.Join(basepath, "..", "..", "migrations")
-		m, err := migrate.New("file://"+filepath.ToSlash(migrationsPath), dsn)
+		migrateDSN := strings.Replace(dsn, "postgres://", "pgx5://", 1)
+		migrateDSN = strings.Replace(migrateDSN, "postgresql://", "pgx5://", 1)
+		m, err := migrate.New("file://"+filepath.ToSlash(migrationsPath), migrateDSN)
 		if err != nil {
 			return err
 		}

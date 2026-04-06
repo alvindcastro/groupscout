@@ -3,14 +3,17 @@ package notify
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/alvindcastro/groupscout/internal/storage"
-	"github.com/sendgrid/sendgrid-go"
-	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
+
+const resendAPIURL = "https://api.resend.com/emails"
 
 type EmailNotifier struct {
 	APIKey string
@@ -22,7 +25,7 @@ func NewEmailNotifier(apiKey string) *EmailNotifier {
 
 func (n *EmailNotifier) SendWeeklyDigest(ctx context.Context, toEmail string, leads []storage.Lead) error {
 	if n.APIKey == "" {
-		return fmt.Errorf("SENDGRID_API_KEY not set")
+		return fmt.Errorf("RESEND_API_KEY not set")
 	}
 
 	html, err := generateDigestHTML(leads)
@@ -30,14 +33,36 @@ func (n *EmailNotifier) SendWeeklyDigest(ctx context.Context, toEmail string, le
 		return fmt.Errorf("generate html: %w", err)
 	}
 
-	from := mail.NewEmail("GroupScout", "alerts@groupscout.ai") // Replace with verified sender
-	subject := fmt.Sprintf("Weekly Lead Digest - %s", time.Now().Format("Jan 02, 2006"))
-	to := mail.NewEmail("Sandman Sales Team", toEmail)
-	message := mail.NewSingleEmail(from, subject, to, "Please view in an HTML-enabled client.", html)
+	payload := map[string]any{
+		"from":    "GroupScout <alerts@groupscout.ai>",
+		"to":      []string{toEmail},
+		"subject": fmt.Sprintf("Weekly Lead Digest - %s", time.Now().Format("Jan 02, 2006")),
+		"html":    html,
+	}
 
-	client := sendgrid.NewSendClient(n.APIKey)
-	_, err = client.Send(message)
-	return err
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendAPIURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+n.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("resend API error %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
 }
 
 func generateDigestHTML(leads []storage.Lead) (string, error) {
@@ -59,7 +84,7 @@ func generateDigestHTML(leads []storage.Lead) (string, error) {
 <body>
     <h1>Weekly High-Priority Leads</h1>
     <p>Here are the top construction and event leads for the past week.</p>
-    
+
     {{range .}}
     <div class="lead-card {{if ge .PriorityScore 8}}high-priority{{else}}medium-priority{{end}}">
         <h2>{{.Title}}</h2>

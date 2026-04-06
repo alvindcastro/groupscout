@@ -58,7 +58,7 @@ GroupScout includes a `docker-compose.yml` that starts the app along with **n8n*
 
 ```bash
 # Define your keys in .env first, then:
-docker-compose up -d
+docker compose up -d
 ```
 
 *   **GroupScout API**: `http://localhost:8080`
@@ -125,6 +125,12 @@ See [swagger.yaml](./swagger.yaml) for the full OpenAPI specification.
 go run cmd/server/main.go
 ```
 *   **Trigger via API:** Send a `POST` request to `http://localhost:8080/run` with `Authorization: Bearer YOUR_API_TOKEN`.
+
+#### 3. Docker Mode
+Run the entire stack (app, database, monitoring) using Docker Compose:
+```bash
+docker compose up -d
+```
 
 #### 2. CLI Mode (Run Once)
 Executes the full pipeline once and exits immediately.
