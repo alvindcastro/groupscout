@@ -139,32 +139,23 @@ CREATE TABLE IF NOT EXISTS lead_embeddings (
 );
 ```
 
-### Similarity search in Go (no CGO needed)
+### Similarity search in Go (SQLite) or pgvector (Postgres)
+
+The system now supports dual-driver vector storage via the `EmbeddingStore` interface:
 
 ```go
 // internal/storage/embeddings.go
 
 type EmbeddingStore interface {
     Save(ctx context.Context, leadID string, model string, vec []float32) error
-    Similar(ctx context.Context, vec []float32, k int) ([]string, error) // returns lead IDs
-}
-
-// cosineSimilarity computes similarity between two float32 vectors
-func cosineSimilarity(a, b []float32) float32 {
-    var dot, normA, normB float32
-    for i := range a {
-        dot += a[i] * b[i]
-        normA += a[i] * a[i]
-        normB += b[i] * b[i]
-    }
-    if normA == 0 || normB == 0 {
-        return 0
-    }
-    return dot / (float32(math.Sqrt(float64(normA))) * float32(math.Sqrt(float64(normB))))
+    Similar(ctx context.Context, vec []float32, k int) ([]string, error)
 }
 ```
 
-At 100 leads with 512-dim embeddings, a full scan takes < 1ms in Go. No index needed until thousands of leads.
+- **Postgres Implementation**: Uses the `pgvector` extension and the `<=>` (cosine distance) operator for high-performance similarity search.
+- **SQLite Implementation**: Uses a dedicated table and Go-native `cosineSimilarity` calculation for local-first portability.
+
+At 100 leads with 512-dim embeddings, a full scan in Go takes < 1ms. For larger datasets, Postgres with `pgvector` provides indexing support (IVFFlat/HNSW).
 
 ### New interface in `internal/enrichment/embeddings.go`
 

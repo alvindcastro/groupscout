@@ -24,9 +24,10 @@
 - [ ] **Phase 12** — Source expansion: Metro Vancouver municipalities
 - [ ] **Phase 13** — Public tenders & utilities: BC Hydro, FortisBC
 - [ ] **Phase 14** — Infrastructure & self-hosting: Docker ecosystem *(in progress)*
-- [x] **Phase 15** — PostgreSQL + pgvector migration: production storage + RAG foundation
-- [ ] **Phase 16** — LLM provider abstraction: no vendor lock-in (Claude / OpenAI / Azure / Groq / Ollama)
-- [ ] **Phase 17** — Future integrations: cloud-native, event-driven, IaC
+- [x] **Phase 15** — PostgreSQL + pgvector migration: production storage + RAG foundation ✅
+- [ ] **Phase 16** — RAG Implementation: integrate `EmbeddingStore` into enrichment pipeline 🔄
+- [ ] **Phase 17** — LLM provider abstraction: no vendor lock-in (Claude / OpenAI / Azure / Groq / Ollama)
+- [ ] **Phase 18** — Future integrations: cloud-native, event-driven, IaC
 
 ---
 
@@ -68,6 +69,9 @@
 - [ ] VPS or Railway deployment (single container)
 - [x] Env var hardening + `.env.example` documentation
 - [x] Smoke test all collectors end-to-end on production
+- [x] Add PostgreSQL support with SQLite fallback
+- [x] Add versioned migrations for Postgres schema
+- [x] Add `pgvector` support and SQLite vector storage fallback
 
 ---
 

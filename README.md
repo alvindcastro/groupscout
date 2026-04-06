@@ -22,6 +22,7 @@
 
 *   **Go (Golang):** Core application logic and concurrent scrapers.
 *   **Database:** Dual-driver support for **PostgreSQL** (via `pgx/v5`) and **SQLite** (local persistent storage).
+*   **Vector Search:** Native **pgvector** support in Postgres and a Go-native cosine similarity fallback for SQLite.
 *   **Sentry:** Production-grade error monitoring and real-time alerting.
 *   **pdftotext:** Used for high-accuracy PDF parsing (via Poppler or Git for Windows).
 *   **Anthropic Claude API:** Advanced project analysis and room night estimation.

@@ -30,6 +30,7 @@ Handles data persistence and deduplication with dual-driver support (**PostgreSQ
 - **`raw_projects`**: Stores the original payload from collectors to ensure data lineage and prevent re-processing of the same items (via SHA-256 hashing).
 - **`leads`**: Stores enriched business opportunities with scoring, contact details, and status tracking.
 - **`outreach_log`**: Records interactions with leads (emails, calls, LinkedIn) for CRM-like functionality.
+- **`lead_embeddings`**: Stores vector embeddings of leads for similarity-based retrieval (RAG). Uses **pgvector** on Postgres and a custom Go-native implementation for SQLite.
 
 #### 3. Enrichment & Scoping Layer (`internal/enrichment`)
 Responsible for identifying high-value leads and preparing them for outreach.

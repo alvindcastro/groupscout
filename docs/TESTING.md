@@ -41,7 +41,13 @@ These tests verify:
 - SQL placeholder rebinding (`Rebind`).
 - Versioned migrations (`Migrate`) using `golang-migrate`.
 - Native Postgres type handling (e.g., `BOOLEAN`, `JSONB`).
+- Vector similarity search (`EmbeddingStore`) using `pgvector` operators (e.g., `<=>`).
 - CRUD operations and idempotency.
+
+**Run embedding-specific unit tests (SQLite/Go-native):**
+```powershell
+go test -v ./internal/storage/ -run EmbeddingStore
+```
 
 **Trigger the pipeline manually (Docker):**
 ```bash
