@@ -21,7 +21,7 @@
 ### 🛠 Tech Stack
 
 *   **Go (Golang):** Core application logic and concurrent scrapers.
-*   **SQLite:** Local persistent storage for lead tracking and deduplication.
+*   **Database:** Dual-driver support for **PostgreSQL** (via `pgx/v5`) and **SQLite** (local persistent storage).
 *   **Sentry:** Production-grade error monitoring and real-time alerting.
 *   **pdftotext:** Used for high-accuracy PDF parsing (via Poppler or Git for Windows).
 *   **Anthropic Claude API:** Advanced project analysis and room night estimation.
@@ -82,6 +82,8 @@ JSON_LOG=true
 # --- APP SETTINGS ---
 PORT=8080
 DATABASE_URL=groupscout.db
+# For Postgres:
+# DATABASE_URL=postgres://groupscout:groupscout@localhost:5432/groupscout
 ENRICHMENT_ENABLED=true
 ENRICHMENT_THRESHOLD=1
 PRIORITY_ALERT_THRESHOLD=9
@@ -130,7 +132,8 @@ go run cmd/server/main.go --run-once
 ```
 
 ### 📄 Documentation
-
-*   [PHASES.md](./docs/PHASES.md) - Roadmap and current development progress.
-*   [CHANGELOG.md](./docs/CHANGELOG.md) - Detailed history of changes and features.
+ 
+*   [ROADMAP.md](./docs/ROADMAP.md) - Project roadmap and development progress.
+*   [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
+*   [SETUP.md](./docs/SETUP.md) - Installation and configuration guide.
 *   [groupscout-build-log.md](./docs/groupscout-build-log.md) - Developer's narrative and blog-style build notes.

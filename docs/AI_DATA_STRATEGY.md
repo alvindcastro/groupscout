@@ -225,55 +225,44 @@ This also enables:
 
 ## Does This Replace SQLite?
 
-**Yes — Postgres is the planned migration (Phase 16).** SQLite remains available for local dev (detected from `DATABASE_URL` prefix). What changes at each phase:
+**Yes — Postgres is now implemented (Phase 15).** SQLite remains available for local dev (detected from `DATABASE_URL` prefix). What changes at each phase:
 
-| Layer | Phase B (now, SQLite) | Phase 16 (Postgres) |
+| Layer | SQLite (local dev) | Postgres (production) |
 |---|---|---|
 | Relational data | SQLite | Postgres (`pgvector/pgvector:pg17`) |
 | Prompt building | `v_lead_context` view | Same view, Postgres syntax |
-| Vector storage | `lead_embeddings TEXT` (JSON array) | `lead_embeddings vector(512)` column |
+| Vector storage | `lead_embeddings_sqlite` table | `lead_embeddings` table (`vector(512)`) |
 | Similarity search | Go in-memory cosine | `<=>` pgvector operator + ivfflat index |
-| Boolean columns | `INTEGER` + `boolToInt()` | Native `BOOLEAN` |
+| Boolean columns | `INTEGER` | Native `BOOLEAN` |
 | JSON columns | `TEXT` | `JSONB` (indexable) |
 
-**Phase 16 pgvector query (replaces Go cosine loop):**
+**Postgres pgvector query:**
 ```sql
--- migrations/003_pgvector.up.sql
-CREATE EXTENSION IF NOT EXISTS vector;
-ALTER TABLE lead_embeddings ADD COLUMN vec vector(512);
-CREATE INDEX ON lead_embeddings USING ivfflat (vec vector_cosine_ops);
-
 -- similarity search
-SELECT lead_id FROM lead_embeddings ORDER BY vec <=> $1 LIMIT $2;
+SELECT lead_id FROM lead_embeddings ORDER BY embedding <=> $1 LIMIT $2;
 ```
 
-The `EmbeddingStore` interface means only the implementation swaps — `enricher.go`, `claude.go`, and the pipeline are untouched. See `PHASES.md` Phase 15 for the full migration task list.
+The `EmbeddingStore` interface means only the implementation swaps — `enricher.go`, `claude.go`, and the pipeline are untouched.
 
 ---
 
-## Implementation Plan (Phased)
+## Implementation Status
 
 ### Phase A — AI-Ready SQL only (no embeddings yet)
-- [ ] `migrations/003_ai_context.up.sql` — `v_lead_context` view
-- [ ] `internal/storage/leads.go` — `GetContext(ctx, id) string` method
-- [ ] `internal/enrichment/claude.go` — refactor all `*Prompt()` functions to use `GetContext()` instead of hand-building strings
-- [ ] Verify: prompt output is identical, less code in claude.go
+- [ ] `v_lead_context` view
+- [ ] `GetContext(ctx, id) string` method
+- [ ] refactor `*Prompt()` functions to use `GetContext()`
 
-### Phase B — Embeddings + in-memory RAG
-- [ ] `migrations/003_ai_context.up.sql` — `lead_embeddings` table
-- [ ] `internal/enrichment/embeddings.go` — `Embedder` interface + `VoyageEmbedder` impl (HTTP, no SDK)
-- [ ] `internal/storage/embeddings.go` — `EmbeddingStore` interface + SQLite impl + Go cosine similarity
-- [ ] `config/config.go` — `VoyageAPIKey`, `EmbeddingModel`, `RAGEnabled`, `RAGTopK` (default 3)
-- [ ] `internal/enrichment/enricher.go` — after enrichment: generate + save embedding
-- [ ] `internal/enrichment/enricher.go` — before Claude call: retrieve top-k similar leads, inject as context
-- [ ] `internal/enrichment/claude.go` — update `permitPrompt()` to accept `[]Lead` similar leads param
-- [ ] Verify: enrichment quality improves on 2nd+ run (similar projects provide context)
+### Phase B — Embeddings + storage
+- [x] `lead_embeddings` table (Postgres/SQLite)
+- [ ] `Embedder` interface + `VoyageEmbedder` impl
+- [x] `EmbeddingStore` interface + Postgres (pgvector) + SQLite (in-memory cosine) impls
+- [ ] `internal/enrichment/enricher.go` — generate + save embedding
 
-### Phase C — Postgres + pgvector (Phase 6 migration)
-- [ ] `migrations/004_pgvector.up.sql` — add `vector(512)` column + ivfflat index
-- [ ] `internal/storage/embeddings.go` — add `PostgresEmbeddingStore` impl using pgvector operators
-- [ ] Wire via `DATABASE_URL` prefix: `postgres://` → use pgvector impl; `*.db` → use Go cosine impl
-- [ ] No changes to enricher.go or claude.go — repository pattern isolates the swap
+### Phase C — LLM Provider Abstraction
+- [ ] `LLMClient` interface
+- [ ] `ClaudeClient` + `OpenAICompatibleClient`
+- [ ] `LLM_PROVIDER` env var selects the impl
 
 ---
 

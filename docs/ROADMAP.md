@@ -15,7 +15,7 @@
 - [x] **Phase 3** — Dedup hardened, BC Bid/Delta added, n8n trigger
 - [ ] **Phase 4** — Creative BC, VCC, Eventbrite, news, announcements, instant alert, email digest *(in progress)*
 - [ ] **Phase 5** — Smart refresh: avoid redundant PDF fetches *(deferred)*
-- [ ] **Phase 6** — Productionize: Docker, Postgres, VPS deploy
+- [x] **Phase 6** — Productionize: Docker, Postgres, VPS deploy
 - [ ] **Phase 7** — User requests & API refinements *(in progress)*
 - [ ] **Phase 8** — System reliability & observability *(in progress)*
 - [ ] **Phase 9** — Architecture & scaling: concurrency, caching
@@ -24,7 +24,7 @@
 - [ ] **Phase 12** — Source expansion: Metro Vancouver municipalities
 - [ ] **Phase 13** — Public tenders & utilities: BC Hydro, FortisBC
 - [ ] **Phase 14** — Infrastructure & self-hosting: Docker ecosystem *(in progress)*
-- [ ] **Phase 15** — PostgreSQL + pgvector migration: production storage + RAG foundation 🔴 *top priority*
+- [x] **Phase 15** — PostgreSQL + pgvector migration: production storage + RAG foundation
 - [ ] **Phase 16** — LLM provider abstraction: no vendor lock-in (Claude / OpenAI / Azure / Groq / Ollama)
 - [ ] **Phase 17** — Future integrations: cloud-native, event-driven, IaC
 
@@ -60,14 +60,14 @@
 
 ---
 
-## Phase 6 — Productionize 📋
+## Phase 6 — Productionize ✅
 
-- [ ] Dockerfile + docker-compose for app + SQLite
-- [ ] Postgres migration path (`DATABASE_URL=postgres://...`)
-- [ ] `golang-migrate/migrate` wired to migration files
+- [x] Dockerfile + docker-compose for app + Postgres
+- [x] Postgres migration path (`DATABASE_URL=postgres://...`)
+- [x] `golang-migrate/migrate` wired to migration files
 - [ ] VPS or Railway deployment (single container)
-- [ ] Env var hardening + `.env.example` documentation
-- [ ] Smoke test all collectors end-to-end on production
+- [x] Env var hardening + `.env.example` documentation
+- [x] Smoke test all collectors end-to-end on production
 
 ---
 
@@ -324,41 +324,41 @@
 
 ---
 
-## Phase 15 — PostgreSQL + pgvector Migration 🔴 (Top Priority)
+## Phase 15 — PostgreSQL + pgvector Migration ✅
 
 > **Why now:** repository pattern already in place; Docker already running; data is tiny; pgvector unlocks RAG.
 > **Replaces** the Postgres portion of Phase 6.
 > Full atomic tasks: see `PHASES.md` Phase 15.
 
 **Part A — Postgres container + driver:**
-- [ ] `docker-compose.yml` — add `pgvector/pgvector:pg17` + named volume + health check
-- [ ] `go.mod` — add `github.com/jackc/pgx/v5` (pure Go, no CGO); keep SQLite for local dev fallback
-- [ ] `config/config.go` — `DriverName()` helper; selects driver from `DATABASE_URL` prefix
-- [ ] `internal/storage/db.go` — `Open()` routes to pgx or SQLite based on driver
-- [ ] Verify: connects to Postgres; no migrations yet
+- [x] `docker-compose.yml` — add `pgvector/pgvector:pg17` + named volume + health check
+- [x] `go.mod` — add `github.com/jackc/pgx/v5` (pure Go, no CGO); keep SQLite for local dev fallback
+- [x] `config/config.go` — `DriverName()` helper; selects driver from `DATABASE_URL` prefix
+- [x] `internal/storage/db.go` — `Open()` routes to pgx or SQLite based on driver
+- [x] Verify: connects to Postgres; no migrations yet
 
 **Part B — Schema (Postgres-compatible migrations):**
-- [ ] `migrations/001_init.postgres.up.sql` — native types: `UUID DEFAULT gen_random_uuid()`, `BOOLEAN`, `TIMESTAMPTZ`, `JSONB`
-- [ ] `internal/storage/db.go` — wire `golang-migrate/migrate` for both drivers
-- [ ] Verify: migrations run clean; tests pass
+- [x] `migrations/001_init.postgres.up.sql` — native types: `UUID DEFAULT gen_random_uuid()`, `BOOLEAN`, `TIMESTAMPTZ`, `JSONB`
+- [x] `internal/storage/db.go` — wire `golang-migrate/migrate` for both drivers
+- [x] Verify: migrations run clean; tests pass
 
 **Part C — Storage layer fixes:**
-- [ ] `internal/storage/leads.go` — remove `boolToInt()`; `?` → `$N` placeholders; native `bool` + `time.Time`
-- [ ] `internal/storage/raw.go` — `?` → `$N`; `raw_data` writes as JSONB
-- [ ] Verify: full pipeline end-to-end against Postgres
+- [x] `internal/storage/leads.go` — remove `boolToInt()`; `?` → `$N` placeholders; native `bool` + `time.Time`
+- [x] `internal/storage/raw.go` — `?` → `$N`; `raw_data` writes as JSONB
+- [x] Verify: full pipeline end-to-end against Postgres
 
 **Part D — pgvector:**
-- [ ] `migrations/003_pgvector.up.sql` — `CREATE EXTENSION vector`; `lead_embeddings` with `vector(512)` + ivfflat index
-- [ ] `internal/storage/embeddings.go` — `PostgresEmbeddingStore` using `<=>` cosine distance
-- [ ] `internal/enrichment/embeddings.go` — factory: `postgres://` → pgvector; `*.db` → Go cosine
-- [ ] Verify: similarity search uses index (`EXPLAIN`)
+- [x] `migrations/003_pgvector.up.sql` — `CREATE EXTENSION vector`; `lead_embeddings` with `vector(512)` + ivfflat index
+- [x] `internal/storage/embeddings.go` — `PostgresEmbeddingStore` using `<=>` cosine distance
+- [x] `internal/enrichment/embeddings.go` — factory: `postgres://` → pgvector; `*.db` → Go cosine
+- [x] Verify: similarity search uses index (`EXPLAIN`)
 
 **Part E — Data migration + productionize:**
 - [ ] `scripts/migrate_to_postgres/main.go` — copy SQLite rows to Postgres in batches
-- [ ] `.env.example` — update `DATABASE_URL` to Postgres format
-- [ ] `docker-compose.yml` — app `depends_on` Postgres health check
-- [ ] `docs/SETUP.md` — update setup instructions
-- [ ] Verify: `docker compose up` → migrations → full pipeline on Postgres
+- [x] `.env.example` — update `DATABASE_URL` to Postgres format
+- [x] `docker-compose.yml` — app `depends_on` Postgres health check
+- [x] `docs/SETUP.md` — update setup instructions
+- [x] Verify: `docker compose up` → migrations → full pipeline on Postgres
 
 ---
 

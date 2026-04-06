@@ -23,7 +23,10 @@ Responsible for gathering raw data from external sources. Each data source imple
 - **Standardized Output**: Every collector produces `RawProject` structs, normalizing diverse data into a common format before storage.
 
 #### 2. Storage Layer (`internal/storage`)
-Handles data persistence and deduplication using SQLite (via `modernc.org/sqlite`).
+Handles data persistence and deduplication with dual-driver support (**PostgreSQL** and **SQLite**).
+- **Driver Selection**: Automatically switches between `pgx` (Postgres) and `sqlite` based on the `DATABASE_URL` prefix.
+- **Migrations**: Uses `golang-migrate` for versioned Postgres schema updates, while maintaining an idempotent inline schema for SQLite.
+- **SQL Rebinding**: Dynamically converts standard `?` placeholders to driver-specific formats (e.g., `$1`, `$2` for Postgres).
 - **`raw_projects`**: Stores the original payload from collectors to ensure data lineage and prevent re-processing of the same items (via SHA-256 hashing).
 - **`leads`**: Stores enriched business opportunities with scoring, contact details, and status tracking.
 - **`outreach_log`**: Records interactions with leads (emails, calls, LinkedIn) for CRM-like functionality.
@@ -59,7 +62,7 @@ Dispatches alerts and monitors system health.
 ### Technology Stack
 
 -   **Language**: Go (Golang)
--   **Database**: SQLite (local-first, easily portable)
+-   **Database**: PostgreSQL (with `pgvector`) and SQLite (local-first, easily portable)
 -   **AI**: Anthropic Claude API (3.5 Sonnet/Haiku)
 -   **Integrations**: Slack Webhooks, SendGrid API, Sentry, **n8n**, Prometheus, Grafana Loki
 -   **Configuration**: Environment variables (supporting `.env` files)
