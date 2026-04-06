@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"strings"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 )
 
@@ -55,11 +56,10 @@ CREATE TABLE IF NOT EXISTS outreach_log (
 );
 `
 
-// Open opens the SQLite database at dsn (a file path for local dev,
-// or a postgres:// URL in production — swap the driver import and
-// sql.Open driver name to "pgx" when deploying).
+// Open opens the database at dsn (a file path for SQLite local dev,
+// or a postgres:// URL for Postgres).
 func Open(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(DriverName(dsn), dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +68,14 @@ func Open(dsn string) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+// DriverName returns "pgx" if dsn has a postgres scheme, else "sqlite".
+func DriverName(dsn string) string {
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		return "pgx"
+	}
+	return "sqlite"
 }
 
 // Migrate applies the schema to the database. Safe to call on every startup.

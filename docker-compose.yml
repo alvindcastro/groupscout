@@ -24,6 +24,23 @@ services:
       - MIN_PERMIT_VALUE_CAD=500000
     restart: unless-stopped
 
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      - POSTGRES_DB=groupscout
+      - POSTGRES_USER=groupscout
+      - POSTGRES_PASSWORD=groupscout
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groupscout"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
   n8n:
     image: n8nio/n8n:latest
     ports:
@@ -60,6 +77,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  pgdata:
   n8n_data:
   prometheus_data:
   grafana_data:
