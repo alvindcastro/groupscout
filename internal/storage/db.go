@@ -2,8 +2,13 @@ package storage
 
 import (
 	"database/sql"
+	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 )
@@ -80,7 +85,21 @@ func DriverName(dsn string) string {
 
 // Migrate applies the schema to the database. Safe to call on every startup.
 // For existing databases, it also adds any new columns via ALTER TABLE.
-func Migrate(db *sql.DB) error {
+func Migrate(db *sql.DB, dsn string) error {
+	if DriverName(dsn) == "pgx" {
+		_, b, _, _ := runtime.Caller(0)
+		basepath := filepath.Dir(b)
+		migrationsPath := filepath.Join(basepath, "..", "..", "migrations")
+		m, err := migrate.New("file://"+filepath.ToSlash(migrationsPath), dsn)
+		if err != nil {
+			return err
+		}
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			return err
+		}
+		return nil
+	}
+
 	if _, err := db.Exec(schema); err != nil {
 		return err
 	}

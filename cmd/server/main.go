@@ -47,7 +47,7 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := storage.Migrate(db); err != nil {
+	if err := storage.Migrate(db, cfg.DatabaseURL); err != nil {
 		l.Error("failed to migrate database", "error", err)
 		os.Exit(1)
 	}
