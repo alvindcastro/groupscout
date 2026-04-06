@@ -67,7 +67,7 @@ go run cmd/server/main.go --run-once
 
 ### Option B — Docker Compose (recommended)
 
-Starts GroupScout + **Postgres (with pgvector)** + n8n + Prometheus + Grafana + Loki in one command.
+Starts GroupScout + **Postgres (with pgvector/pgvector:pg17)** + n8n + Prometheus + Grafana + Loki in one command.
 
 ```bash
 docker-compose up -d

@@ -51,6 +51,13 @@ CREATE TABLE IF NOT EXISTS leads (
     updated_at                DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS lead_embeddings_sqlite (
+    lead_id    TEXT PRIMARY KEY REFERENCES leads(id) ON DELETE CASCADE,
+    model      TEXT NOT NULL,
+    embedding  TEXT NOT NULL, -- JSON array of float32
+    created_at DATETIME NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS outreach_log (
     id        TEXT PRIMARY KEY,
     lead_id   TEXT REFERENCES leads(id),
