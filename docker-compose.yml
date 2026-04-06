@@ -3,10 +3,11 @@ services:
     build: .
     ports:
       - "8080:8080"
-    volumes:
-      - .:/root/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      - DATABASE_URL=/root/data/groupscout.db
+      - DATABASE_URL=postgres://groupscout:groupscout@postgres:5432/groupscout
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
