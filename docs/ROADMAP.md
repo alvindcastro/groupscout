@@ -15,7 +15,7 @@
 - [x] **Phase 3** — Dedup hardened, BC Bid/Delta added, n8n trigger
 - [ ] **Phase 4** — Creative BC, VCC, Eventbrite, news, announcements, instant alert, email digest *(in progress)*
 - [ ] **Phase 5** — Smart refresh: avoid redundant PDF fetches *(deferred)*
-- [x] **Phase 6** — Productionize: Docker, Postgres, VPS deploy
+- [x] **Phase 6** — Productionize: Docker, Postgres, VPS deploy ✅
 - [ ] **Phase 7** — User requests & API refinements *(in progress)*
 - [ ] **Phase 8** — System reliability & observability *(in progress)*
 - [ ] **Phase 9** — Architecture & scaling: concurrency, caching
@@ -66,7 +66,7 @@
 - [x] Dockerfile + docker-compose for app + Postgres
 - [x] Postgres migration path (`DATABASE_URL=postgres://...`)
 - [x] `golang-migrate/migrate` wired to migration files
-- [ ] VPS or Railway deployment (single container)
+- [x] VPS or Railway deployment (single container)
 - [x] Env var hardening + `.env.example` documentation
 - [x] Smoke test all collectors end-to-end on production
 - [x] Add PostgreSQL support with SQLite fallback

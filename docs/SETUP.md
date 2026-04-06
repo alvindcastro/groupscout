@@ -40,6 +40,16 @@ openssl rand -hex 32
 
 ---
 
+## Postgres Setup (recommended)
+1. `docker compose up postgres -d` and wait for healthy: `docker compose ps`
+2. Set DATABASE_URL=postgres://groupscout:groupscout@localhost:5432/groupscout in .env
+3. `go run ./cmd/server/ --run-once` — migrations run automatically on first boot
+
+## SQLite (local dev only)
+DATABASE_URL=groupscout.db — no Docker required.
+
+---
+
 ## Step 2 — Choose a run mode
 
 ### Option A — Local Go server
