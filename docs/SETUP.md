@@ -249,6 +249,23 @@ Check:
 - The HTTP Request node shows a `200 OK` response
 - A new Slack message appears with leads
 
+## Step 6 — Migrate Data (SQLite to Postgres)
+
+If you've been using SQLite (`groupscout.db`) and want to move your data to a new PostgreSQL instance:
+
+1.  **Ensure Postgres is running** and accessible (e.g., via `docker-compose up -d`).
+2.  **Run the migration script**:
+
+    ```bash
+    go run scripts/migrate_to_postgres/main.go \
+      --sqlite groupscout.db \
+      --postgres "postgres://groupscout:groupscout@localhost:5432/groupscout"
+    ```
+
+    *   Use `--dry-run` to preview the row counts without writing to Postgres.
+    *   The script is idempotent — it uses `ON CONFLICT DO NOTHING` to prevent duplicates if run multiple times.
+    *   It handles all tables in the correct foreign key order, including `lead_embeddings` and `outreach_log`.
+
 ---
 
 ## Endpoints Reference

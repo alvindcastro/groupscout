@@ -358,7 +358,7 @@
 - [x] Verify: similarity search uses index (`EXPLAIN`)
 
 **Part E — Data migration + productionize:**
-- [ ] `scripts/migrate_to_postgres/main.go` — copy SQLite rows to Postgres in batches
+- [x] `scripts/migrate_to_postgres/main.go` — copy SQLite rows to Postgres in batches
 - [x] `.env.example` — update `DATABASE_URL` to Postgres format
 - [x] `docker-compose.yml` — app `depends_on` Postgres health check
 - [x] `docs/SETUP.md` — update setup instructions
