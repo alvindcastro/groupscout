@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS outreach_log;
+DROP TABLE IF EXISTS leads;
+DROP TABLE IF EXISTS raw_projects;
