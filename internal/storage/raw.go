@@ -18,11 +18,19 @@ type RawProjectStore interface {
 	ExistsByHash(ctx context.Context, hash string) (bool, error)
 }
 
-type sqliteRawStore struct{ db *sql.DB }
+type sqliteRawStore struct {
+	db  *sql.DB
+	dsn string
+}
 
-// NewRawProjectStore returns a SQLite-backed RawProjectStore.
+// NewRawProjectStore returns a RawProjectStore.
 func NewRawProjectStore(db *sql.DB) RawProjectStore {
 	return &sqliteRawStore{db: db}
+}
+
+// NewRawProjectStoreWithDSN returns a RawProjectStore that knows its DSN for rebinding.
+func NewRawProjectStoreWithDSN(db *sql.DB, dsn string) RawProjectStore {
+	return &sqliteRawStore{db: db, dsn: dsn}
 }
 
 func (s *sqliteRawStore) Insert(ctx context.Context, p *collector.RawProject) error {
@@ -30,19 +38,20 @@ func (s *sqliteRawStore) Insert(ctx context.Context, p *collector.RawProject) er
 	if err != nil {
 		return fmt.Errorf("marshal raw_data: %w", err)
 	}
-	_, err = s.db.ExecContext(ctx, `
+	query := `
 		INSERT INTO raw_projects (id, source, external_id, raw_data, collected_at, hash)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(hash) DO NOTHING
-	`, NewUUID(), p.Source, p.ExternalID, string(raw), time.Now().UTC(), p.Hash)
+	`
+	_, err = s.db.ExecContext(ctx, Rebind(s.dsn, query),
+		NewUUID(), p.Source, p.ExternalID, string(raw), time.Now().UTC(), p.Hash)
 	return err
 }
 
 func (s *sqliteRawStore) ExistsByHash(ctx context.Context, hash string) (bool, error) {
 	var count int
-	err := s.db.QueryRowContext(ctx,
-		`SELECT COUNT(1) FROM raw_projects WHERE hash = ?`, hash,
-	).Scan(&count)
+	query := `SELECT COUNT(1) FROM raw_projects WHERE hash = ?`
+	err := s.db.QueryRowContext(ctx, Rebind(s.dsn, query), hash).Scan(&count)
 	return count > 0, err
 }
 

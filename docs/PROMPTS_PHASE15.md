@@ -1,4 +1,4 @@
-# PROMPTS_PHASE15.md — PostgreSQL + pgvector Migration (TDD)
+# PROMPTS_PHASE15.md — PostgreSQL + pgvector Migration (COMPLETED)
 
 > Copy-paste prompts for each part of Phase 15.
 > Every part follows **Red → Green → Refactor**: write the failing tests first, then implement until they pass.

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -116,4 +117,24 @@ func Migrate(db *sql.DB, dsn string) error {
 		}
 	}
 	return nil
+}
+
+// Rebind replaces all '?' placeholders in a query with the appropriate
+// driver-specific placeholder (e.g. '$1', '$2', ... for Postgres/pgx).
+func Rebind(dsn, query string) string {
+	if DriverName(dsn) != "pgx" {
+		return query
+	}
+
+	var result strings.Builder
+	paramIndex := 1
+	for _, char := range query {
+		if char == '?' {
+			fmt.Fprintf(&result, "$%d", paramIndex)
+			paramIndex++
+		} else {
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
 }

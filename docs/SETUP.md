@@ -28,6 +28,7 @@ Minimum required values:
 CLAUDE_API_KEY=sk-ant-...
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
 API_TOKEN=your_secure_token_here
+DATABASE_URL=groupscout.db # Or postgres://user:pass@localhost:5432/db
 ```
 
 Generate a secure `API_TOKEN`:
@@ -66,7 +67,7 @@ go run cmd/server/main.go --run-once
 
 ### Option B — Docker Compose (recommended)
 
-Starts GroupScout + n8n + Prometheus + Grafana + Loki in one command.
+Starts GroupScout + **Postgres (with pgvector)** + n8n + Prometheus + Grafana + Loki in one command.
 
 ```bash
 docker-compose up -d
@@ -81,6 +82,7 @@ Services that come up:
 | Service | URL | Purpose |
 |---|---|---|
 | GroupScout API | http://localhost:8080 | Pipeline trigger + health check |
+| Postgres | localhost:5432 | Primary database (when configured) |
 | n8n | http://localhost:5678 | Workflow scheduler |
 | Grafana | http://localhost:3000 | Dashboards + log viewer |
 | Prometheus | http://localhost:9090 | Metrics |

@@ -148,7 +148,7 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
-		leadStore := storage.NewLeadStore(db)
+		leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
 		leads, err := leadStore.ListForDigest(ctx)
 		if err != nil {
 			l.Error("list for digest failed", "error", err)
@@ -205,7 +205,7 @@ func main() {
 			l.ID = storage.NewUUID()
 		}
 
-		leadStore := storage.NewLeadStore(db)
+		leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
 		if err := leadStore.Insert(context.Background(), &l); err != nil {
 			logger.Log.Error("failed to insert n8n lead", "error", err)
 			http.Error(w, fmt.Sprintf("Failed to store lead: %v", err), http.StatusInternalServerError)
@@ -234,8 +234,8 @@ func main() {
 
 func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	l := logger.Log
-	rawStore := storage.NewRawProjectStore(db)
-	leadStore := storage.NewLeadStore(db)
+	rawStore := storage.NewRawProjectStoreWithDSN(db, cfg.DatabaseURL)
+	leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
 
 	claude := enrichment.NewClaudeEnricher(cfg.ClaudeAPIKey)
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
