@@ -533,10 +533,10 @@
 - [x] **A4** `internal/aviation/navcanada.go` — parse NavCanada NOTAM portal for CYVR ground stops (leads cancellation data by 1–2 hrs)
 
 ### Part B — Stranded Passenger Score (SPS)
-- [ ] **B-T** `internal/aviation/scorer_test.go` — table-driven SPS formula tests (normal, watch, soft-alert, hard-alert bands); Vancouver edge cases: fog duration-weighting, snow pre-alert, single-runway soft-only; all fail first
-- [ ] **B1** `internal/aviation/scorer.go` — SPS formula: `(cancelled/scheduled) × avg_seats × connecting_pax_ratio × time_of_day_multiplier × duration_score`
-- [ ] **B2** SPS thresholds: <20 ignore, 20–60 watch (no alert), 60–120 soft alert, >120 hard alert
-- [ ] **B3** Vancouver tuning: fog events weight duration heavily; snow events pre-alert on ECCC warning; single runway ops → soft alert only
+- [x] **B-T** `internal/aviation/scorer_test.go` — table-driven SPS formula tests (normal, watch, soft-alert, hard-alert bands); Vancouver edge cases: fog duration-weighting, snow pre-alert, single-runway soft-only; all fail first
+- [x] **B1** `internal/aviation/scorer.go` — SPS formula: `(cancelled/scheduled) × avg_seats × connecting_pax_ratio × time_of_day_multiplier × duration_score`
+- [x] **B2** SPS thresholds: <20 ignore, 20–60 watch (no alert), 60–120 soft alert, >120 hard alert
+- [x] **B3** Vancouver tuning: fog events weight duration heavily; snow events pre-alert on ECCC warning; single runway ops → soft alert only
 
 ### Part C — Alert Lifecycle State Machine
 - [ ] **C1-T** `internal/alert/lifecycle_test.go` — state machine tests: Watch → Alert transition at ≥30 min, Update score change, Resolve sends all-clear; table-driven transitions; fail first
