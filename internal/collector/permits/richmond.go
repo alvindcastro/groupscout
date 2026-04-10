@@ -1,4 +1,4 @@
-package collector
+package permits
 
 import (
 	"bufio"
@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
@@ -115,13 +116,13 @@ func NewRichmondCollector() *RichmondCollector {
 	}
 }
 
-// Name satisfies the Collector interface.
+// Name satisfies the collector.Collector interface.
 func (r *RichmondCollector) Name() string { return "richmond_permits" }
 
-// Collect satisfies the Collector interface. Downloads the most recent weekly
+// Collect satisfies the collector.Collector interface. Downloads the most recent weekly
 // building report PDF, parses all permit records, and returns them as RawProjects.
 // Filter + mapping logic added in A3.
-func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
+func (r *RichmondCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
 	urls, err := r.fetchPDFURLs(ctx)
 	if err != nil {
 		return nil, err
@@ -158,7 +159,7 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	pdfURL := urls[0]
-	var projects []RawProject
+	var projects []collector.RawProject
 	for _, rec := range records {
 		if !isRelevant(rec, r.MinValue) {
 			continue
@@ -574,9 +575,9 @@ func isRelevant(rec permitRecord, minValue int64) bool {
 	return commercialSubTypes[strings.ToLower(strings.TrimSpace(rec.SubType))]
 }
 
-// toRawProject maps a permitRecord to the normalized RawProject used by the pipeline.
-func toRawProject(rec permitRecord) RawProject {
-	return RawProject{
+// toRawProject maps a permitRecord to the normalized collector.RawProject used by the pipeline.
+func toRawProject(rec permitRecord) collector.RawProject {
+	return collector.RawProject{
 		Source:     "richmond_permits",
 		ExternalID: rec.FolderNumber,
 		Title:      fmt.Sprintf("%s — %s", rec.SubType, rec.Address),

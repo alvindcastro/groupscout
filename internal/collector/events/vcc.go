@@ -1,4 +1,4 @@
-package collector
+package events
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
@@ -33,7 +34,7 @@ func (c *VCCCollector) Name() string {
 	return "vcc_events"
 }
 
-func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
+func (c *VCCCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
 	if c.Verbose {
 		logger.Log.Info("fetching vcc events", "url", c.url)
 	}
@@ -63,7 +64,7 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	var projects []RawProject
+	var projects []collector.RawProject
 	// The VCC events page typically has event cards.
 	// We'll need to inspect the actual markup to be sure, but let's start with a likely structure.
 	// Based on common patterns and PHASES.md, we want to extract:
@@ -110,7 +111,7 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]RawProject, error) {
 			link = "https://www.vancouverconventioncentre.com" + link
 		}
 
-		project := RawProject{
+		project := collector.RawProject{
 			Source:      c.Name(),
 			ExternalID:  c.slugify(title + " " + dateStr),
 			Title:       title,

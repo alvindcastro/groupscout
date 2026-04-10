@@ -1,4 +1,4 @@
-package collector
+package events
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
@@ -28,7 +29,7 @@ func (c *EventbriteCollector) Name() string {
 	return "eventbrite"
 }
 
-func (c *EventbriteCollector) Collect(ctx context.Context) ([]RawProject, error) {
+func (c *EventbriteCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
 	if c.Verbose {
 		logger.Log.Info("collecting eventbrite started", "url", c.URL)
 	}
@@ -57,7 +58,7 @@ func (c *EventbriteCollector) Collect(ctx context.Context) ([]RawProject, error)
 		return nil, fmt.Errorf("parse html: %w", err)
 	}
 
-	var projects []RawProject
+	var projects []collector.RawProject
 
 	// Eventbrite structure often uses 'section.event-card-details' or similar.
 	// We'll target a broad set of common classes for cards and links.
@@ -77,7 +78,7 @@ func (c *EventbriteCollector) Collect(ctx context.Context) ([]RawProject, error)
 			return
 		}
 
-		p := RawProject{
+		p := collector.RawProject{
 			Source:      "eventbrite",
 			ExternalID:  link, // Use link as ID
 			Title:       title,

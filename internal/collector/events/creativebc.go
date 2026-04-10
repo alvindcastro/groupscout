@@ -1,17 +1,19 @@
-package collector
+package events
 
 import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
-	"github.com/alvindcastro/groupscout/internal/logger"
-	"golang.org/x/net/html"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/alvindcastro/groupscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/logger"
+	"golang.org/x/net/html"
 )
 
 // creativeBCDefaultURL is the Salesforce Visualforce page that server-renders the in-production
@@ -38,7 +40,7 @@ type creativeBCRecord struct {
 }
 
 // CreativeBCCollector fetches the Creative BC "In Production" Visualforce page and returns
-// Feature Film and TV Series productions as RawProject values.
+// Feature Film and TV Series productions as collector.RawProject values.
 // Enabled via CREATIVEBC_ENABLED=true; URL overridable via CREATIVEBC_URL.
 type CreativeBCCollector struct {
 	URL     string
@@ -66,14 +68,14 @@ func NewCreativeBCCollector(urlOverride string) *CreativeBCCollector {
 	}
 }
 
-// Name satisfies the Collector interface.
+// Name satisfies the collector.Collector interface.
 func (c *CreativeBCCollector) Name() string { return "creativebc" }
 
-// Collect satisfies the Collector interface.
+// Collect satisfies the collector.Collector interface.
 // Fetches the Creative BC in-production page, parses all productions, filters to Feature Film
 // and TV Series, and returns RawProjects. Errors produce a warning log and an empty slice —
 // they do not abort the pipeline run.
-func (c *CreativeBCCollector) Collect(ctx context.Context) ([]RawProject, error) {
+func (c *CreativeBCCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
 	body, err := c.fetchHTML(ctx)
 	if err != nil {
 		logger.Log.Warn("could not fetch creativebc page", "error", err)
@@ -90,7 +92,7 @@ func (c *CreativeBCCollector) Collect(ctx context.Context) ([]RawProject, error)
 		logger.Log.Info("parsed records from creativebc", "count", len(records))
 	}
 
-	var projects []RawProject
+	var projects []collector.RawProject
 	for _, rec := range records {
 		if !isCreativeBCRelevant(rec) {
 			continue
@@ -332,9 +334,9 @@ func isCreativeBCRelevant(rec creativeBCRecord) bool {
 	return creativeBCKeepTypes[strings.ToLower(strings.TrimSpace(rec.Type))]
 }
 
-// toCreativeBCRawProject maps a creativeBCRecord to the normalized RawProject.
+// toCreativeBCRawProject maps a creativeBCRecord to the normalized collector.RawProject.
 // Address and schedule are included in Description so Claude can use them for location scoring.
-func toCreativeBCRawProject(rec creativeBCRecord) RawProject {
+func toCreativeBCRawProject(rec creativeBCRecord) collector.RawProject {
 	desc := fmt.Sprintf("%s — %s", rec.Type, rec.Studio)
 	if rec.Schedule != "" {
 		desc += fmt.Sprintf(" | Schedule: %s", rec.Schedule)
@@ -345,7 +347,7 @@ func toCreativeBCRawProject(rec creativeBCRecord) RawProject {
 
 	location := extractCreativeBCCity(rec.Address)
 
-	return RawProject{
+	return collector.RawProject{
 		Source:      "creativebc",
 		ExternalID:  slugify(rec.Title),
 		Title:       rec.Title,

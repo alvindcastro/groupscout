@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/alvindcastro/groupscout/config"
-	"github.com/alvindcastro/groupscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/collector/permits"
 	"github.com/alvindcastro/groupscout/internal/notify"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
@@ -51,7 +51,7 @@ func main() {
 		sendTestSlack(ctx)
 		return
 	}
-	c := collector.NewRichmondCollector()
+	c := permits.NewRichmondCollector()
 	c.Verbose = true
 	c.MinValue = cfg.MinPermitValueCAD
 	log.Printf("running collector: %s", c.Name())

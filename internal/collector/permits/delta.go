@@ -1,4 +1,4 @@
-package collector
+package permits
 
 import (
 	"bufio"
@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
@@ -87,12 +88,12 @@ func NewDeltaCollector(url string) *DeltaCollector {
 	}
 }
 
-// Name satisfies the Collector interface.
+// Name satisfies the collector.Collector interface.
 func (d *DeltaCollector) Name() string { return "delta_permits" }
 
-// Collect satisfies the Collector interface. Downloads the Delta permit PDF,
+// Collect satisfies the collector.Collector interface. Downloads the Delta permit PDF,
 // parses all permit records, and returns them as RawProjects.
-func (d *DeltaCollector) Collect(ctx context.Context) ([]RawProject, error) {
+func (d *DeltaCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
 	if d.URL == "" {
 		return nil, fmt.Errorf("delta: DELTA_PERMITS_URL is not set")
 	}
@@ -119,7 +120,7 @@ func (d *DeltaCollector) Collect(ctx context.Context) ([]RawProject, error) {
 		}
 	}
 
-	var projects []RawProject
+	var projects []collector.RawProject
 	for _, rec := range records {
 		if !isDeltaRelevant(rec, d.MinValue) {
 			continue
@@ -334,8 +335,8 @@ func isDeltaRelevant(rec deltaRecord, minValue int64) bool {
 	return deltaRelevantTypes[rec.TypePrefix]
 }
 
-// toDeltaRawProject maps a deltaRecord to the normalized RawProject used by the pipeline.
-func toDeltaRawProject(rec deltaRecord) RawProject {
+// toDeltaRawProject maps a deltaRecord to the normalized collector.RawProject used by the pipeline.
+func toDeltaRawProject(rec deltaRecord) collector.RawProject {
 	title := rec.TypeRaw
 	if rec.CivicAddress != "" {
 		title = fmt.Sprintf("%s — %s", rec.TypeRaw, rec.CivicAddress)
@@ -345,7 +346,7 @@ func toDeltaRawProject(rec deltaRecord) RawProject {
 		location = "Delta, BC"
 	}
 
-	return RawProject{
+	return collector.RawProject{
 		Source:      "delta_permits",
 		ExternalID:  rec.PermitNumber,
 		Title:       title,

@@ -1,4 +1,4 @@
-package collector
+package news
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/mmcdole/gofeed"
 )
@@ -26,7 +27,7 @@ func (c *NewsCollector) Name() string {
 	return "google_news"
 }
 
-func (c *NewsCollector) Collect(ctx context.Context) ([]RawProject, error) {
+func (c *NewsCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
 	if c.Verbose {
 		logger.Log.Info("collecting news started")
 	}
@@ -38,7 +39,7 @@ func (c *NewsCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	}
 
 	fp := gofeed.NewParser()
-	var allProjects []RawProject
+	var allProjects []collector.RawProject
 
 	urls := strings.Split(c.RSSURL, ",")
 	for _, url := range urls {
@@ -63,7 +64,7 @@ func (c *NewsCollector) Collect(ctx context.Context) ([]RawProject, error) {
 				continue
 			}
 
-			project := RawProject{
+			project := collector.RawProject{
 				Source:      "google_news",
 				ExternalID:  item.GUID,
 				Title:       item.Title,

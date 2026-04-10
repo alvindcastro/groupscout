@@ -1,4 +1,4 @@
-package collector
+package news
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
@@ -27,12 +28,12 @@ func NewBCBidCollector(rssURLs []string) *BCBidCollector {
 	}
 }
 
-// Name satisfies the Collector interface.
+// Name satisfies the collector.Collector interface.
 func (b *BCBidCollector) Name() string { return "bcbid" }
 
-// Collect satisfies the Collector interface.
-func (b *BCBidCollector) Collect(ctx context.Context) ([]RawProject, error) {
-	var allProjects []RawProject
+// Collect satisfies the collector.Collector interface.
+func (b *BCBidCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
+	var allProjects []collector.RawProject
 
 	// 1. Check for automated RSS feeds if enabled
 	for _, url := range b.RSSURLs {
@@ -71,7 +72,7 @@ func (b *BCBidCollector) Collect(ctx context.Context) ([]RawProject, error) {
 	return allProjects, nil
 }
 
-func (b *BCBidCollector) fetchRSS(ctx context.Context, url string) ([]RawProject, error) {
+func (b *BCBidCollector) fetchRSS(ctx context.Context, url string) ([]collector.RawProject, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -110,13 +111,13 @@ type rssItem struct {
 	Guid        string `xml:"guid"`
 }
 
-func (b *BCBidCollector) parseRSS(data []byte, sourceURL string) ([]RawProject, error) {
+func (b *BCBidCollector) parseRSS(data []byte, sourceURL string) ([]collector.RawProject, error) {
 	var feed rssFeed
 	if err := xml.Unmarshal(data, &feed); err != nil {
 		return nil, err
 	}
 
-	var projects []RawProject
+	var projects []collector.RawProject
 	for _, item := range feed.Channel.Items {
 		id := item.Guid
 		if id == "" {
@@ -127,7 +128,7 @@ func (b *BCBidCollector) parseRSS(data []byte, sourceURL string) ([]RawProject, 
 		desc := item.Description
 		// Basic HTML tag removal if needed, but for now keep it for Enricher
 
-		projects = append(projects, RawProject{
+		projects = append(projects, collector.RawProject{
 			Source:      "bcbid",
 			ExternalID:  id,
 			Title:       item.Title,
@@ -144,10 +145,10 @@ func (b *BCBidCollector) parseRSS(data []byte, sourceURL string) ([]RawProject, 
 	return projects, nil
 }
 
-func (b *BCBidCollector) processRaw(raw string) ([]RawProject, error) {
+func (b *BCBidCollector) processRaw(raw string) ([]collector.RawProject, error) {
 	if strings.HasPrefix(strings.TrimSpace(raw), "<") {
-		// It's HTML. Wrap it in a single RawProject for the Enricher to handle.
-		return []RawProject{
+		// It's HTML. Wrap it in a single collector.RawProject for the Enricher to handle.
+		return []collector.RawProject{
 			{
 				Source:      "bcbid",
 				ExternalID:  fmt.Sprintf("html-%d", time.Now().Unix()),
@@ -172,7 +173,7 @@ func (b *BCBidCollector) processRaw(raw string) ([]RawProject, error) {
 		}
 	}
 
-	var projects []RawProject
+	var projects []collector.RawProject
 	for _, a := range awards {
 		p := b.mapToRawProject(a)
 		if p.ExternalID == "" {
@@ -185,7 +186,7 @@ func (b *BCBidCollector) processRaw(raw string) ([]RawProject, error) {
 	return projects, nil
 }
 
-func (b *BCBidCollector) mapToRawProject(m map[string]any) RawProject {
+func (b *BCBidCollector) mapToRawProject(m map[string]any) collector.RawProject {
 	getString := func(k string) string {
 		if v, ok := m[k].(string); ok {
 			return v
@@ -203,7 +204,7 @@ func (b *BCBidCollector) mapToRawProject(m map[string]any) RawProject {
 		title = getString("description")
 	}
 
-	return RawProject{
+	return collector.RawProject{
 		Source:      "bcbid",
 		ExternalID:  id,
 		Title:       title,

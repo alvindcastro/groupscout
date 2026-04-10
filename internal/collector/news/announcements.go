@@ -1,4 +1,4 @@
-package collector
+package news
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 )
 
@@ -38,8 +39,8 @@ func (c *AnnouncementsCollector) Name() string {
 	return "announcements"
 }
 
-func (c *AnnouncementsCollector) Collect(ctx context.Context) ([]RawProject, error) {
-	var allProjects []RawProject
+func (c *AnnouncementsCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
+	var allProjects []collector.RawProject
 
 	for _, src := range c.Sources {
 		if c.Verbose {
@@ -57,7 +58,7 @@ func (c *AnnouncementsCollector) Collect(ctx context.Context) ([]RawProject, err
 	return allProjects, nil
 }
 
-func (c *AnnouncementsCollector) scrapeSource(ctx context.Context, src AnnouncementSource) ([]RawProject, error) {
+func (c *AnnouncementsCollector) scrapeSource(ctx context.Context, src AnnouncementSource) ([]collector.RawProject, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", src.URL, nil)
 	if err != nil {
 		return nil, err
@@ -80,7 +81,7 @@ func (c *AnnouncementsCollector) scrapeSource(ctx context.Context, src Announcem
 		return nil, err
 	}
 
-	var projects []RawProject
+	var projects []collector.RawProject
 	switch src.Type {
 	case "bcib":
 		projects = c.parseBCIB(doc, src)
@@ -93,8 +94,8 @@ func (c *AnnouncementsCollector) scrapeSource(ctx context.Context, src Announcem
 	return projects, nil
 }
 
-func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src AnnouncementSource) []RawProject {
-	var projects []RawProject
+func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src AnnouncementSource) []collector.RawProject {
+	var projects []collector.RawProject
 	// BCIB uses h3 for project titles in the projects list
 	doc.Find("h3").Each(func(i int, s *goquery.Selection) {
 		title := strings.TrimSpace(s.Text())
@@ -108,7 +109,7 @@ func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src Announceme
 			description = strings.TrimSpace(s.Parent().Text())
 		}
 
-		p := RawProject{
+		p := collector.RawProject{
 			Source:      "announcements",
 			ExternalID:  "bcib:" + title,
 			Title:       title,
@@ -122,8 +123,8 @@ func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src Announceme
 	return projects
 }
 
-func (c *AnnouncementsCollector) parseTransLink(doc *goquery.Document, src AnnouncementSource) []RawProject {
-	var projects []RawProject
+func (c *AnnouncementsCollector) parseTransLink(doc *goquery.Document, src AnnouncementSource) []collector.RawProject {
+	var projects []collector.RawProject
 	// TransLink uses h4 for project categories/titles
 	doc.Find("h4").Each(func(i int, s *goquery.Selection) {
 		title := strings.TrimSpace(s.Text())
@@ -133,7 +134,7 @@ func (c *AnnouncementsCollector) parseTransLink(doc *goquery.Document, src Annou
 
 		description := strings.TrimSpace(s.Next().Text())
 
-		p := RawProject{
+		p := collector.RawProject{
 			Source:      "announcements",
 			ExternalID:  "translink:" + title,
 			Title:       title,
@@ -147,8 +148,8 @@ func (c *AnnouncementsCollector) parseTransLink(doc *goquery.Document, src Annou
 	return projects
 }
 
-func (c *AnnouncementsCollector) parseYVR(doc *goquery.Document, src AnnouncementSource) []RawProject {
-	var projects []RawProject
+func (c *AnnouncementsCollector) parseYVR(doc *goquery.Document, src AnnouncementSource) []collector.RawProject {
+	var projects []collector.RawProject
 	// YVR Newsroom uses h3 for major projects
 	doc.Find("h3").Each(func(i int, s *goquery.Selection) {
 		title := strings.TrimSpace(s.Text())
@@ -156,7 +157,7 @@ func (c *AnnouncementsCollector) parseYVR(doc *goquery.Document, src Announcemen
 			return
 		}
 
-		p := RawProject{
+		p := collector.RawProject{
 			Source:      "announcements",
 			ExternalID:  "yvr:" + title,
 			Title:       title,

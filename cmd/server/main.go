@@ -17,6 +17,9 @@ import (
 
 	"github.com/alvindcastro/groupscout/config"
 	"github.com/alvindcastro/groupscout/internal/collector"
+	"github.com/alvindcastro/groupscout/internal/collector/events"
+	"github.com/alvindcastro/groupscout/internal/collector/news"
+	"github.com/alvindcastro/groupscout/internal/collector/permits"
 	"github.com/alvindcastro/groupscout/internal/enrichment"
 	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/alvindcastro/groupscout/internal/notify"
@@ -251,26 +254,26 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
-	rc := collector.NewRichmondCollector()
+	rc := permits.NewRichmondCollector()
 	rc.MinValue = cfg.MinPermitValueCAD
 	rc.Verbose = true
 	collectors := []collector.Collector{rc}
 
 	if cfg.DeltaPermitsURL != "" {
-		dc := collector.NewDeltaCollector(cfg.DeltaPermitsURL)
+		dc := permits.NewDeltaCollector(cfg.DeltaPermitsURL)
 		dc.MinValue = cfg.MinPermitValueCAD
 		dc.Verbose = true
 		collectors = append(collectors, dc)
 	}
 
 	if cfg.CreativeBCEnabled {
-		cbc := collector.NewCreativeBCCollector(cfg.CreativeBCURL)
+		cbc := events.NewCreativeBCCollector(cfg.CreativeBCURL)
 		cbc.Verbose = true
 		collectors = append(collectors, cbc)
 	}
 
 	if cfg.VCCEnabled {
-		vc := collector.NewVCCCollector(cfg.VCCURL)
+		vc := events.NewVCCCollector(cfg.VCCURL)
 		vc.Verbose = true
 		l.Info("VCC collector enabled", "url", cfg.VCCURL)
 		collectors = append(collectors, vc)
@@ -278,7 +281,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		l.Info("VCC collector disabled")
 	}
 	if cfg.BCBidEnabled {
-		bc := collector.NewBCBidCollector(strings.Split(cfg.BCBidRSSURL, ","))
+		bc := news.NewBCBidCollector(strings.Split(cfg.BCBidRSSURL, ","))
 		bc.Verbose = true
 		collectors = append(collectors, bc)
 	}
@@ -286,19 +289,19 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	l.Debug("config news", "enabled", cfg.NewsEnabled, "url", cfg.NewsRSSURL)
 
 	if cfg.NewsEnabled {
-		nc := collector.NewNewsCollector(cfg.NewsRSSURL)
+		nc := news.NewNewsCollector(cfg.NewsRSSURL)
 		nc.Verbose = true
 		collectors = append(collectors, nc)
 	}
 
 	if cfg.AnnouncementsEnabled {
-		ac := collector.NewAnnouncementsCollector()
+		ac := news.NewAnnouncementsCollector()
 		ac.Verbose = true
 		collectors = append(collectors, ac)
 	}
 
 	if cfg.EventbriteEnabled {
-		ec := collector.NewEventbriteCollector(cfg.EventbriteURL)
+		ec := events.NewEventbriteCollector(cfg.EventbriteURL)
 		ec.Verbose = true
 		collectors = append(collectors, ec)
 	}

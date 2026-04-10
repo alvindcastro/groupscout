@@ -84,11 +84,11 @@ A **separate long-running binary** — distinct from the lead pipeline, differen
 
 -   `cmd/server/`: Main lead pipeline entry point (HTTP server + `--run-once` mode).
 -   `cmd/alertd/`: Airport disruption alert daemon — separate binary (Phase 17).
--   `cmd/smoketest/`: Dev tool for live collector runs and Slack testing.
--   `config/`: Configuration loading, environment management, `properties.yaml` (Phase 21).
--   `internal/collector/`: Source-specific data fetching (Richmond, Delta, BC Bid, VCC, Creative BC, Eventbrite, LinkedIn, Buyandsell, news, announcements).
--   `internal/enrichment/`: LLM orchestration (`LLMClient` interface, Claude, Gemini, OpenAI-compat), rule-based scorer, Hunter.io contact enrichment, repeat detection.
--   `internal/storage/`: Database schema, migrations, CRUD operations, analytics queries.
+-   `cmd/tools/smoketest/`: Dev tool for live collector runs and Slack testing (moved from `cmd/smoketest`).
+-   `api/`: OpenAPI specification (`swagger.yaml`).
+-   `internal/collector/`: Source-specific data fetching grouped into `permits`, `events`, and `news` sub-packages.
+-   `docs/`: Structured project documentation (`guides`, `planning`, `prompts`).
+-   `config/`: Configuration loading, environment management.
 -   `internal/notify/`: Slack (lead alerts + interactive actions + digest), email.
 -   `internal/weather/`: ECCC weather alert poller and classifier (Phase 17).
 -   `internal/aviation/`: YVR flight scraper, NavCanada NOTAM parser, SPS scorer (Phase 17).
@@ -101,5 +101,5 @@ A **separate long-running binary** — distinct from the lead pipeline, differen
 ### Running Modes
 
 -   **Server Mode**: Runs as a long-lived process listening on a port (default: 8080), providing an API for external triggers (e.g., n8n, Zapier).
-    -   See [swagger.yaml](./swagger.yaml) for API documentation.
+    -   See [swagger.yaml](./api/swagger.yaml) for API documentation.
 -   **Run-Once Mode**: Executes the pipeline once and exits (`--run-once`). Ideal for simple cron jobs.

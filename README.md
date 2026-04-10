@@ -119,7 +119,7 @@ Runs a persistent HTTP server that listens for remote triggers (ideal for n8n/cr
 - `POST /digest?to=email@example.com`: Send a weekly summary digest.
 - `POST /n8n/webhook`: Receive a lead manually from external automation.
 
-See [swagger.yaml](./swagger.yaml) for the full OpenAPI specification.
+See [swagger.yaml](./api/swagger.yaml) for the full OpenAPI specification.
 
 ```bash
 go run cmd/server/main.go
@@ -140,7 +140,7 @@ go run cmd/server/main.go --run-once
 
 ### 📄 Documentation
  
-*   [ROADMAP.md](./docs/ROADMAP.md) - Project roadmap and development progress.
+*   [ROADMAP.md](./docs/planning/ROADMAP.md) - Project roadmap and development progress.
 *   [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
-*   [SETUP.md](./docs/SETUP.md) - Installation and configuration guide.
-*   [groupscout-build-log.md](./docs/groupscout-build-log.md) - Developer's narrative and blog-style build notes.
+*   [SETUP.md](./docs/guides/SETUP.md) - Installation and configuration guide.
+*   [groupscout-build-log.md](./docs/prompts/groupscout-build-log.md) - Developer's narrative and blog-style build notes.

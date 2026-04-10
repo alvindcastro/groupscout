@@ -1,15 +1,16 @@
-package collector
+package events
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEventbriteCollector_IsRelevant(t *testing.T) {
-	collector := &EventbriteCollector{}
+	c := &EventbriteCollector{}
 
 	tests := []struct {
 		name     string
@@ -63,7 +64,7 @@ func TestEventbriteCollector_IsRelevant(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, collector.isRelevant(tt.title, tt.metadata))
+			assert.Equal(t, tt.expected, c.isRelevant(tt.title, tt.metadata))
 		})
 	}
 }
@@ -92,16 +93,16 @@ func TestEventbriteCollector_Parse(t *testing.T) {
 	`
 
 	doc, _ := goquery.NewDocumentFromReader(strings.NewReader(html))
-	collector := &EventbriteCollector{Verbose: true}
+	c := &EventbriteCollector{Verbose: true}
 
-	var projects []RawProject
+	var projects []collector.RawProject
 	doc.Find("section.event-card-details, div.DiscoverHorizontalEventCard-module__cardContent___1f9Xv, div.event-card").Each(func(i int, s *goquery.Selection) {
 		title := strings.TrimSpace(s.Find("h3, h2, a.event-card-link").First().Text())
 		link, _ := s.Find("a.event-card-link, a").First().Attr("href")
 		metadata := strings.TrimSpace(s.Text())
 
-		if collector.isRelevant(title, metadata) {
-			p := RawProject{
+		if c.isRelevant(title, metadata) {
+			p := collector.RawProject{
 				Title:       title,
 				SourceURL:   link,
 				Description: metadata,
