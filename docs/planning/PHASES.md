@@ -12,7 +12,7 @@
 
 **You do:**
 5. Review the code
-6. `git add <files> PHASES.md CHANGELOG.md`
+6. `git add <files> docs/planning/PHASES.md docs/CHANGELOG.md`
 7. `git commit -m "<suggested message>"`
 
 > Do not move to the next phase until the current phase goal is met.
@@ -516,7 +516,7 @@
 
 ---
 
-## Phase 17 — Airport Disruption Alert System 📋
+## Phase 17 — Airport Disruption Alert System 🔄
 **Goal:** A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack with actionable revenue ops information. Distinct from the lead pipeline — different cadence, different failure modes.
 
 > Full context and Vancouver-specific tuning: `docs/groupscout-plan.md` sections 4–6.
@@ -524,13 +524,13 @@
 > **TDD rule for this phase:** Write the test file (T task) first. Commit with failing tests. Then implement until green. All scraper/parser functions are pure — test them with fixture data before wiring to live HTTP.
 
 ### Part A — Data Sources & Weather
-- [ ] **A1-T** `internal/weather/eccc_test.go` — `TestParseWeatherAlert` with fixture JSON (atmospheric river, fog, snow); `TestClassifyAlertType` table-driven; mock `httptest.NewServer`; all fail first
-- [ ] **A1** `internal/weather/eccc.go` — poll `api.weather.gc.ca` for Metro Vancouver + Fraser Valley zones (`BC_14_09`, `BC_14_10`, `BC_14_07`); no API key required
-- [ ] **A2** `internal/weather/eccc.go` — classify alert type (atmospheric river, fog, snow, wind) and severity; atmospheric river → lower trigger + longer lookback; snow → pre-alert before cancellations start
-- [ ] **A3-T** `internal/aviation/yvr_test.go` — `TestParseYVRCancellationRate` with fixture HTML; assert rate %, flight count; fail first
-- [ ] **A3** `internal/aviation/yvr.go` — scrape `yvr.ca/en/passengers/flights` for live cancellation rate; poll every 5 min during active event
-- [ ] **A4-T** `internal/aviation/navcanada_test.go` — `TestParseNOTAM` with fixture HTML; ground stop detection (`GND STOP`); fail first
-- [ ] **A4** `internal/aviation/navcanada.go` — parse NavCanada NOTAM portal for CYVR ground stops (leads cancellation data by 1–2 hrs)
+- [x] **A1-T** `internal/weather/eccc_test.go` — `TestParseWeatherAlert` with fixture JSON (atmospheric river, fog, snow); `TestClassifyAlertType` table-driven; mock `httptest.NewServer`; all fail first *
+- [x] **A1** `internal/weather/eccc.go` — poll `api.weather.gc.ca` for Metro Vancouver + Fraser Valley zones (`BC_14_09`, `BC_14_10`, `BC_14_07`); no API key required
+- [x] **A2** `internal/weather/eccc.go` — classify alert type (atmospheric river, fog, snow, wind) and severity; atmospheric river → lower trigger + longer lookback; snow → pre-alert before cancellations start
+- [x] **A3-T** `internal/aviation/yvr_test.go` — `TestParseYVRCancellationRate` with fixture HTML; assert rate %, flight count; fail first
+- [x] **A3** `internal/aviation/yvr.go` — scrape `yvr.ca/en/passengers/flights` for live cancellation rate; poll every 5 min during active event
+- [x] **A4-T** `internal/aviation/navcanada_test.go` — `TestParseNOTAM` with fixture HTML; ground stop detection (`GND STOP`); fail first
+- [x] **A4** `internal/aviation/navcanada.go` — parse NavCanada NOTAM portal for CYVR ground stops (leads cancellation data by 1–2 hrs)
 
 ### Part B — Stranded Passenger Score (SPS)
 - [ ] **B-T** `internal/aviation/scorer_test.go` — table-driven SPS formula tests (normal, watch, soft-alert, hard-alert bands); Vancouver edge cases: fog duration-weighting, snow pre-alert, single-runway soft-only; all fail first

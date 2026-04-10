@@ -13,7 +13,7 @@
 - [x] **Phase 1** — Foundation: DB boots, schema applied
 - [x] **Phase 2** — Richmond → Claude → Slack (first full pipeline)
 - [x] **Phase 3** — Dedup hardened, BC Bid/Delta added, n8n trigger
-- [ ] **Phase 4** — Creative BC, VCC, Eventbrite, news, announcements, instant alert, email digest *(in progress)*
+- [x] **Phase 4** — Creative BC, VCC, Eventbrite, news, announcements, instant alert, email digest ✅
 - [ ] **Phase 5** — Smart refresh: avoid redundant PDF fetches *(deferred)*
 - [x] **Phase 6** — Productionize: Docker, Postgres, VPS deploy ✅
 - [ ] **Phase 7** — User requests & API refinements *(in progress)*
@@ -25,9 +25,13 @@
 - [ ] **Phase 13** — Public tenders & utilities: BC Hydro, FortisBC
 - [ ] **Phase 14** — Infrastructure & self-hosting: Docker ecosystem *(in progress)*
 - [x] **Phase 15** — PostgreSQL + pgvector migration: production storage + RAG foundation ✅
-- [ ] **Phase 16** — RAG Implementation: integrate `EmbeddingStore` into enrichment pipeline 🔄
-- [ ] **Phase 17** — LLM provider abstraction: no vendor lock-in (Claude / OpenAI / Azure / Groq / Ollama)
-- [ ] **Phase 18** — Future integrations: cloud-native, event-driven, IaC
+- [ ] **Phase 16** — LLM Provider Abstraction: no vendor lock-in (Claude / OpenAI / Ollama / Gemini) 🔄
+- [ ] **Phase 17** — Airport Disruption Alert System (`alertd`): YVR real-time monitoring 🔄
+- [ ] **Phase 18** — Contact Enrichment: Hunter.io integration & budget tiers 📋
+- [ ] **Phase 19** — Slack Actions & Lead Feedback: claim/dismiss/snooze buttons 📋
+- [ ] **Phase 20** — Analytics & Source Attribution: weekly performance summary 📋
+- [ ] **Phase 21** — Multi-Property Support: portfolio routing & YAML config 📋
+- [ ] **Phase 22** — Signal Quality & Repeat Org Detection 📋
 
 ---
 
@@ -207,46 +211,76 @@
 
 ---
 
-## Phase 16 — AI/LLM Enhancements 🔭
+## Phase 16 — LLM Provider Abstraction 🔭
 
-> All items from `AI.md`. Organized by effort and dependency order.
+> Remove vendor lock-in from `internal/enrichment`. All LLM calls go through a `LLMClient` interface. Provider is config-driven — switch between Claude, OpenAI, Azure OpenAI, Groq, Mistral, Ollama, or Gemini without touching pipeline code.
 
-### LLM Provider Abstraction — no vendor lock-in (see [AI_DATA_STRATEGY.md](./AI_DATA_STRATEGY.md))
-
-> Two concrete implementations cover all providers: `ClaudeClient` (Anthropic format) and `OpenAICompatibleClient` (covers OpenAI, Azure OpenAI, Groq, Mistral, Ollama — same code, configurable base URL).
-> Full task breakdown with commit-level steps: see `PHASES.md` Phase 16.
-
-**Part A — Interface extraction (internal refactor, no behavior change):**
-- [ ] `internal/enrichment/llm.go` — `LLMClient` interface + `CompletionRequest` struct
-- [ ] `internal/enrichment/claude.go` — refactor `ClaudeEnricher` → `ClaudeClient` implementing `LLMClient`
-- [ ] `internal/enrichment/llm_factory.go` — factory returning `ClaudeClient` only (for now)
-- [ ] `config/config.go` — `LLMProvider`, `LLMModel`, `LLMAPIKey`, `LLMBaseURL` env vars
-- [ ] `internal/enrichment/enricher.go` — swap `*ClaudeEnricher` field for `LLMClient` interface
-- [ ] Verify: `go test ./...` passes; pipeline output unchanged
-
-**Part B — OpenAI-compatible client (covers OpenAI, Groq, Mistral):**
-- [ ] `internal/enrichment/openai_compat.go` — `OpenAICompatibleClient` implementing `LLMClient`
-- [ ] `internal/enrichment/llm_factory.go` — wire `LLM_PROVIDER=openai|groq|mistral`
-- [ ] Verify: `LLM_PROVIDER=openai LLM_MODEL=gpt-4o-mini` produces valid enrichment JSON
-
-**Part C — Azure OpenAI:**
-- [ ] `internal/enrichment/openai_compat.go` — Azure URL builder + `api-key` auth header
-- [ ] `config/config.go` — `AzureResourceName`, `AzureDeploymentName`, `AzureAPIVersion`
-- [ ] Verify: `LLM_PROVIDER=azure` produces valid enrichment JSON
-
-**Part D — Ollama (local / Docker, free):**
-- [ ] `internal/enrichment/llm_factory.go` — wire `LLM_PROVIDER=ollama`; skip auth header if no key set
-- [ ] `docker-compose.yml` — add `ollama` service + model volume
-- [ ] Verify: full pipeline with Ollama, zero external API calls
-
-**Part E — Fallback & resilience:**
-- [ ] `internal/enrichment/llm.go` — `FallbackClient` struct (primary → secondary on error)
-- [ ] `config/config.go` — `LLMFallbackProvider`, `LLMFallbackModel`, `LLMFallbackAPIKey`
-- [ ] Verify: invalid primary key → fallback activates → Sentry captures failure
+- [ ] **Part A** — Interface Extraction: refactor `ClaudeEnricher` to `ClaudeClient` implementing `LLMClient`.
+- [ ] **Part B** — OpenAI-Compatible Client: covers OpenAI, Groq, and Mistral.
+- [ ] **Part C** — Azure OpenAI Support.
+- [ ] **Part D** — Ollama Support: local / Docker, free and private.
+- [ ] **Part E** — Fallback & Resilience: primary → secondary on error.
+- [ ] **Part F** — Gemini Provider: wire existing `gemini.go` into the factory.
 
 ---
 
-### AI-Ready SQL + RAG (see [AI_DATA_STRATEGY.md](./AI_DATA_STRATEGY.md))
+## Phase 17 — Airport Disruption Alert System (`alertd`) 🔄
+
+> A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack with actionable revenue ops information. Distinct from the lead pipeline — different cadence, different failure modes.
+
+- [x] **Part A — Data Sources & Weather:** ECCC weather poller, YVR flight scraper, NavCanada NOTAM parser. ✅
+- [ ] **Part B — Stranded Passenger Score (SPS):** Calculate disruption impact with Vancouver-specific tuning.
+- [ ] **Part C — Alert Lifecycle State Machine:** Manage Watch → Alert → Update → Resolve transitions.
+- [ ] **Part D — Hotel Config & Binary:** YAML config for property-specific thresholds and contacts.
+- [ ] **Part E — Inventory Slash Command:** Allow staff to update room counts directly from Slack.
+
+---
+
+## Phase 18 — Contact Enrichment 📋
+
+> Auto-surface a decision-maker contact alongside each lead — project manager, production coordinator, travel manager — using Hunter.io.
+
+- [ ] **18.1** Hunter.io API client for domain lookup and contact ranking.
+- [ ] **18.2** Attach contact info to lead during enrichment.
+- [ ] **18.3** New migration for contact fields in `leads` table.
+- [ ] **18.4** Append contact info block to Slack messages.
+- [ ] **18.5** Budget & Size Signals: use project value to estimate spend tiers.
+
+---
+
+## Phase 19 — Slack Actions & Lead Feedback 📋
+
+- [ ] **19.1** Interactive Slack buttons: **Claim** / **Dismiss** / **Snooze**.
+- [ ] **19.2** `/slack/actions` endpoint with signing secret verification.
+- [ ] **19.3** Lead status transitions and `snoozed_until` persistence.
+- [ ] **19.4** Outreach Log: track Won / Lost / No Response outcomes.
+- [ ] **19.5** Resurface snoozed leads in weekly digest.
+
+---
+
+## Phase 20 — Analytics & Source Attribution 📋
+
+- [ ] **20.1** Source attribution: hit rate % grouped by data source.
+- [ ] **20.2** Forward demand density view: bucket leads by arrival week.
+- [ ] **20.3** Weekly analytics summary in Slack digest.
+
+---
+
+## Phase 21 — Multi-Property Support 📋
+
+- [ ] **21.1** Property routing: route leads to different Slack channels based on geography.
+- [ ] **21.2** YAML property config (hotel info, segments, thresholds).
+
+---
+
+## Phase 22 — Signal Quality & Repeat Org Detection 📋
+
+- [ ] **22.1** Signal quality scoring per source.
+- [ ] **22.2** Repeat organization detection: flag companies that visited in previous years.
+
+---
+
+### AI-Ready SQL + RAG (Postponed)
 
 **Phase A — AI-Ready SQL (SQLite, no new infra, do first):**
 - [ ] `migrations/003_ai_context.up.sql` — `v_lead_context` view (denormalized LLM context string)
@@ -366,40 +400,51 @@
 
 ---
 
-## Phase 17 — Future Integrations & Cloud-Native 🔭
+## Phase 17 — Airport Disruption Alert System (`alertd`) 🔄
 
-> Items from `FUTURE_INTEGRATION.md`. Long-horizon / architectural ambition.
+**Goal:** A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack.
 
-### Agentic Engineering
-- [ ] **Reasoning loops (ReAct / Plan-and-Solve)** — multi-step enrichment for complex project analysis
-  - Target: `internal/enrichment` | Pilot: prototype with Claude Sonnet
-- [ ] **RAG implementation** — vector DB (ChromaDB, Pinecone, or Vertex AI) for context-aware lead matching against historical successful leads
-  - Enables: "This project is similar to the PCL contract we won in 2024"
-- [ ] **Tool-calling agents** — agents that search LinkedIn, verify business registrations during enrichment
-  - Target: `internal/enrichment`
+### Part A — Data Acquisition & Weather
+- [ ] ECCC Weather Poller (`internal/weather/eccc.go`) *(in progress)*
+- [ ] YVR Flight Status Scraper (`internal/aviation/yvr.go`)
+- [ ] NavCanada NOTAM Parser (`internal/aviation/navcanada.go`)
 
-### Data & AI Pipelines
-- [ ] **Unstructured ingestion** — AI-driven parsing of complex PDF tender documents
-  - Target: `internal/collector`
-- [ ] **AI-ready SQL** — pre-aggregate and clean data optimized for LLM consumption
-  - Target: `internal/storage`
+### Part B — Stranded Passenger Score (SPS)
+- [ ] SPS formula + Vancouver tuning (`internal/aviation/scorer.go`)
 
-### Integration & Cloud
-- [ ] **AIaaS API layer** — expose Claude enrichment as a standalone inference service
-  - Target: `config`, `infrastructure`
-- [ ] **Event-driven architecture** — transition from cron to Pub/Sub / webhook-triggered model (e.g., Google Cloud Workflows)
-  - Enables real-time lead processing instead of scheduled batches
-- [ ] **CRM/ERP direct integration** — HubSpot, Salesforce, SAP via secure API orchestration
-  - Agents create CRM records or trigger workflows automatically
-- [ ] **Infrastructure as Code (IaC)** — Terraform templates for Google Cloud (Vertex AI, Cloud Run, Cloud SQL)
-  - Target: `infrastructure/`
+### Part C — Alert Lifecycle State Machine
+- [ ] State machine: Watch → Alert → Update → Resolve (`internal/alert/lifecycle.go`)
+- [ ] Slack notification with Block Kit (`internal/alert/slack.go`)
 
-### Quality & Validation
-- [ ] **Automated UAT** — validate business value of AI-generated endpoints and drafts
-- [ ] **Technical validation** — stricter DoD for lead scoring; document speed vs. scalability trade-offs per model
+### Part D — Hotel Config & Binary
+- [ ] Hotel ↔ airport config loader (`config/airports.go`)
+- [ ] Main poll loop (`cmd/alertd/main.go`)
+
+### Part E — Inventory Slash Command
+- [ ] `/inventory` Slack command handler
+
+---
+
+## Phase 18 — Contact Enrichment 📋
+
+**Goal:** Auto-surface a decision-maker contact alongside each lead (Phase 18).
+
+---
+
+## Phase 19 — Slack Actions & Lead Feedback 📋
+
+---
+
+## Phase 20 — Analytics & Source Attribution 📋
+
+---
+
+## Phase 21 — Multi-Property Support 📋
+
+---
+
+## Phase 22 — Advanced Intelligence 📋
 
 ---
 
 *groupscout — group lodging demand intelligence*
-*Sandman Hotel Vancouver Airport, Richmond BC*
-*Consolidated roadmap — see `PHASES.md` for atomic task tracking*
