@@ -546,10 +546,10 @@
 - [x] **C3** `AlertMessage` format: Block Kit JSON with cause, status (active/duration), impact (cancellations/stranded pax), recovery estimate, rooms avail, and suggested actions
 
 ### Part D — Hotel Config & Binary
-- [ ] **D1-T** `config/airports_test.go` — `TestLoadAirportConfig` with fixture YAML; assert hotel fields, airline contacts, thresholds; fail first
-- [ ] **D1** `config/airports.go` — YAML hotel config: hotel → airport mapping, distance, SPS thresholds, distressed rate, rack rate, airline ops contacts, Slack channel
-- [ ] **D2** `cmd/alertd/main.go` — main poll loop: 10 min quiet, 90 sec active alert; exponential backoff on API errors
-- [ ] **D3** `docker-compose.yml` — add `alertd` service alongside existing app
+- [x] **D1-T** `config/airports_test.go` — `TestLoadAirportConfig` with fixture YAML; assert hotel fields, airline contacts, thresholds; fail first
+- [x] **D1** `config/airports.go` — YAML hotel config: hotel → airport mapping, distance, SPS thresholds, distressed rate, rack rate, airline ops contacts, Slack channel
+- [x] **D2** `cmd/alertd/main.go` — main poll loop: 10 min quiet, 90 sec active alert; exponential backoff on API errors
+- [x] **D3** `docker-compose.yml` — add `alertd` service alongside existing app
 
 ### Part E — Inventory Slash Command
 - [ ] **E1-T** `cmd/alertd/main_test.go` — `TestInventorySlashCommand` posts `/inventory 34`, asserts KV store updated + 200 response; fail first

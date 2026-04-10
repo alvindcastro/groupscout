@@ -1,0 +1,14 @@
+- id: sandman-richmond
+  name: Sandman Richmond
+  slack_channel: "#alerts-yvr"
+  airports:
+    - code: CYVR
+      distance_min: 8
+  alert_threshold_sps: 60
+  distressed_rate: 119
+  rack_rate: 220
+  airline_contacts:
+    - carrier: Air Canada
+      ops_phone: "604-276-7477"
+    - carrier: WestJet
+      ops_phone: "888-937-8538"
