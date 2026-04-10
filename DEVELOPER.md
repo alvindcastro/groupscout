@@ -88,5 +88,7 @@ go test ./cmd/alertd/... ./internal/alert/...
 - [README.md](./README.md) - Project overview and user setup.
 - [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
 - [SETUP.md](./docs/guides/SETUP.md) - Detailed environment and dependency setup.
+- [API_CONFIG.md](./docs/API_CONFIG.md) - Detailed API and endpoint configuration.
+- [API_TESTING.md](./docs/API_TESTING.md) - Guide on how to test the APIs.
 - [ALERTD_SETUP.md](./docs/guides/ALERTD_SETUP.md) - Specific configuration for the alert system.
 - [PHASES.md](./docs/planning/PHASES.md) - Build tracker and phase history.

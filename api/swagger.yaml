@@ -5,7 +5,9 @@ info:
   version: 1.0.0
 servers:
   - url: http://localhost:8080
-    description: Local development server
+    description: Lead Generation Server (default)
+  - url: http://localhost:8081
+    description: Alerting Service (alertd)
 paths:
   /health:
     get:
@@ -93,6 +95,26 @@ paths:
           description: Unauthorized
         '500':
           description: Failed to store lead
+  /slack/inventory:
+    post:
+      summary: Update room inventory (Slack Slash Command)
+      description: Receives a numeric room count update from a Slack slash command.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Numeric room count (as a string from Slack form)
+      responses:
+        '200':
+          description: Inventory updated successfully
+        '400':
+          description: Invalid room count or form parse failure
+        '405':
+          description: Method not allowed
 components:
   securitySchemes:
     BearerAuth:

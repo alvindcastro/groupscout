@@ -1,0 +1,14 @@
+meta {
+  name: "Slack Inventory Update"
+  type: "http"
+  seq: 5
+}
+
+post {
+  url: {{alertd_url}}/slack/inventory
+  body: formUrlEncoded
+}
+
+body:form-url-encoded {
+  text: 50
+}

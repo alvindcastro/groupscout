@@ -1,0 +1,25 @@
+meta {
+  name: "n8n Webhook"
+  type: "http"
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/n8n/webhook
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{api_token}}
+}
+
+body:json {
+  {
+    "ID": "00000000-0000-0000-0000-000000000001",
+    "Source": "n8n_test",
+    "Title": "Test Lead from Bruno",
+    "Location": "Vancouver, BC",
+    "ProjectValue": 1000000,
+    "Status": "new"
+  }
+}

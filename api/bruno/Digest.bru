@@ -1,0 +1,14 @@
+meta {
+  name: "Trigger Digest"
+  type: "http"
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/digest?to=alvin@groupscout.ai
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{api_token}}
+}

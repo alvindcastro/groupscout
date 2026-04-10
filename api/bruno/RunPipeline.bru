@@ -1,0 +1,20 @@
+meta {
+  name: "Run Pipeline"
+  type: "http"
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/run
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{api_token}}
+}
+
+body:json {
+  {
+    "bcbid_raw_input": ""
+  }
+}

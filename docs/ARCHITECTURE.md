@@ -60,12 +60,10 @@ A **separate long-running binary** — distinct from the lead pipeline, differen
 
 ### Data Flow
 
-1.  **Trigger**: The pipeline is triggered via a scheduled cron job, an HTTP POST request to the `/run` endpoint, or an external push to `/n8n/webhook`.
-2.  **Collection**: Registered collectors fetch data and return `RawProject` objects.
-3.  **Deduplication**: The system checks the `raw_projects` table for existing hashes.
-4.  **Enrichment**: New projects are sent to Claude AI for analysis and scoring.
-5.  **Persistence**: The resulting `Lead` is saved to the database.
-6.  **Notification**: If the lead's score exceeds the `PriorityAlertThreshold`, an alert is dispatched to Slack/Email.
+GroupScout operates two distinct data lifecycles: the **Leads Pipeline** (collect-enrich-notify) and the **Disruption Alert System** (long-running poller).
+
+For a detailed end-to-end breakdown of these processes, including architecture diagrams, see:
+👉 **[Detailed Data Flow Documentation](./DATA_FLOW.md)**
 
 ---
 

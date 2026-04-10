@@ -38,6 +38,11 @@ type Config struct {
 	DigestHour             int
 	JSONLog                bool
 	SentryDSN              string
+	ECCCAlertsURL          string
+	YVRFlightStatusURL     string
+	NavCanadaNOTAMURL      string
+	HunterAPIKey           string
+	LLMBaseURL             string
 }
 
 // Load reads config from environment variables, falling back to sensible defaults.
@@ -76,6 +81,11 @@ func Load() (*Config, error) {
 		DigestHour:             getEnvInt("DIGEST_HOUR", 9),
 		JSONLog:                getEnv("JSON_LOG", "false") == "true",
 		SentryDSN:              os.Getenv("SENTRY_DSN"),
+		ECCCAlertsURL:          getEnv("ECCC_ALERTS_URL", "https://api.weather.gc.ca/collections/alerts/items"),
+		YVRFlightStatusURL:     getEnv("YVR_FLIGHT_STATUS_URL", "https://www.yvr.ca/en/passengers/flights"),
+		NavCanadaNOTAMURL:      getEnv("NAVCANADA_NOTAM_URL", "https://www.navcanada.ca/en/flight-planning/notam-portal.aspx"),
+		HunterAPIKey:           os.Getenv("HUNTER_API_KEY"),
+		LLMBaseURL:             os.Getenv("LLM_BASE_URL"),
 	}, nil
 }
 
