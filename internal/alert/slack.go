@@ -105,6 +105,11 @@ func (a *SlackAlerter) send(ctx context.Context, endpoint string, payload interf
 }
 
 func buildBlocks(msg AlertMessage) []interface{} {
+	roomsText := fmt.Sprintf("%d", msg.RoomsAvail)
+	if msg.RoomsAvail == 0 {
+		roomsText = "room count not set — use /inventory N"
+	}
+
 	blocks := []interface{}{
 		map[string]interface{}{
 			"type": "header",
@@ -148,7 +153,7 @@ func buildBlocks(msg AlertMessage) []interface{} {
 				},
 				map[string]interface{}{
 					"type": "mrkdwn",
-					"text": fmt.Sprintf("*Rooms Available:*\n%d", msg.RoomsAvail),
+					"text": fmt.Sprintf("*Rooms Available:*\n%s", roomsText),
 				},
 			},
 		},

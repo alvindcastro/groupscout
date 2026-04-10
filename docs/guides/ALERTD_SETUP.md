@@ -34,6 +34,24 @@ Hotel configurations are stored in `config/airports.yaml`.
 
 - `SLACK_BOT_TOKEN`: (Required) The Bot User OAuth Token for the Slack app.
 - `ALERTD_CONFIG_PATH`: (Optional) Custom path to the YAML config (defaults to `config/airports.yaml`).
+- `ALERTD_PORT`: (Optional) Port for the Slack slash command HTTP server (defaults to `8081`).
+
+## Slack Slash Commands
+
+`alertd` includes an HTTP server to handle Slack slash commands.
+
+### `/inventory N`
+
+Updates the current room inventory for all alerts.
+- **Usage:** `/inventory 34`
+- **Effect:** Subsequent Slack alerts will display "34 rooms available".
+- **Setup:**
+  1. Go to your Slack App settings.
+  2. Navigate to **Slash Commands**.
+  3. Create a new command `/inventory`.
+  4. Request URL: `http://your-server:8081/slack/inventory`.
+
+If room inventory is not set, alerts will display: "room count not set — use /inventory N".
 
 ## Deployment
 

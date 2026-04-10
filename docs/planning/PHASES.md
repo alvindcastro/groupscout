@@ -552,9 +552,9 @@
 - [x] **D3** `docker-compose.yml` — add `alertd` service alongside existing app
 
 ### Part E — Inventory Slash Command
-- [ ] **E1-T** `cmd/alertd/main_test.go` — `TestInventorySlashCommand` posts `/inventory 34`, asserts KV store updated + 200 response; fail first
-- [ ] **E1** `cmd/alertd/main.go` — HTTP handler for `/slack/inventory` slash command; stores room count in local KV
-- [ ] **E2** Slack alert message includes current room availability from KV; "34 rooms available (as of last sync)"
+- [x] **E1-T** `cmd/alertd/main_test.go` — `TestInventorySlashCommand` posts `/inventory 34`, asserts KV store updated + 200 response; fail first
+- [x] **E1** `cmd/alertd/main.go` — HTTP handler for `/slack/inventory` slash command; stores room count in local KV
+- [x] **E2** Slack alert message includes current room availability from KV; "34 rooms available (as of last sync)"
 
 ---
 

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -16,6 +18,30 @@ import (
 	"github.com/alvindcastro/groupscout/internal/aviation"
 	"github.com/alvindcastro/groupscout/internal/weather"
 )
+
+var roomInventory int
+
+func inventoryHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	text := r.FormValue("text")
+	n, err := strconv.Atoi(text)
+	if err != nil {
+		http.Error(w, "Invalid room count", http.StatusBadRequest)
+		return
+	}
+
+	roomInventory = n
+	fmt.Fprintf(w, "Room count updated to %d", n)
+}
 
 type hotelState struct {
 	config  config.HotelConfig
@@ -44,6 +70,20 @@ func main() {
 	ecccClient := weather.NewECCCClient()
 	yvrScraper := aviation.NewYVRScraper()
 	navCanadaClient := aviation.NewNavCanadaClient()
+
+	// Start HTTP server for Slack slash commands
+	port := os.Getenv("ALERTD_PORT")
+	if port == "" {
+		port = "8081"
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/slack/inventory", inventoryHandler)
+	go func() {
+		log.Printf("Starting HTTP server on port %s", port)
+		if err := http.ListenAndServe(":"+port, mux); err != nil {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
 
 	// Map to store managers per hotel/channel
 	var hotels []hotelState
@@ -75,7 +115,7 @@ func main() {
 
 	for {
 		// Run poll
-		active, err := runPoll(ctx, ecccClient, yvrScraper, navCanadaClient, hotels)
+		active, err := runPoll(ctx, ecccClient, yvrScraper, navCanadaClient, hotels, roomInventory)
 		if err != nil {
 			errorCount++
 			log.Printf("Poll error (count %d): %v", errorCount, err)
@@ -99,7 +139,7 @@ func main() {
 	}
 }
 
-func runPoll(ctx context.Context, eccc *weather.ECCCClient, yvr *aviation.YVRScraper, nav *aviation.NavCanadaClient, hotels []hotelState) (bool, error) {
+func runPoll(ctx context.Context, eccc *weather.ECCCClient, yvr *aviation.YVRScraper, nav *aviation.NavCanadaClient, hotels []hotelState, roomsAvail int) (bool, error) {
 	// Fetch data
 	// For now we assume YVR is the primary airport
 	zones := []string{"BC_14_09", "BC_14_10", "BC_14_07"}
@@ -139,7 +179,7 @@ func runPoll(ctx context.Context, eccc *weather.ECCCClient, yvr *aviation.YVRScr
 		}
 
 		sps := aviation.ComputeSPS(spsInput)
-		err := h.manager.Process(ctx, "CYVR", sps)
+		err := h.manager.Process(ctx, "CYVR", sps, roomsAvail)
 		if err != nil {
 			log.Printf("Error processing hotel %s: %v", h.config.Name, err)
 		}

@@ -42,7 +42,7 @@ func TestLifecycle_WatchToAlertAt30Min(t *testing.T) {
 
 	// T+0: Watch (SPS > 20)
 	sps := aviation.SPSResult{State: aviation.Watch, Score: 30}
-	err := mgr.Process(ctx, airport, sps)
+	err := mgr.Process(ctx, airport, sps, 0)
 	if err != nil {
 		t.Errorf("Process failed: %v", err)
 	}
@@ -59,14 +59,14 @@ func TestLifecycle_WatchToAlertAt30Min(t *testing.T) {
 	// T+29: Still Watch
 	event.StartedAt = time.Now().Add(-29 * time.Minute)
 	sps = aviation.SPSResult{State: aviation.HardAlert, Score: 150}
-	err = mgr.Process(ctx, airport, sps)
+	err = mgr.Process(ctx, airport, sps, 0)
 	if len(mock.postCalls) != 0 {
 		t.Errorf("Expected 0 post calls at T+29, got %d", len(mock.postCalls))
 	}
 
 	// T+30: Alert fires
 	event.StartedAt = time.Now().Add(-30 * time.Minute)
-	err = mgr.Process(ctx, airport, sps)
+	err = mgr.Process(ctx, airport, sps, 0)
 	if len(mock.postCalls) != 1 {
 		t.Errorf("Expected 1 post call at T+30, got %d", len(mock.postCalls))
 	}
@@ -94,7 +94,7 @@ func TestLifecycle_UpdateOnScoreChange(t *testing.T) {
 	}
 
 	sps := aviation.SPSResult{State: aviation.HardAlert, Score: 180}
-	err := mgr.Process(ctx, airport, sps)
+	err := mgr.Process(ctx, airport, sps, 0)
 	if err != nil {
 		t.Errorf("Process failed: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestLifecycle_ResolveSendsAllClear(t *testing.T) {
 	}
 
 	sps := aviation.SPSResult{State: aviation.Ignore, Score: 10}
-	err := mgr.Process(ctx, airport, sps)
+	err := mgr.Process(ctx, airport, sps, 0)
 	if err != nil {
 		t.Errorf("Process failed: %v", err)
 	}
@@ -149,13 +149,13 @@ func TestLifecycle_NoAlertForShortFog(t *testing.T) {
 
 	// T+0: Watch
 	sps := aviation.SPSResult{State: aviation.Watch, Score: 30}
-	mgr.Process(ctx, airport, sps)
+	mgr.Process(ctx, airport, sps, 0)
 
 	// T+15: Resolves (SPS goes to Ignore)
 	event := mgr.events[airport]
 	event.StartedAt = time.Now().Add(-15 * time.Minute)
 	sps = aviation.SPSResult{State: aviation.Ignore, Score: 5}
-	mgr.Process(ctx, airport, sps)
+	mgr.Process(ctx, airport, sps, 0)
 
 	if len(mock.postCalls) != 0 {
 		t.Errorf("Expected 0 post calls for short event, got %d", len(mock.postCalls))

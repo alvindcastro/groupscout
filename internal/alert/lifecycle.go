@@ -63,7 +63,7 @@ func NewLifecycleManager(notifier Notifier) *LifecycleManager {
 	}
 }
 
-func (m *LifecycleManager) Process(ctx context.Context, airportCode string, sps aviation.SPSResult) error {
+func (m *LifecycleManager) Process(ctx context.Context, airportCode string, sps aviation.SPSResult, roomsAvail int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -101,7 +101,7 @@ func (m *LifecycleManager) Process(ctx context.Context, airportCode string, sps 
 	case WatchState:
 		// Transition to Alert if >= 30 min and score is high enough
 		if minutesActive >= 30 && (sps.State == aviation.SoftAlert || sps.State == aviation.HardAlert) {
-			msg := buildAlertMessage(airportCode, sps, minutesActive)
+			msg := buildAlertMessage(airportCode, sps, minutesActive, roomsAvail)
 			ts, err := m.notifier.PostMessage(ctx, msg)
 			if err != nil {
 				return err
@@ -127,7 +127,7 @@ func (m *LifecycleManager) Process(ctx context.Context, airportCode string, sps 
 			event.State = ResolvedState
 		} else if sps.Score != event.LastSPS.Score {
 			// Update existing alert
-			msg := buildAlertMessage(airportCode, sps, minutesActive)
+			msg := buildAlertMessage(airportCode, sps, minutesActive, roomsAvail)
 			err := m.notifier.UpdateMessage(ctx, event.SlackTS, msg)
 			if err != nil {
 				return err
@@ -140,7 +140,7 @@ func (m *LifecycleManager) Process(ctx context.Context, airportCode string, sps 
 	return nil
 }
 
-func buildAlertMessage(airportCode string, sps aviation.SPSResult, minutesActive int) AlertMessage {
+func buildAlertMessage(airportCode string, sps aviation.SPSResult, minutesActive int, roomsAvail int) AlertMessage {
 	statusEmoji := "👀"
 	if sps.State == aviation.HardAlert {
 		statusEmoji = "🔴"
@@ -156,7 +156,7 @@ func buildAlertMessage(airportCode string, sps aviation.SPSResult, minutesActive
 		TotalFlights:  sps.TotalFlights,
 		EstStranded:   int(sps.Score),
 		EarliestClear: "~8–10 hrs",
-		RoomsAvail:    25,
+		RoomsAvail:    roomsAvail,
 		Actions: []string{
 			"Monitor flight status",
 			"Check distressed rates",
