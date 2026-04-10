@@ -141,6 +141,8 @@ go run cmd/server/main.go --run-once
 
 ### 📄 Documentation
  
+*   [DEVELOPER.md](./DEVELOPER.md) - Developer's guide for running and testing the system.
+*   [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
 *   [ROADMAP.md](./docs/planning/ROADMAP.md) - Project roadmap and development progress.
 *   [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
 *   [SETUP.md](./docs/guides/SETUP.md) - Installation and configuration guide.

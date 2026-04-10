@@ -233,8 +233,8 @@ INFO  sent leads to Slack  count=1
 - `"RESEND_API_KEY" variable is not set` — expected if email digest isn't configured
 - `"RICHMOND_PERMITS_URL" variable is not set` — uses the hardcoded default URL
 
-**Known errors (not yet fixed):**
-- `pdftotext not found` on richmond_permits and delta_permits — Poppler isn't installed in the Alpine container yet (Phase 6). These collectors will fail silently; all other collectors still run.
+**Known errors (fixed):**
+- `pdftotext not found` on richmond_permits and delta_permits — `poppler-utils` is now included in the `Dockerfile`.
 
 ---
 
@@ -383,7 +383,7 @@ All endpoints except `/health` require `Authorization: Bearer YOUR_API_TOKEN`.
 | No leads generated | Lower `MIN_PERMIT_VALUE_CAD` to `100000` for testing |
 | PDF parse errors | Confirm `pdftotext` is on your PATH: `pdftotext -v` |
 | `pdftotext not found` (local) | Add `C:\Program Files\Git\mingw64\bin` to your system PATH |
-| `pdftotext not found` (Docker) | Poppler isn't installed in the Alpine image yet — Phase 6 fix. Other collectors still run. |
+| `pdftotext not found` (Docker) | `poppler-utils` is now included in the Docker image. If you see this, run `docker compose up -d --build`. |
 | `go mod download` fails during Docker build | Go version mismatch — `Dockerfile` must use `golang:1.26-alpine` to match `go.mod` |
 | `Failed to initialize: protocol not available` | Docker Desktop WSL integration not enabled for your distro — see Docker Desktop → Settings → Resources → WSL Integration |
 | `permission denied` on Docker socket | Run `sudo usermod -aG docker $USER && newgrp docker` |

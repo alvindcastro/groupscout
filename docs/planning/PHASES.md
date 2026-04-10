@@ -556,6 +556,14 @@
 - [x] **E1** `cmd/alertd/main.go` — HTTP handler for `/slack/inventory` slash command; stores room count in local KV
 - [x] **E2** Slack alert message includes current room availability from KV; "34 rooms available (as of last sync)"
 
+### Part F — Developer Documentation
+- [x] **F1** `DEVELOPER.md` — create comprehensive developer guide in root covering architecture, running binaries, and testing slash commands
+- [x] **F2** `README.md` — link to `DEVELOPER.md` in documentation section
+
+### Part G — Docker Documentation
+- [x] **G1** `docs/guides/DOCKER.md` — create dedicated Docker guide covering setup, service overview, common commands, and troubleshooting
+- [x] **G2** `README.md` & `DEVELOPER.md` — link to `DOCKER.md` for container-specific instructions
+
 ---
 
 ## Phase 18 — Contact Enrichment 📋

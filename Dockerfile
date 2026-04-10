@@ -20,7 +20,7 @@ RUN go build -o /alertd ./cmd/alertd/main.go
 # Final stage
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates poppler-utils
 
 WORKDIR /app
 
