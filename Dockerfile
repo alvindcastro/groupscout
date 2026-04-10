@@ -13,18 +13,20 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the applications
 RUN go build -o /groupscout ./cmd/server/main.go
+RUN go build -o /alertd ./cmd/alertd/main.go
 
 # Final stage
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates poppler-utils
 
 WORKDIR /app
 
-# Copy the binary and migrations from the builder stage
+# Copy the binaries and migrations from the builder stage
 COPY --from=builder /groupscout .
+COPY --from=builder /alertd .
 COPY --from=builder /app/migrations ./migrations
 
 # Expose port

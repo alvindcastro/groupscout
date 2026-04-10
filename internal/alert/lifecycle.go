@@ -1,0 +1,166 @@
+package alert
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/alvindcastro/groupscout/internal/aviation"
+)
+
+type EventState string
+
+const (
+	WatchState    EventState = "Watch"
+	AlertState    EventState = "Alert"
+	UpdatingState EventState = "Updating"
+	ResolvedState EventState = "Resolved"
+)
+
+type AlertMessage struct {
+	AirportCode   string
+	Cause         string // e.g., "Atmospheric river — low visibility"
+	State         string // "🔴 Active and growing (52 min)"
+	Cancelled     int
+	TotalFlights  int
+	EstStranded   int
+	EarliestClear string // "~8–10 hrs"
+	RoomsAvail    int
+	Actions       []string // ["Pull rooms from Expedia...", ...]
+}
+
+type ResolveSummary struct {
+	AirportCode   string
+	TotalDuration int
+	FinalSPS      float64
+}
+
+type DisruptionEvent struct {
+	ID        string
+	StartedAt time.Time
+	State     EventState
+	LastSPS   aviation.SPSResult
+	SlackTS   string
+}
+
+type Notifier interface {
+	PostMessage(ctx context.Context, msg AlertMessage) (ts string, err error)
+	UpdateMessage(ctx context.Context, ts string, msg AlertMessage) error
+	SendResolve(ctx context.Context, ts string, summary ResolveSummary) error
+}
+
+type LifecycleManager struct {
+	mu       sync.Mutex
+	events   map[string]*DisruptionEvent
+	notifier Notifier
+}
+
+func NewLifecycleManager(notifier Notifier) *LifecycleManager {
+	return &LifecycleManager{
+		events:   make(map[string]*DisruptionEvent),
+		notifier: notifier,
+	}
+}
+
+func (m *LifecycleManager) Process(ctx context.Context, airportCode string, sps aviation.SPSResult, roomsAvail int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	event, exists := m.events[airportCode]
+
+	// 1. No active event
+	if !exists {
+		if sps.State == aviation.Ignore {
+			return nil
+		}
+		// Create new watch event
+		event = &DisruptionEvent{
+			ID:        airportCode,
+			StartedAt: time.Now(),
+			State:     WatchState,
+			LastSPS:   sps,
+		}
+		m.events[airportCode] = event
+		return nil
+	}
+
+	// 2. Already resolved, starting over if needed
+	if event.State == ResolvedState {
+		if sps.State == aviation.Ignore {
+			return nil
+		}
+		event.StartedAt = time.Now()
+		event.State = WatchState
+		event.SlackTS = ""
+	}
+
+	minutesActive := int(time.Since(event.StartedAt).Minutes())
+
+	switch event.State {
+	case WatchState:
+		// Transition to Alert if >= 30 min and score is high enough
+		if minutesActive >= 30 && (sps.State == aviation.SoftAlert || sps.State == aviation.HardAlert) {
+			msg := buildAlertMessage(airportCode, sps, minutesActive, roomsAvail)
+			ts, err := m.notifier.PostMessage(ctx, msg)
+			if err != nil {
+				return err
+			}
+			event.SlackTS = ts
+			event.State = AlertState
+		} else if sps.State == aviation.Ignore {
+			// Resolved before ever alerting
+			event.State = ResolvedState
+		}
+	case AlertState, UpdatingState:
+		if sps.State == aviation.Ignore {
+			// Resolve the alert
+			summary := ResolveSummary{
+				AirportCode:   airportCode,
+				TotalDuration: minutesActive,
+				FinalSPS:      sps.Score,
+			}
+			err := m.notifier.SendResolve(ctx, event.SlackTS, summary)
+			if err != nil {
+				return err
+			}
+			event.State = ResolvedState
+		} else if sps.Score != event.LastSPS.Score {
+			// Update existing alert
+			msg := buildAlertMessage(airportCode, sps, minutesActive, roomsAvail)
+			err := m.notifier.UpdateMessage(ctx, event.SlackTS, msg)
+			if err != nil {
+				return err
+			}
+			event.State = UpdatingState
+		}
+	}
+
+	event.LastSPS = sps
+	return nil
+}
+
+func buildAlertMessage(airportCode string, sps aviation.SPSResult, minutesActive int, roomsAvail int) AlertMessage {
+	statusEmoji := "👀"
+	if sps.State == aviation.HardAlert {
+		statusEmoji = "🔴"
+	} else if sps.State == aviation.SoftAlert {
+		statusEmoji = "⚠️"
+	}
+
+	return AlertMessage{
+		AirportCode:   airportCode,
+		Cause:         sps.Explanation,
+		State:         fmt.Sprintf("%s Active (%d min)", statusEmoji, minutesActive),
+		Cancelled:     sps.CancelledCount,
+		TotalFlights:  sps.TotalFlights,
+		EstStranded:   int(sps.Score),
+		EarliestClear: "~8–10 hrs",
+		RoomsAvail:    roomsAvail,
+		Actions: []string{
+			"Monitor flight status",
+			"Check distressed rates",
+			"Verify room inventory",
+		},
+	}
+}

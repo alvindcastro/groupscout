@@ -14,6 +14,7 @@
 *   **Intelligent Pre-Scoring:** A rules-based Go engine filters out low-value leads (residential renovations, small repairs) to save on API costs.
 *   **AI Enrichment:** High-potential leads are enriched via the **Anthropic Claude API** to estimate room night potential, project duration, and lodging requirements.
 *   **Automated Outreach:** Generates personalized cold email drafts for each lead using AI.
+*   **Airport Disruption Alert System (`alertd`):** A separate real-time binary that monitors YVR flight disruptions, weather alerts (ECCC), and NOTAMs (NavCanada) to compute a **Stranded Passenger Score (SPS)** and alert hotel teams via Slack before passengers arrive. (Phase 17)
 *   **Real-time Notifications:** Delivers formatted Block Kit messages directly to **Slack**.
 *   **Weekly Digest:** Sends a formatted HTML email digest of the week's best leads via **SendGrid**.
 *   **Secure API Trigger:** Can be integrated with automation tools like **n8n** via a protected HTTP endpoint.
@@ -119,7 +120,7 @@ Runs a persistent HTTP server that listens for remote triggers (ideal for n8n/cr
 - `POST /digest?to=email@example.com`: Send a weekly summary digest.
 - `POST /n8n/webhook`: Receive a lead manually from external automation.
 
-See [swagger.yaml](./swagger.yaml) for the full OpenAPI specification.
+See [swagger.yaml](./api/swagger.yaml) for the full OpenAPI specification.
 
 ```bash
 go run cmd/server/main.go
@@ -140,7 +141,9 @@ go run cmd/server/main.go --run-once
 
 ### 📄 Documentation
  
-*   [ROADMAP.md](./docs/ROADMAP.md) - Project roadmap and development progress.
+*   [DEVELOPER.md](./DEVELOPER.md) - Developer's guide for running and testing the system.
+*   [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
+*   [ROADMAP.md](./docs/planning/ROADMAP.md) - Project roadmap and development progress.
 *   [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
-*   [SETUP.md](./docs/SETUP.md) - Installation and configuration guide.
-*   [groupscout-build-log.md](./docs/groupscout-build-log.md) - Developer's narrative and blog-style build notes.
+*   [SETUP.md](./docs/guides/SETUP.md) - Installation and configuration guide.
+*   [groupscout-build-log.md](./docs/prompts/groupscout-build-log.md) - Developer's narrative and blog-style build notes.

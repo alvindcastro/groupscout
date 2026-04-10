@@ -25,6 +25,19 @@ services:
       - MIN_PERMIT_VALUE_CAD=500000
     restart: unless-stopped
 
+  alertd:
+    build: .
+    command: ["./alertd"]
+    ports:
+      - "8081:8081"
+    env_file: .env
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: pgvector/pgvector:pg17
     environment:
