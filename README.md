@@ -14,6 +14,7 @@
 *   **Intelligent Pre-Scoring:** A rules-based Go engine filters out low-value leads (residential renovations, small repairs) to save on API costs.
 *   **AI Enrichment:** High-potential leads are enriched via the **Anthropic Claude API** to estimate room night potential, project duration, and lodging requirements.
 *   **Automated Outreach:** Generates personalized cold email drafts for each lead using AI.
+*   **Airport Disruption Alert System (`alertd`):** A separate real-time binary that monitors YVR flight disruptions, weather alerts (ECCC), and NOTAMs (NavCanada) to compute a **Stranded Passenger Score (SPS)** and alert hotel teams via Slack before passengers arrive. (Phase 17)
 *   **Real-time Notifications:** Delivers formatted Block Kit messages directly to **Slack**.
 *   **Weekly Digest:** Sends a formatted HTML email digest of the week's best leads via **SendGrid**.
 *   **Secure API Trigger:** Can be integrated with automation tools like **n8n** via a protected HTTP endpoint.

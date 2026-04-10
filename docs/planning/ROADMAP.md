@@ -229,8 +229,8 @@
 > A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack with actionable revenue ops information. Distinct from the lead pipeline — different cadence, different failure modes.
 
 - [x] **Part A — Data Sources & Weather:** ECCC weather poller, YVR flight scraper, NavCanada NOTAM parser. ✅
-- [ ] **Part B — Stranded Passenger Score (SPS):** Calculate disruption impact with Vancouver-specific tuning.
-- [ ] **Part C — Alert Lifecycle State Machine:** Manage Watch → Alert → Update → Resolve transitions.
+- [x] **Part B — Stranded Passenger Score (SPS):** Calculate disruption impact with Vancouver-specific tuning. ✅
+- [x] **Part C — Alert Lifecycle State Machine:** `Watch → Alert → Updating → Resolved` transitions; 30-min threshold; Slack `chat.update` with message persistence (TS). ✅
 - [ ] **Part D — Hotel Config & Binary:** YAML config for property-specific thresholds and contacts.
 - [ ] **Part E — Inventory Slash Command:** Allow staff to update room counts directly from Slack.
 

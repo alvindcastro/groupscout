@@ -24,6 +24,8 @@ const (
 )
 
 type SPSInput struct {
+	CancelledCount     int
+	TotalFlights       int
 	CancellationRate   float64
 	AvgSeatsPerFlight  int     // default 160
 	ConnectingPaxRatio float64 // default 0.58 for YVR
@@ -34,9 +36,11 @@ type SPSInput struct {
 }
 
 type SPSResult struct {
-	Score       float64
-	State       AlertState
-	Explanation string
+	Score          float64
+	State          AlertState
+	Explanation    string
+	CancelledCount int
+	TotalFlights   int
 }
 
 func ComputeSPS(input SPSInput) SPSResult {
@@ -56,7 +60,9 @@ func ComputeSPS(input SPSInput) SPSResult {
 	score := input.CancellationRate * float64(avgSeats) * connectingRatio * todMultiplier * durationScore
 
 	result := SPSResult{
-		Score: score,
+		Score:          score,
+		CancelledCount: input.CancelledCount,
+		TotalFlights:   input.TotalFlights,
 	}
 
 	result.State = AlertStateFromScore(score)

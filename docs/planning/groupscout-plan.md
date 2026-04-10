@@ -161,11 +161,16 @@ SPS = (flights_cancelled / flights_scheduled)   # cancellation rate
 
 Updates the **same Slack message** via `chat.update` — no channel spam.
 
+- **State Machine**: Watch → Alert → Update → Resolve
+- **Threshold**: No hard alert fires until the disruption event has been active for ≥ 30 minutes.
+- **Channel Routing**: `HardAlert` → `#ops-urgent`, `SoftAlert`/`Watch` → `#ops-monitoring`.
+- **Persistence**: Store the Slack message timestamp (`TS`) to allow subsequent updates to the same thread.
+
 ```
-T+0 min    WATCH    Ground stop declared, <30 min duration
-T+30 min   ALERT    Cancellations crossing threshold — fire Slack alert
-T+60 min   UPDATE   Score rising or falling — update original message
-T+3 hrs    RESOLVE  Disruption clearing — send all-clear + summary
+T+0 min    WATCH    Event detected, SPS > 20. Monitor but no alert yet.
+T+30 min   ALERT    Threshold active ≥ 30 min + SPS > 120. Post Slack message.
+T+60 min   UPDATE   SPS score change. Update existing Slack message via chat.update.
+T+3 hrs    RESOLVE  SPS < 20. Send "ALL CLEAR" + final summary to the thread.
 ```
 
 ### Slack Alert Format
@@ -206,17 +211,16 @@ cmd/
 
 internal/
   aviation/
-    navcanada.go       # NOTAM parsing
-    yvr.go             # YVR flight status scraper
-    flightaware.go     # cancellation rate (CYVR)
-    scorer.go          # SPS calculation
+    navcanada.go       # NOTAM parsing (GND STOP)
+    yvr.go             # YVR flight status scraper (cancellation rate)
+    scorer.go          # SPS calculation (Vancouver-tuned)
   weather/
-    eccc.go            # Environment Canada API — no key required
+    eccc.go            # ECCC GeoJSON API poller
   alert/
-    lifecycle.go       # watch → alert → update → resolve state machine
-    slack.go           # chat.postMessage + chat.update
+    lifecycle.go       # Watch → Alert → Update → Resolve state machine
+    slack.go           # chat.postMessage + chat.update (Bot Token)
   config/
-    airports.go        # hotel → airport mapping, thresholds, inventory
+    airports.go        # Hotel → Airport mapping, SPS thresholds, contacts
 ```
 
 **Polling intervals:**

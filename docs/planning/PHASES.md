@@ -539,11 +539,11 @@
 - [x] **B3** Vancouver tuning: fog events weight duration heavily; snow events pre-alert on ECCC warning; single runway ops → soft alert only
 
 ### Part C — Alert Lifecycle State Machine
-- [ ] **C1-T** `internal/alert/lifecycle_test.go` — state machine tests: Watch → Alert transition at ≥30 min, Update score change, Resolve sends all-clear; table-driven transitions; fail first
-- [ ] **C1** `internal/alert/lifecycle.go` — Watch → Alert → Update → Resolve state machine; no hard alert until event is ≥30 min old
-- [ ] **C2-T** `internal/alert/slack_test.go` — mock webhook server; assert `postMessage` on first alert, `chat.update` on subsequent updates, all-clear message on resolve; fail first
-- [ ] **C2** `internal/alert/slack.go` — `chat.postMessage` on threshold breach; `chat.update` to same message as score evolves; all-clear + summary on resolve (no channel spam)
-- [ ] **C3** Alert format: cause, status, impact (cancellations, est. stranded pax), earliest recovery, rooms available, suggested actions (OTA pull-back, distressed rate, airline ops contact)
+- [x] **C1-T** `internal/alert/lifecycle_test.go` — state machine tests: Watch → Alert transition at ≥30 min, Update score change, Resolve sends all-clear; table-driven transitions; mock Slack notifier; fail first
+- [x] **C1** `internal/alert/lifecycle.go` — `Watch → Alert → Updating → Resolved` state machine; `DisruptionEvent` persistence with Slack TS; `Notifier` interface; no hard alert until event is ≥30 min old
+- [x] **C2-T** `internal/alert/slack_test.go` — `httptest.NewServer` for Slack API; assert `chat.postMessage` on first alert, `chat.update` on subsequent updates, all-clear format on resolve; fail first
+- [x] **C2** `internal/alert/slack.go` — `SlackAlerter` with Bot Token; `POST https://slack.com/api/chat.postMessage` + `chat.update`; persistence of message timestamp (TS)
+- [x] **C3** `AlertMessage` format: Block Kit JSON with cause, status (active/duration), impact (cancellations/stranded pax), recovery estimate, rooms avail, and suggested actions
 
 ### Part D — Hotel Config & Binary
 - [ ] **D1-T** `config/airports_test.go` — `TestLoadAirportConfig` with fixture YAML; assert hotel fields, airline contacts, thresholds; fail first

@@ -53,7 +53,7 @@ A **separate long-running binary** — distinct from the lead pipeline, differen
 - **Weather**: `internal/weather/eccc.go` polls `api.weather.gc.ca` (no key required) for Metro Vancouver + Fraser Valley alert zones; classifies type (atmospheric river, fog, snow) and severity.
 - **Aviation**: `internal/aviation/yvr.go` scrapes live YVR cancellation rate; `navcanada.go` parses NOTAMs for ground stop data (leads cancellations by 1–2 hrs).
 - **Scoring**: `internal/aviation/scorer.go` computes the Stranded Passenger Score (SPS) using `(cancelled/scheduled) × avg_seats × connecting_pax_ratio × time_of_day_multiplier × duration_score`. Vancouver-tuned thresholds: fog → weight duration; snow → pre-alert before cancellations.
-- **Alert lifecycle**: `internal/alert/lifecycle.go` state machine: Watch → Alert → Update → Resolve. Updates the *same* Slack message via `chat.update` — no channel spam.
+- **Alert lifecycle**: `internal/alert/lifecycle.go` state machine: Watch → Alert → Update → Resolve. Updates the *same* Slack message via `chat.update` — no channel spam. No hard alert fires until the event has been active for ≥ 30 minutes. Channel routing: HardAlert → #ops-urgent, SoftAlert/Watch → #ops-monitoring.
 - **Hotel config**: `config/airports.go` (or shared `config/properties.yaml` in Phase 21): per-property airport mappings, SPS thresholds, distressed rate, airline ops contacts.
 
 ---
