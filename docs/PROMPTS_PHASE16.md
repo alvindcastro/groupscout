@@ -201,45 +201,246 @@ Task C4 — update .env.example:
 
 ## Part D — Ollama (local / Docker)
 
-**Files to edit:** `internal/enrichment/llm_factory.go`, `docker-compose.yml`, `.env.example`
+**Files to create:** `internal/enrichment/ollama_health.go`, `scripts/ollama_pull.sh`
+**Files to edit:** `internal/enrichment/openai_compat.go`, `internal/enrichment/llm_factory.go`, `docker-compose.yml`, `.env.example`
+
+> **Depends on Parts A + B.** Ollama reuses `OpenAICompatibleClient` — no new client struct.
+> **Read this section fully before starting** — there are 3 Ollama-specific details that differ from OpenAI:
+> 1. No API key → skip `Authorization` header entirely
+> 2. Use `response_format: json_object` instead of prompt-only JSON instruction
+> 3. Low-temp tuned Modelfile prevents hallucinated JSON keys
 
 ```
 Context:
-- Ollama exposes an OpenAI-compatible API at http://ollama:11434 (in Docker) or http://localhost:11434 (local)
-- No API key required
+- Ollama exposes OpenAI-compatible API at http://ollama:11434 (Docker) or http://localhost:11434 (local)
+- No API key required — skip the Authorization header entirely
 - Models must be pulled before use: docker exec groupscout-ollama-1 ollama pull llama3.2
+- Ollama supports response_format: {"type": "json_object"} with llama3.2, mistral, llama3.1 models
+- Without response_format, local models often wrap JSON in ```json ... ``` — stripMarkdown() handles this fallback
 
-Task D1 — update llm_factory.go:
-  Add "ollama" provider:
-    - baseURL: getEnv("LLM_BASE_URL", "http://ollama:11434")
-    - model: cfg.LLMModel (no default — user must set LLM_MODEL=llama3.2 or similar)
-    - apiKey: "" (empty — Ollama needs no auth)
-    - In OpenAICompatibleClient.Complete(): skip Authorization header when apiKey is empty
+--- JSON OUTPUT APPROACH ---
 
-Task D2 — update docker-compose.yml:
-  Add ollama service (disabled by default — only used when LLM_PROVIDER=ollama):
-    ollama:
-      image: ollama/ollama
-      volumes:
-        - ollama_data:/root/.ollama
-      profiles: ["ollama"]   # opt-in: docker compose --profile ollama up
+Claude: prompt-only (system prompt instructs JSON output)
+Gemini: responseMimeType: "application/json" in generationConfig
+OpenAI / Groq / Mistral / Ollama: response_format: {"type": "json_object"} in request body
 
-  Add ollama_data to the volumes section.
+Add JSONOutput bool field to OpenAICompatibleClient.
+When JSONOutput=true, add to request body: "response_format": {"type": "json_object"}
+Factory sets JSONOutput=true for: openai, ollama, groq (check support first — groq may not support it)
+Factory sets JSONOutput=false for: mistral (falls back to stripMarkdown)
 
-  Add comment above the service explaining how to pull a model after first start:
-    # docker exec groupscout-ollama-1 ollama pull llama3.2
+--- TASK D-T: WRITE TESTS FIRST ---
 
-Task D3 — update .env.example:
-  # Ollama (only needed if LLM_PROVIDER=ollama)
+Add to internal/enrichment/openai_compat_test.go:
+
+TestOpenAICompatClient_NoAuthHeaderWhenKeyEmpty:
+  client with apiKey="" makes a request
+  httptest.NewServer captures the request
+  Assert: no "Authorization" header in request
+  Assert: request succeeds normally
+
+TestOpenAICompatClient_JSONOutputMode:
+  client with JSONOutput=true makes a request
+  httptest.NewServer captures the request body
+  Parse body as JSON
+  Assert: body["response_format"]["type"] == "json_object"
+
+TestOpenAICompatClient_JSONOutputFalseOmitsField:
+  client with JSONOutput=false makes a request
+  Assert: body has no "response_format" key
+
+TestOpenAICompatClient_StripMarkdownFallback:
+  server returns: {"choices":[{"message":{"content":"```json\n{\"priority_score\":8}\n```"}}]}
+  Assert: Complete() returns {"priority_score":8} (markdown stripped)
+
+All 4 tests fail before impl. Commit.
+
+--- TASK D1: UPDATE openai_compat.go ---
+
+Add JSONOutput bool field to OpenAICompatibleClient struct:
+  type OpenAICompatibleClient struct {
+      baseURL    string
+      apiKey     string
+      model      string
+      JSONOutput bool    // adds response_format: json_object to request
+      client     *http.Client
+  }
+
+Update Complete():
+  1. Build messages array from req.System + req.User (same as before)
+  2. Build request body map:
+       body := map[string]any{
+           "model":      c.model,
+           "max_tokens": req.MaxTokens,
+           "messages":   messages,
+       }
+       if c.JSONOutput {
+           body["response_format"] = map[string]any{"type": "json_object"}
+       }
+  3. Set Authorization header only when apiKey != "":
+       if c.apiKey != "" {
+           req.Header.Set("Authorization", "Bearer " + c.apiKey)
+       }
+  4. Apply stripMarkdown() to the response text before returning
+     (belt-and-suspenders: some models ignore response_format)
+
+--- TASK D2: UPDATE llm_factory.go ---
+
+Add "ollama" case to NewLLMClient():
+  case "ollama":
+      baseURL := getEnv("LLM_BASE_URL", "http://ollama:11434")
+      if cfg.LLMModel == "" {
+          return nil, fmt.Errorf("LLM_MODEL must be set when LLM_PROVIDER=ollama (e.g. llama3.2)")
+      }
+      return &OpenAICompatibleClient{
+          baseURL:    baseURL,
+          apiKey:     "",       // no auth for Ollama
+          model:      cfg.LLMModel,
+          JSONOutput: true,
+      }, nil
+
+--- TASK D3: CREATE internal/enrichment/ollama_health.go ---
+
+func CheckOllamaHealth(ctx context.Context, baseURL, model string) error:
+  GET {baseURL}/api/tags
+  Parse response: {"models": [{"name": "llama3.2:latest"}, ...]}
+  Check if any model name has model as a prefix (e.g. "llama3.2" matches "llama3.2:latest")
+  If not found:
+    return fmt.Errorf("model %q not pulled in Ollama — run: docker exec groupscout-ollama-1 ollama pull %s", model, model)
+  Return nil if found or if request fails with connection refused (Ollama not running — caller decides)
+
+Write test: TestCheckOllamaHealth_ModelFound, TestCheckOllamaHealth_ModelMissing (httptest)
+
+--- TASK D4: UPDATE docker-compose.yml ---
+
+Add after the postgres service:
+
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./config:/config:ro   # for Modelfile access (Phase 16-G)
+    profiles: ["ollama"]
+    # First-time setup: docker exec groupscout-ollama-1 ollama pull llama3.2
+    # Custom persona:   docker exec groupscout-ollama-1 ollama create groupscout -f /config/Modelfile.groupscout
+
+Add to volumes section:
+  ollama_data:
+
+--- TASK D5: CREATE scripts/ollama_pull.sh ---
+
+  #!/bin/bash
+  MODEL=${1:-llama3.2}
+  echo "Pulling $MODEL into Ollama container..."
+  docker exec groupscout-ollama-1 ollama pull "$MODEL"
+  echo "Done. Set LLM_MODEL=$MODEL in .env"
+
+chmod +x scripts/ollama_pull.sh
+
+--- TASK D6: UPDATE .env.example ---
+
+Add section:
+  # --- Ollama (local LLM — no API cost, no data leaves server) ---
+  # Requires: docker compose --profile ollama up -d
+  # Then pull a model: ./scripts/ollama_pull.sh llama3.2
   # LLM_PROVIDER=ollama
-  # LLM_MODEL=llama3.2
-  # LLM_BASE_URL=http://ollama:11434   # default when using Docker Compose
+  # LLM_MODEL=llama3.2           # recommended: llama3.2 (fast) or mistral (quality)
+  # LLM_BASE_URL=http://ollama:11434
 
-Verify:
+--- TASK D7: UPDATE docs/SETUP.md ---
+
+See "Ollama Setup" section added separately.
+
+--- TASK D8: VERIFY ---
+
   docker compose --profile ollama up -d --build
-  docker exec groupscout-ollama-1 ollama pull llama3.2
-  Set LLM_PROVIDER=ollama LLM_MODEL=llama3.2 in .env
+  ./scripts/ollama_pull.sh llama3.2
+  # In .env: LLM_PROVIDER=ollama LLM_MODEL=llama3.2
   curl -X POST http://localhost:8080/run -H "Authorization: Bearer YOUR_TOKEN"
+  # Check logs: "LLM provider: ollama" and NO calls to api.anthropic.com or generativelanguage.googleapis.com
+  # Check leads table: new leads created with valid JSON enrichment
+  go test ./internal/enrichment/... -v
+```
+
+---
+
+## Part G — Ollama Modelfile & Persona Tuning
+
+**Files to create:** `config/Modelfile.groupscout`, `scripts/ollama_create_model.sh`
+**Files to edit:** `cmd/smoketest/main.go`, `docker-compose.yml`
+
+```
+Context:
+- Raw llama3.2 follows JSON schema ~80% of the time — occasional extra fields, wrong types, or markdown wrapping
+- A Modelfile bakes the system prompt + JSON constraint + temperature into the model at creation time
+- The custom model is named "groupscout" — set LLM_MODEL=groupscout in .env
+- temperature 0.1 makes output highly deterministic — critical for structured extraction
+
+--- TASK G1: CREATE config/Modelfile.groupscout ---
+
+FROM llama3.2
+
+SYSTEM You are a hotel sales analyst for Sandman Hotel Vancouver Airport in Richmond, BC (near YVR). \
+You analyze construction permits, project awards, and event signals to identify groups that need hotel room blocks. \
+You MUST respond with ONLY valid JSON — no prose, no markdown fences, no explanation text. \
+If a field is unknown, use null for strings or 0 for numbers. \
+\
+Required JSON schema (all fields required): \
+{"general_contractor":"string","project_type":"civil|commercial|industrial|utility|residential|unknown", \
+"estimated_crew_size":0,"estimated_duration_months":0,"out_of_town_crew_likely":false, \
+"priority_score":0,"priority_reason":"string","suggested_outreach_timing":"string","notes":"string"}
+
+PARAMETER temperature 0.1
+PARAMETER num_predict 512
+PARAMETER stop "```"
+
+--- TASK G2: CREATE scripts/ollama_create_model.sh ---
+
+  #!/bin/bash
+  echo "Creating groupscout model from Modelfile..."
+  docker exec groupscout-ollama-1 ollama create groupscout -f /config/Modelfile.groupscout
+  echo "Done. Set LLM_MODEL=groupscout in .env"
+
+chmod +x scripts/ollama_create_model.sh
+
+--- TASK G-T: ADD -compare-providers TO cmd/smoketest/main.go ---
+
+Add flag: -compare-providers
+When set:
+  - Load 3 hardcoded fixture RawProject structs (a Richmond permit, a VCC event, a news item)
+  - Run enrichment with the PRIMARY provider (cfg.LLMProvider)
+  - Run enrichment with a SECONDARY provider (from COMPARE_LLM_PROVIDER env var)
+  - Print side-by-side table:
+      Source     | Claude score | Ollama score | Claude crew | Ollama crew | Match?
+      richmond   |     8        |     7        |    120      |    100      | close
+  - No assertions — visual comparison for the developer
+
+Write test: TestCompareFlagExists (just confirms the flag is registered — compile test)
+
+--- RECOMMENDED MODEL TABLE ---
+
+| Model         | Size  | Best for                          | JSON reliability |
+|---------------|-------|-----------------------------------|-----------------|
+| llama3.2      | 2GB   | Fast permit extraction, dev/test  | ~85% with response_format |
+| groupscout    | 2GB   | llama3.2 + custom persona         | ~95% — recommended default |
+| mistral       | 4GB   | Higher quality scoring rationale  | ~90% with response_format |
+| llama3.1:8b   | 5GB   | Best outreach email drafts        | ~88% |
+| phi3:mini     | 2GB   | Pre-scoring only (cheap + fast)   | ~75% — use only for scorer |
+
+See docs/AI_DATA_STRATEGY.md for the full comparison table.
+
+--- TASK G4: UPDATE docs/AI_DATA_STRATEGY.md ---
+
+See AI_DATA_STRATEGY update below.
+
+--- VERIFY ---
+
+  ./scripts/ollama_pull.sh llama3.2
+  ./scripts/ollama_create_model.sh
+  # In .env: LLM_MODEL=groupscout
+  go run ./cmd/smoketest/ -compare-providers
+  # Review table: groupscout scores should be close to Claude baseline
+```
   Confirm: no external API calls, enrichment succeeds (quality will be lower than Claude)
 ```
 

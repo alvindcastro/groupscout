@@ -50,6 +50,88 @@ DATABASE_URL=groupscout.db — no Docker required.
 
 ---
 
+## Ollama Setup (local LLM — no API cost)
+
+Run enrichment with a local model instead of Claude or Gemini. No data leaves your server. Requires ~2–5 GB RAM for the model.
+
+### Step 1 — Start the Ollama container
+
+```bash
+docker compose --profile ollama up -d
+```
+
+This starts an `ollama` container alongside the main app.
+
+### Step 2 — Pull a model
+
+```bash
+# Quick helper:
+./scripts/ollama_pull.sh llama3.2
+
+# Or manually:
+docker exec groupscout-ollama-1 ollama pull llama3.2
+```
+
+**Recommended models:**
+
+| Model | Size | Best for |
+|---|---|---|
+| `llama3.2` | ~2GB | Fast permit extraction, dev/testing |
+| `groupscout` (custom) | ~2GB | llama3.2 + hotel sales persona — best default |
+| `mistral` | ~4GB | Higher quality scoring rationale |
+| `llama3.1:8b` | ~5GB | Best outreach email drafts |
+| `phi3:mini` | ~2GB | Pre-scoring only (fastest, lower quality) |
+
+### Step 3 — (Optional) Create the custom hotel sales persona
+
+The `groupscout` Modelfile bakes the hotel sales analyst persona and strict JSON output into the model. Recommended for production use.
+
+```bash
+./scripts/ollama_create_model.sh
+```
+
+This runs `ollama create groupscout -f /config/Modelfile.groupscout` inside the container.
+
+### Step 4 — Configure `.env`
+
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=groupscout        # or llama3.2 if you skipped Step 3
+LLM_BASE_URL=http://ollama:11434
+```
+
+Remove or comment out `CLAUDE_API_KEY` / `GEMINI_API_KEY` — they won't be used.
+
+### Step 5 — Trigger the pipeline
+
+```bash
+curl -X POST http://localhost:8080/run \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Check logs — you should see `"LLM provider: ollama"` and no calls to `api.anthropic.com` or `generativelanguage.googleapis.com`.
+
+### Troubleshooting
+
+| Error | Fix |
+|---|---|
+| `model "groupscout" not found` | Run `./scripts/ollama_create_model.sh` |
+| `model "llama3.2" not found` | Run `./scripts/ollama_pull.sh llama3.2` |
+| `connection refused` on port 11434 | Start with `docker compose --profile ollama up -d` |
+| JSON parse errors in enrichment | Switch to `groupscout` model (stricter persona); or increase `ENRICHMENT_THRESHOLD` to filter noisy raw inputs first |
+
+### Compare providers
+
+Use the smoketest tool to compare Ollama vs Claude on the same fixtures:
+
+```bash
+COMPARE_LLM_PROVIDER=claude go run ./cmd/smoketest/ -compare-providers
+```
+
+This prints a side-by-side table of `priority_score`, `estimated_crew_size`, and `out_of_town_crew_likely` from both providers.
+
+---
+
 ## Step 2 — Choose a run mode
 
 ### Option A — Local Go server

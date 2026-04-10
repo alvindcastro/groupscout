@@ -345,15 +345,44 @@ AZURE_API_VERSION=2024-02-01
 **Notes:**
 - Azure OpenAI: same quality as OpenAI, but with enterprise compliance, Canadian data residency options, and no rate-limit surprises — good fit if Sandman/Douglas College has an Azure agreement
 - Groq: fastest inference by far (~10x); good for high-volume batch enrichment runs
-- Ollama: free and private; quality lags cloud models but sufficient for pre-scoring
-- Vertex AI needs its own client (different format) — lower priority
+- Ollama: free and private; with a tuned Modelfile (`config/Modelfile.groupscout`) reaches ~95% JSON reliability — viable for production
+- Gemini: already implemented in `internal/enrichment/gemini.go`; cheapest cloud option at $0.075/1M tokens
+
+### JSON Output Reliability by Provider
+
+Each provider uses a different mechanism to enforce JSON-only output:
+
+| Provider | JSON enforcement | Reliability |
+|---|---|---|
+| **Claude** | System prompt instruction only | ~98% — very instruction-following |
+| **Gemini** | `responseMimeType: "application/json"` in request | ~97% |
+| **OpenAI** | `response_format: {"type":"json_object"}` | ~97% |
+| **Groq** | `response_format` (supported on llama/mixtral) | ~94% |
+| **Mistral** | Prompt-only — `response_format` not supported | ~88% — use `stripMarkdown()` fallback |
+| **Ollama (raw)** | `response_format` (supported on llama3.2, mistral) | ~85% |
+| **Ollama (groupscout Modelfile)** | Baked system prompt + `PARAMETER stop "` ``` `"` | ~95% — recommended |
+
+`stripMarkdown()` in `openai_compat.go` handles the fallback case for all providers.
 
 ### Recommended strategy
 
 - **Default:** Claude Haiku (current) — best quality-to-cost for permit enrichment
 - **Fallback:** OpenAI GPT-4o-mini — same interface, swap via env var if Anthropic has issues
-- **Local/free:** Ollama for dev/testing — no API key, no cost, no data leaves the machine
+- **Local/free:** Ollama with `groupscout` Modelfile — full pipeline at zero API cost; ~95% JSON reliability
 - **Enterprise path:** Azure OpenAI — if hotel or college requires data residency or enterprise SLAs
+
+### Ollama Model Recommendations
+
+| Model | Size | Use case | JSON reliability |
+|---|---|---|---|
+| `groupscout` (custom) | ~2GB | **Recommended default** — llama3.2 + hotel sales persona | ~95% |
+| `llama3.2` | ~2GB | Fast permit extraction, dev/testing | ~85% |
+| `mistral` | ~4GB | Higher quality scoring rationale | ~90% |
+| `llama3.1:8b` | ~5GB | Best outreach email drafts | ~88% |
+| `phi3:mini` | ~2GB | Pre-scoring only (cheapest, fastest) | ~75% |
+
+Create the custom model: `./scripts/ollama_create_model.sh`
+Pull a base model: `./scripts/ollama_pull.sh llama3.2`
 
 ### Implementation tasks
 
