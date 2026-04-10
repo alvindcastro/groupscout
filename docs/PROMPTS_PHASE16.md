@@ -295,12 +295,69 @@ Verify:
 
 ---
 
+---
+
+## Part F — Gemini Factory Integration
+
+**Files to edit:** `internal/enrichment/llm_factory.go`, `internal/enrichment/gemini.go` (if not already implementing `LLMClient`), `config/config.go`, `.env.example`
+
+> `internal/enrichment/gemini.go` was added externally. This part wires it into the Phase 16 factory so `LLM_PROVIDER=gemini` works without any inline switch in `main.go`.
+
+```
+Context:
+- After Part A, gemini.go has GeminiClient implementing LLMClient (Complete method)
+- llm_factory.go currently has: "claude" and possibly "gemini" already
+- Verify gemini.go's Complete() sends the correct Gemini API format:
+    POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}
+    Body: { "contents": [{ "parts": [{ "text": system + "\n\n" + user }] }] }
+    Response: candidates[0].content.parts[0].text
+
+Task F1 — verify gemini.go implements LLMClient:
+  - Check that GeminiClient has Complete(ctx, CompletionRequest) (string, error)
+  - If it still has the old Enrich/DraftOutreach signature, refactor per Part A Task A3
+  - extractGeminiText() helper should parse candidates[0].content.parts[0].text
+
+Task F2 — update llm_factory.go:
+  Ensure NewLLMClient() handles "gemini":
+    case "gemini":
+        return NewGeminiClient(cfg.GeminiAPIKey), nil  // or cfg.LLMAPIKey if unified
+  Check: if "gemini" is already in the factory from Part A, this task is just verification
+
+Task F3 — update config/config.go:
+  - Ensure GEMINI_API_KEY env var is loaded (may already exist from before Phase 16)
+  - Add note: when LLM_PROVIDER=gemini, the LLM_API_KEY takes precedence over GEMINI_API_KEY
+    so both env var names work during transition
+
+Task F4 — update .env.example:
+  Add Gemini section:
+    # Google Gemini
+    # LLM_PROVIDER=gemini
+    # LLM_MODEL=gemini-1.5-flash
+    # LLM_API_KEY=AIza...          # or keep GEMINI_API_KEY for backward compat
+
+Task F-T (write first) — internal/enrichment/gemini_test.go:
+  If the file doesn't exist, write:
+  - TestGeminiClient_Complete_ParsesResponse: httptest.NewServer returning fixture Gemini JSON;
+    assert correct text extracted from candidates[0].content.parts[0].text
+  - TestGeminiClient_Complete_NonOKError: server returns 400; assert error propagated
+  - Run: all tests fail before any refactor; commit; then implement
+
+Verify:
+  Set LLM_PROVIDER=gemini LLM_MODEL=gemini-1.5-flash LLM_API_KEY=AIza... in .env
+  docker compose up -d --build
+  curl -X POST http://localhost:8080/run -H "Authorization: Bearer YOUR_TOKEN"
+  Check logs: Gemini API called, enrichment JSON returned correctly.
+  go test ./internal/enrichment/... — all tests green.
+```
+
+---
+
 ## Reference files
 
 | File | Role |
 |---|---|
 | `internal/enrichment/claude.go` | ClaudeEnricher → ClaudeClient; all *Prompt() functions live here |
-| `internal/enrichment/gemini.go` | GeminiEnricher → GeminiClient |
+| `internal/enrichment/gemini.go` | GeminiEnricher → GeminiClient (added externally, wired in Part F) |
 | `internal/enrichment/enricher.go` | EnricherAI interface → llm LLMClient field |
 | `config/config.go` | AIProvider (existing) + new LLM* fields |
 | `cmd/server/main.go` | Provider selection: inline switch → llm_factory |

@@ -252,10 +252,18 @@ The `EmbeddingStore` interface means only the implementation swaps — `enricher
 - [x] `EmbeddingStore` interface + Postgres (pgvector) + SQLite (in-memory cosine) impls
 - [ ] `internal/enrichment/enricher.go` — generate + save embedding
 
-### Phase C — LLM Provider Abstraction
-- [ ] `LLMClient` interface
-- [ ] `ClaudeClient` + `OpenAICompatibleClient`
-- [ ] `LLM_PROVIDER` env var selects the impl
+### Phase 16 — LLM Provider Abstraction
+> Full atomic task breakdown with TDD: see `PHASES.md` Phase 16.
+> Coding prompts: [PROMPTS_PHASE16.md](./PROMPTS_PHASE16.md)
+
+**Current state:** `ClaudeClient` + `GeminiClient` both exist and implement `EnricherAI`. Phase 16 extracts a lower-level `LLMClient` interface so the enricher is fully provider-agnostic.
+
+- [ ] `LLMClient` interface + `CompletionRequest` struct (`internal/enrichment/llm.go`)
+- [ ] `ClaudeClient` refactored to implement `LLMClient` (remove `Enrich`/`DraftOutreach`)
+- [ ] `GeminiClient` refactored to implement `LLMClient` (Phase 16-F: wire into factory)
+- [ ] `OpenAICompatibleClient` covers OpenAI, Groq, Mistral, Azure, Ollama
+- [ ] `FallbackClient` wraps primary + secondary with Sentry logging
+- [ ] `LLM_PROVIDER` env var selects the impl via factory
 
 ---
 
@@ -327,9 +335,9 @@ AZURE_API_VERSION=2024-02-01
 | Provider | Type | Best models for groupscout | API format | Input cost/1M tokens |
 |---|---|---|---|---|
 | **Anthropic Claude** | Cloud | Haiku 4.5 (bulk), Sonnet 4.6 (quality) | Anthropic Messages | $0.80 / $3.00 |
+| **Google Gemini** ✅ implemented | Cloud | Gemini 1.5 Flash (bulk), 1.5 Pro (quality) | Gemini API (`internal/enrichment/gemini.go`) | $0.075 / $1.25 |
 | **OpenAI** | Cloud | GPT-4o-mini (bulk), GPT-4o (quality) | OpenAI Chat Completions | $0.15 / $2.50 |
 | **Azure OpenAI** | Cloud | Same GPT models | OpenAI-compatible | Same + Azure pricing |
-| **Google Vertex AI** | Cloud | Gemini 1.5 Flash (bulk), Pro (quality) | Vertex AI (unique format) | $0.075 / $1.25 |
 | **Groq** | Cloud | Llama 3.1 8B (bulk), 70B (quality) | OpenAI-compatible | ~$0.05 / $0.59 |
 | **Mistral AI** | Cloud | Mistral Nemo (bulk), Large (quality) | OpenAI-compatible | $0.10 / $1.00 |
 | **Ollama** | Docker | Llama 3.2 3B, Phi-3, Mistral 7B | OpenAI-compatible | Free |
