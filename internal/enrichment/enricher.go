@@ -6,6 +6,7 @@ import (
 
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
+	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 	"github.com/getsentry/sentry-go"
 )
@@ -20,13 +21,15 @@ type EnricherAI interface {
 // It runs every registered Collector, skips permits already in the DB,
 // calls Claude to enrich new ones, and writes the resulting Lead records.
 type Enricher struct {
-	collectors             []collector.Collector
-	rawStore               storage.RawProjectStore
-	leadStore              storage.LeadStore
-	ai                     EnricherAI
-	scorer                 *Scorer
-	PriorityAlertThreshold int
-	Verbose                bool
+	collectors              []collector.Collector
+	rawStore                storage.RawProjectStore
+	leadStore               storage.LeadStore
+	ai                      EnricherAI
+	scorer                  *Scorer
+	ollamaExtractor         *ollama.Extractor
+	ollamaExtractionEnabled bool
+	PriorityAlertThreshold  int
+	Verbose                 bool
 }
 
 // NewEnricher wires together all pipeline dependencies.
@@ -37,14 +40,18 @@ func NewEnricher(
 	ai EnricherAI,
 	scorer *Scorer,
 	priorityAlertThreshold int,
+	ollamaExtractor *ollama.Extractor,
+	ollamaExtractionEnabled bool,
 ) *Enricher {
 	return &Enricher{
-		collectors:             collectors,
-		rawStore:               rawStore,
-		leadStore:              leadStore,
-		ai:                     ai,
-		scorer:                 scorer,
-		PriorityAlertThreshold: priorityAlertThreshold,
+		collectors:              collectors,
+		rawStore:                rawStore,
+		leadStore:               leadStore,
+		ai:                      ai,
+		scorer:                  scorer,
+		PriorityAlertThreshold:  priorityAlertThreshold,
+		ollamaExtractor:         ollamaExtractor,
+		ollamaExtractionEnabled: ollamaExtractionEnabled,
 	}
 }
 
@@ -124,7 +131,31 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		return false, fmt.Errorf("insert raw project: %w", err)
 	}
 
-	// 1. Rule-based pre-scoring
+	// 1. Ollama Extraction (Phase 2)
+	if e.ollamaExtractionEnabled && e.ollamaExtractor != nil {
+		signal, err := e.ollamaExtractor.Extract(ctx, p.Description)
+		if err == nil {
+			if e.Verbose {
+				l.Info("ollama extraction successful", "org", signal.OrgName, "type", signal.ProjectType)
+			}
+			// Augment RawProject fields if they are empty
+			if p.Title == "" && signal.OrgName != "" {
+				p.Title = signal.OrgName
+			}
+			if p.Location == "" && signal.Location != "" {
+				p.Location = signal.Location
+			}
+			// Store signal in RawData for downstream use
+			if p.RawData == nil {
+				p.RawData = make(map[string]any)
+			}
+			p.RawData["ollama_signal"] = signal
+		} else {
+			l.Warn("ollama extraction failed; continuing with original data", "error", err)
+		}
+	}
+
+	// 2. Rule-based pre-scoring
 	score, reason := e.scorer.Score(p)
 	if !e.scorer.ShouldEnrich(score) {
 		if e.Verbose {

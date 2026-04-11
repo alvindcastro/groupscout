@@ -128,14 +128,14 @@ Do not use langchaingo or any third-party Ollama SDK. Implement the HTTP client 
 
 ### Tasks
 
-- [ ] Write `internal/ollama/extractor_test.go` — table-driven tests with `testdata/permit_raw.txt` and `testdata/news_raw.txt` fixtures; assert returned `LeadSignal` fields
-- [ ] Implement `internal/ollama/extractor.go` — `Extractor` struct wrapping `LLMClient`, `Extract(ctx, rawText string) (*LeadSignal, error)` method
-- [ ] Define `LeadSignal` struct (or reuse existing model if one exists) with fields: `OrgName`, `Location`, `StartDate`, `DurationDays`, `CrewSize`, `ProjectType`, `Confidence float64`
-- [ ] Write `modelfile/permit_extractor.modelfile` — persona + JSON output instruction
-- [ ] Add JSON parse guard: strip markdown fences if model wraps output in ```json ... ``` blocks
-- [ ] Add extraction metrics: log field hit rate (how many of 6 fields were populated) per run
-- [ ] Wire `Extractor` into `internal/enrichment/` pipeline — call after raw text fetch, before rules-based pre-scorer
-- [ ] Add `OLLAMA_EXTRACTION_ENABLED` toggle so existing regex path is preserved as fallback
+- [x] Write `internal/ollama/extractor_test.go` — table-driven tests with `testdata/permit_raw.txt` and `testdata/news_raw.txt` fixtures; assert returned `LeadSignal` fields
+- [x] Implement `internal/ollama/extractor.go` — `Extractor` struct wrapping `LLMClient`, `Extract(ctx, rawText string) (*LeadSignal, error)` method
+- [x] Define `LeadSignal` struct (or reuse existing model if one exists) with fields: `OrgName`, `Location`, `StartDate`, `DurationDays`, `CrewSize`, `ProjectType`, `Confidence float64`
+- [x] Write `modelfile/permit_extractor.modelfile` — persona + JSON output instruction
+- [x] Add JSON parse guard: strip markdown fences if model wraps output in ```json ... ``` blocks
+- [x] Add extraction metrics: log field hit rate (how many of 6 fields were populated) per run
+- [x] Wire `Extractor` into `internal/enrichment/` pipeline — call after raw text fetch, before rules-based pre-scorer
+- [x] Add `OLLAMA_EXTRACTION_ENABLED` toggle so existing regex path is preserved as fallback
 
 ---
 

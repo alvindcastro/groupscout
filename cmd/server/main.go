@@ -282,6 +282,17 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
+
+	var ollamaExtractor *ollama.Extractor
+	if cfg.OllamaEnabled {
+		oc := &ollama.OllamaClient{
+			Endpoint: cfg.OllamaEndpoint,
+			Model:    cfg.OllamaModel,
+			Timeout:  time.Duration(cfg.OllamaExtractTimeoutS) * time.Second,
+		}
+		ollamaExtractor = ollama.NewExtractor(oc)
+	}
+
 	rc := permits.NewRichmondCollector()
 	rc.MinValue = cfg.MinPermitValueCAD
 	rc.Verbose = true
@@ -340,7 +351,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 	l.Info("active collectors", "count", len(names), "names", names)
 
-	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold)
+	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold, ollamaExtractor, cfg.OllamaExtractionEnabled)
 	e.Verbose = true
 
 	l.Info("running pipeline...")

@@ -1,0 +1,9 @@
+Permit Number: BP-2026-00123
+Location: 1234 W Georgia St, Vancouver, BC V6E 4M3
+Applicant: ABC Construction Ltd.
+Description: Interior fit-out for new corporate headquarters on floors 15-20. Includes structural modifications to internal partitions, electrical, and HVAC upgrades.
+Project Type: Commercial Renovation
+Estimated Crew Size: 45
+Start Date: 2026-05-01
+Estimated Duration: 120 days
+Notes: Project involves overnight work to minimize disruption to existing tenants.
