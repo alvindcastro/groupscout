@@ -284,6 +284,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
 
 	var ollamaExtractor *ollama.Extractor
+	var ollamaScorer *ollama.Scorer
 	if cfg.OllamaEnabled {
 		oc := &ollama.OllamaClient{
 			Endpoint: cfg.OllamaEndpoint,
@@ -291,6 +292,13 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 			Timeout:  time.Duration(cfg.OllamaExtractTimeoutS) * time.Second,
 		}
 		ollamaExtractor = ollama.NewExtractor(oc)
+
+		sc := &ollama.OllamaClient{
+			Endpoint: cfg.OllamaEndpoint,
+			Model:    cfg.OllamaModel,
+			Timeout:  time.Duration(cfg.OllamaScoreTimeoutS) * time.Second,
+		}
+		ollamaScorer = ollama.NewScorer(sc)
 	}
 
 	rc := permits.NewRichmondCollector()
@@ -351,7 +359,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 	l.Info("active collectors", "count", len(names), "names", names)
 
-	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold, ollamaExtractor, cfg.OllamaExtractionEnabled)
+	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold, ollamaExtractor, ollamaScorer, cfg.OllamaExtractionEnabled, cfg.OllamaScoringEnabled)
 	e.Verbose = true
 
 	l.Info("running pipeline...")

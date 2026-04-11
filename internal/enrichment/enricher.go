@@ -27,7 +27,9 @@ type Enricher struct {
 	ai                      EnricherAI
 	scorer                  *Scorer
 	ollamaExtractor         *ollama.Extractor
+	ollamaScorer            *ollama.Scorer
 	ollamaExtractionEnabled bool
+	ollamaScoringEnabled    bool
 	PriorityAlertThreshold  int
 	Verbose                 bool
 }
@@ -41,7 +43,9 @@ func NewEnricher(
 	scorer *Scorer,
 	priorityAlertThreshold int,
 	ollamaExtractor *ollama.Extractor,
+	ollamaScorer *ollama.Scorer,
 	ollamaExtractionEnabled bool,
+	ollamaScoringEnabled bool,
 ) *Enricher {
 	return &Enricher{
 		collectors:              collectors,
@@ -51,7 +55,9 @@ func NewEnricher(
 		scorer:                  scorer,
 		PriorityAlertThreshold:  priorityAlertThreshold,
 		ollamaExtractor:         ollamaExtractor,
+		ollamaScorer:            ollamaScorer,
 		ollamaExtractionEnabled: ollamaExtractionEnabled,
+		ollamaScoringEnabled:    ollamaScoringEnabled,
 	}
 }
 
@@ -188,11 +194,22 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 
 	// Persist the lead
 	lead := toLeadRecord(p, enriched)
+
+	// 3. Ollama Rationale (Phase 3)
+	if e.ollamaScoringEnabled && e.ollamaScorer != nil {
+		rationale, err := e.ollamaScorer.Rationale(ctx, lead)
+		if err == nil {
+			lead.Rationale = rationale
+		} else {
+			l.Warn("ollama rationale generation failed", "error", err)
+		}
+	}
+
 	if err := e.leadStore.Insert(ctx, &lead); err != nil {
 		return false, fmt.Errorf("insert lead: %w", err)
 	}
 
-	// 3. Priority Alert
+	// 4. Priority Alert
 	if e.PriorityAlertThreshold > 0 && enriched.PriorityScore >= e.PriorityAlertThreshold {
 		if e.Verbose {
 			l.Info("high priority lead detected", "score", enriched.PriorityScore)

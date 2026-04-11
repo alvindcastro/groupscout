@@ -25,6 +25,7 @@ type Lead struct {
 	OutOfTownCrewLikely     bool
 	PriorityScore           int
 	PriorityReason          string
+	Rationale               string
 	SuggestedOutreachTiming string
 	Notes                   string
 	Status                  string
@@ -75,9 +76,9 @@ func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
 			id, raw_project_id, source, title, location, project_value,
 			general_contractor, applicant, contractor, source_url, project_type,
 			estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-			priority_score, priority_reason, suggested_outreach_timing,
+			priority_score, priority_reason, rationale, suggested_outreach_timing,
 			notes, status, created_at, updated_at
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 	`
 	var rawProjectID any
 	if l.RawProjectID != "" {
@@ -87,7 +88,7 @@ func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
 		l.ID, rawProjectID, l.Source, l.Title, l.Location, l.ProjectValue,
 		l.GeneralContractor, l.Applicant, l.Contractor, l.SourceURL, l.ProjectType,
 		l.EstimatedCrewSize, l.EstimatedDurationMonths, l.OutOfTownCrewLikely,
-		l.PriorityScore, l.PriorityReason, l.SuggestedOutreachTiming,
+		l.PriorityScore, l.PriorityReason, l.Rationale, l.SuggestedOutreachTiming,
 		l.Notes, l.Status, now, now,
 	)
 	return err
@@ -98,7 +99,7 @@ func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
 		SELECT id, raw_project_id, source, title, location, project_value,
 		       general_contractor, applicant, contractor, source_url, project_type,
 		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, suggested_outreach_timing,
+		       priority_score, priority_reason, rationale, suggested_outreach_timing,
 		       notes, status, created_at, updated_at
 		FROM leads
 		WHERE status = 'new'
@@ -118,7 +119,7 @@ func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
 			&l.ID, &rawProjectID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
 			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
 			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-			&l.PriorityScore, &l.PriorityReason, &l.SuggestedOutreachTiming,
+			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
 			&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -134,7 +135,7 @@ func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
 		SELECT id, raw_project_id, source, title, location, project_value,
 		       general_contractor, applicant, contractor, source_url, project_type,
 		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, suggested_outreach_timing,
+		       priority_score, priority_reason, rationale, suggested_outreach_timing,
 		       notes, status, created_at, updated_at
 		FROM leads
 		WHERE (status = 'notified' OR status = 'new')
@@ -155,7 +156,7 @@ func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
 			&l.ID, &rawProjectID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
 			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
 			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-			&l.PriorityScore, &l.PriorityReason, &l.SuggestedOutreachTiming,
+			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
 			&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
 		); err != nil {
 			return nil, err

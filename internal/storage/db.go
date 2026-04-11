@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS leads (
     out_of_town_crew_likely   INTEGER DEFAULT 0,  -- 0=false, 1=true
     priority_score            INTEGER,
     priority_reason           TEXT,
+    rationale                 TEXT,
     suggested_outreach_timing TEXT,
     applicant                 TEXT,   -- raw applicant from permit (may include phone)
     contractor                TEXT,   -- raw contractor from permit (may include phone)
@@ -120,6 +121,7 @@ func Migrate(db *sql.DB, dsn string) error {
 		`ALTER TABLE leads ADD COLUMN applicant TEXT`,
 		`ALTER TABLE leads ADD COLUMN contractor TEXT`,
 		`ALTER TABLE leads ADD COLUMN source_url TEXT`,
+		`ALTER TABLE leads ADD COLUMN rationale TEXT`,
 	} {
 		if _, err := db.Exec(stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 			return err

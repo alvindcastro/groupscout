@@ -174,6 +174,33 @@ func TestLeadBlock_hasFields(t *testing.T) {
 	}
 }
 
+func TestLeadBlock_withRationale(t *testing.T) {
+	l := sampleLead
+	l.Rationale = "This is a strong lead because of its location and project type."
+	block := leadBlock(l)
+
+	fields, ok := block["fields"].([]map[string]any)
+	if !ok {
+		t.Fatal("leadBlock: missing 'fields'")
+	}
+	// 4 base fields + 1 rationale field = 5
+	if len(fields) != 5 {
+		t.Errorf("expected 5 fields, got %d", len(fields))
+	}
+
+	found := false
+	for _, f := range fields {
+		text, _ := f["text"].(string)
+		if strings.Contains(text, l.Rationale) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("leadBlock fields do not contain rationale %q", l.Rationale)
+	}
+}
+
 func TestLeadBlock_containsSource(t *testing.T) {
 	block := leadBlock(sampleLead)
 

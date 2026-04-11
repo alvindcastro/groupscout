@@ -151,6 +151,10 @@ func leadBlock(l storage.Lead) map[string]any {
 		markdownField(fmt.Sprintf("*Reason:* %s", l.PriorityReason)),
 	}
 
+	if l.Rationale != "" {
+		fields = append(fields, markdownField(fmt.Sprintf("*Rationale:* %s", l.Rationale)))
+	}
+
 	return map[string]any{
 		"type": "section",
 		"text": map[string]any{

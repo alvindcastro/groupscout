@@ -217,12 +217,12 @@ Do not make real HTTP calls in tests.
 
 ### Tasks
 
-- [ ] Write `internal/ollama/scorer_test.go` — mock LLMClient, assert rationale is non-empty string, test empty lead gracefully
-- [ ] Implement `internal/ollama/scorer.go` — `Scorer` struct, `Rationale(ctx, lead Lead) (string, error)` method
-- [ ] Write `modelfile/lead_scorer.modelfile` — hotel sales analyst persona
-- [ ] Inject `Scorer` into existing Slack notification builder — append rationale to Block Kit message
-- [ ] Cap rationale at 280 characters before sending to Slack (prevents overflow)
-- [ ] Add `OLLAMA_SCORING_ENABLED` toggle
+- [x] Write `internal/ollama/scorer_test.go` — mock LLMClient, assert rationale is non-empty string, test empty lead gracefully
+- [x] Implement `internal/ollama/scorer.go` — `Scorer` struct, `Rationale(ctx, lead Lead) (string, error)` method
+- [x] Write `modelfile/lead_scorer.modelfile` — hotel sales analyst persona
+- [x] Inject `Scorer` into existing Slack notification builder — append rationale to Block Kit message
+- [x] Cap rationale at 280 characters before sending to Slack (prevents overflow)
+- [x] Add `OLLAMA_SCORING_ENABLED` toggle
 - [ ] Add `ollama_rationale_latency_ms` to Prometheus metrics if metrics are wired
 
 ---
