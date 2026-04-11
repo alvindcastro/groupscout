@@ -1,48 +1,83 @@
-### Future Integration Roadmap
+# Future Integration Roadmap
 
-This document maps future integration ideas to the existing [ARCHITECTURE.md](./ARCHITECTURE.md) to define a development roadmap for GroupScout.
-
-> **Deep exploration of AI-Ready SQL + RAG:** see [AI_DATA_STRATEGY.md](./AI_DATA_STRATEGY.md).
-> Short answer: they work together and do NOT require replacing SQLite.
+> Maps brainstorm ideas to concrete GroupScout phases and PHASES.md tasks.
+> Last updated: 2026-04-10
 
 ---
 
-### 1. Agentic Engineering & GenAI Workflows
-*Target: `internal/enrichment`*
+## 1. Agentic Engineering & GenAI Workflows
 
-- [ ] **Reasoning Loops** — Evolve from simple single-call Claude API enrichment to multi-step reasoning (ReAct/Plan-and-Solve) for complex project analysis.
-- [x] **RAG Implementation** — Retrieve top-k similar past leads before each Claude call; inject as prompt context. (Postgres/pgvector storage layer implemented in Phase 15).
-- [ ] **Tool-Calling** — Enable agents to use tools (e.g., searching LinkedIn, verifying business registrations) during the enrichment phase.
+*Target: `internal/enrichment`, `internal/tools`*
+*Planned phase: **Phase 23 — Agentic Reasoning & Tool-Calling***
 
-### 2. Data Foundation & AI Pipelines
-*Target: `internal/collector`, `internal/storage`*
+| Idea | Status | Phase |
+|---|---|---|
+| Reasoning Loops (ReAct/Plan-and-Solve) for complex permits | 📋 planned | Phase 23-A |
+| RAG: top-k similar past leads injected into prompt context | ✅ done (pgvector, Phase 15) | — |
+| Tool-Calling: BC Registry lookup + LinkedIn URL generation | 📋 planned | Phase 23-B |
+| Multimodal PDF parsing via Claude vision | ⏸ deferred (5+ cities threshold) | Phase 23-C |
+| Multi-agent pipeline: one agent per source, coordinator deduplicates | 📋 future | Phase 26+ |
 
-- [ ] **Unstructured Ingestion** — Expand collectors to handle PDF tender documents and complex logs, using AI-driven parsing to extract structured `RawProject` data.
-- [ ] **AI-Ready SQL** — Denormalized `v_lead_context` view that joins leads + raw_projects into a pre-built LLM context string; replaces hand-crafted prompt strings in `claude.go`. See [AI_DATA_STRATEGY.md](./AI_DATA_STRATEGY.md).
-  - [ ] `migrations/003_ai_context.up.sql` — `v_lead_context` view (works on SQLite today)
-  - [ ] `internal/storage/leads.go` — `GetContext(ctx, id) string` method
-  - [ ] `internal/enrichment/claude.go` — refactor all `*Prompt()` functions to use `GetContext()` instead of hand-building strings
-- [ ] **AI Observability** — Integrate frameworks like RAGAS or Vertex Eval to monitor for hallucinations and track the quality of AI-generated outreach drafts.
-
-### 3. Integration & Cloud-Native Development
-*Target: `config`, `infrastructure`, `internal/enrichment`*
-
-- [x] **LLM Provider Abstraction (no lock-in)** — Replace hardcoded Claude calls with a `LLMClient` interface; config-driven provider selection. (Implemented Postgres support and storage layer readiness for this in Phase 15).
-- [ ] **AIaaS API Layer** — Build out the existing Go REST API into a robust Inference Layer, exposing AI enrichment capabilities as a standalone service.
-- [ ] **Infrastructure as Code (IaC)** — Provide Terraform templates to deploy the entire GroupScout stack on Google Cloud (Vertex AI, Cloud Run, Cloud SQL).
-- [ ] **Event-Driven Architecture** — Transition from scheduled cron jobs to a Pub/Sub or Webhook-triggered model (e.g., using Google Cloud Workflows) for real-time lead processing.
-- [ ] **CRM/ERP Integration** — Connect `internal/notify` to common business tools (HubSpot, Salesforce, SAP) via secure API orchestration to allow agents to directly create records or trigger actions.
-
-### 4. Agile Execution & Quality
-*Target: `docs/TESTING.md`, `internal/notify`*
-
-- [ ] **Automated UAT** — Develop automated User Acceptance Testing (UAT) suites to validate the business value of AI-generated endpoints and drafts.
-- [ ] **Technical Validation** — Implement stricter validation rules (DoD) for lead scoring, ensuring technical trade-offs (speed vs. scalability) are documented for each enrichment model.
+**Next concrete task:** `internal/enrichment/react_test.go` — write `TestReactEnricher_CallsToolOnBorderlineScore` with mock LLM; fail first.
 
 ---
 
-### Summary of Next Steps
+## 2. Data Foundation & AI Pipelines
 
-- [ ] **Pilot Agentic Reasoning** — Prototype a `ReAct` loop in `internal/enrichment` using Claude Sonnet.
-- [ ] **Vector Search POC** — Set up a local vector store for RAG-based context enrichment.
-- [ ] **Terraform Scaffolding** — Create basic IaC configurations for cloud deployment.
+*Target: `internal/collector`, `internal/storage`, `internal/enrichment`*
+*Planned phase: **Phase 24 — AI Observability & Quality***
+
+| Idea | Status | Phase |
+|---|---|---|
+| AI-Ready SQL (`v_lead_context` view + `GetContext()`) | 📋 planned | Phase 24-A |
+| Prompt refactor to use `GetContext()` instead of hand-built strings | 📋 planned | Phase 24-A |
+| Langfuse LLM observability (token cost, latency, prompt version) | 📋 planned | Phase 24-B |
+| Enrichment eval harness (`EvalLead()` structural validation) | 📋 planned | Phase 24-C |
+| AI observability eval (RAGAS / Vertex Eval for hallucination detection) | 📋 future | Phase 26+ |
+| Unstructured PDF ingestion (AI-driven parsing for tender docs) | 📋 future | Phase 23-C |
+
+**Next concrete task:** `migrations/005_ai_context.up.sql` — `v_lead_context` view; then `TestGetContext_ReturnsExpectedString`.
+
+---
+
+## 3. Integration & Cloud-Native Development
+
+*Target: `config`, `terraform/`, `cmd/server/`*
+*Planned phase: **Phase 25 — Cloud-Native & Event-Driven***
+
+| Idea | Status | Phase |
+|---|---|---|
+| LLM Provider Abstraction (`LLMClient` interface, factory) | 📋 planned | Phase 16 |
+| Hetzner CX32 + Coolify production deploy (primary recommendation, ~$10/month) | 📋 planned | Phase 25-A |
+| Event-driven ingestion: `POST /ingest` → `EnrichOne()` (platform-agnostic) | 📋 planned | Phase 25-B |
+| Terraform IaC for GCP (optional; alertd incompatible with Cloud Run — needs Compute Engine VM) | 📋 optional | Phase 25-C |
+| AIaaS API Layer: expose enrichment as standalone service | 📋 future | Phase 10 |
+| CRM/ERP Integration: HubSpot, Salesforce, SAP | 📋 future | Phase 11 |
+
+**Next concrete task (Phase 25-A):** Provision Hetzner CX32, install Coolify, deploy from existing `docker-compose.yml`, verify `/health` → 200. Write `docs/guides/COOLIFY.md`.
+
+---
+
+## 4. Agile Execution & Quality
+
+*Target: `docs/guides/TESTING.md`, `internal/enrichment/eval.go`*
+
+| Idea | Status | Phase |
+|---|---|---|
+| TDD-first rule enforced per phase (T tasks before impl tasks) | ✅ documented | All phases 16+ |
+| Enrichment structural eval (`EvalLead()` + Sentry on hard failures) | 📋 planned | Phase 24-C |
+| UAT suites validating AI-generated endpoints + outreach drafts | 📋 planned | Phase 24-C |
+| Benchmark test for pipeline throughput (target: <30s for 20 permits) | 📋 future | Phase 9 |
+
+---
+
+## Summary of Next Steps
+
+By priority:
+
+1. **Phase 7.4–7.6** — Lead Management API endpoints (`GET /leads`, `PATCH /leads/{id}`, OutreachLogStore) — unblocks Phase 19
+2. **Phase 16** — LLM Provider Abstraction — required before Phase 23 (agentic layer depends on the interface)
+3. **Phase 24-A** — AI-Ready SQL view — quick win; immediately improves prompt quality and reduces `claude.go` complexity
+4. **Phase 9** — Parallel collector execution — reduces pipeline runtime from sequential to concurrent
+5. **Phase 23** — ReAct loop + tool-calling — highest AI value; requires Phase 16 first
+6. **Phase 25** — Terraform IaC — enables cloud-native deployment and event-driven processing

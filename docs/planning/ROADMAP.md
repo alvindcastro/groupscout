@@ -26,12 +26,15 @@
 - [ ] **Phase 14** — Infrastructure & self-hosting: Docker ecosystem *(in progress)*
 - [x] **Phase 15** — PostgreSQL + pgvector migration: production storage + RAG foundation ✅
 - [ ] **Phase 16** — LLM Provider Abstraction: no vendor lock-in (Claude / OpenAI / Ollama / Gemini) 🔄
-- [ ] **Phase 17** — Airport Disruption Alert System (`alertd`): YVR real-time monitoring 🔄
+- [x] **Phase 17** — Airport Disruption Alert System (`alertd`): YVR real-time monitoring ✅
 - [ ] **Phase 18** — Contact Enrichment: Hunter.io integration & budget tiers 📋
 - [ ] **Phase 19** — Slack Actions & Lead Feedback: claim/dismiss/snooze buttons 📋
 - [ ] **Phase 20** — Analytics & Source Attribution: weekly performance summary 📋
 - [ ] **Phase 21** — Multi-Property Support: portfolio routing & YAML config 📋
 - [ ] **Phase 22** — Signal Quality & Repeat Org Detection 📋
+- [ ] **Phase 23** — Agentic Reasoning & Tool-Calling: ReAct loop + BC Registry / LinkedIn tools 📋
+- [ ] **Phase 24** — AI Observability & Quality: Langfuse + AI-Ready SQL + eval harness 📋
+- [ ] **Phase 25** — Production Deployment: Hetzner + Coolify (primary), Railway (managed alt), event-driven `/ingest` endpoint 📋
 
 ---
 
@@ -224,15 +227,15 @@
 
 ---
 
-## Phase 17 — Airport Disruption Alert System (`alertd`) 🔄
+## Phase 17 — Airport Disruption Alert System (`alertd`) ✅
 
 > A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack with actionable revenue ops information. Distinct from the lead pipeline — different cadence, different failure modes.
 
 - [x] **Part A — Data Sources & Weather:** ECCC weather poller, YVR flight scraper, NavCanada NOTAM parser. ✅
 - [x] **Part B — Stranded Passenger Score (SPS):** Calculate disruption impact with Vancouver-specific tuning. ✅
 - [x] **Part C — Alert Lifecycle State Machine:** `Watch → Alert → Updating → Resolved` transitions; 30-min threshold; Slack `chat.update` with message persistence (TS). ✅
-- [ ] **Part D — Hotel Config & Binary:** YAML config for property-specific thresholds and contacts.
-- [ ] **Part E — Inventory Slash Command:** Allow staff to update room counts directly from Slack.
+- [x] **Part D — Hotel Config & Binary:** YAML config for property-specific thresholds and contacts. ✅
+- [x] **Part E — Inventory Slash Command:** Allow staff to update room counts directly from Slack. ✅
 
 ---
 
@@ -400,28 +403,28 @@
 
 ---
 
-## Phase 17 — Airport Disruption Alert System (`alertd`) 🔄
+## Phase 17 — Airport Disruption Alert System (`alertd`) ✅
 
 **Goal:** A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack.
 
 ### Part A — Data Acquisition & Weather
-- [ ] ECCC Weather Poller (`internal/weather/eccc.go`) *(in progress)*
-- [ ] YVR Flight Status Scraper (`internal/aviation/yvr.go`)
-- [ ] NavCanada NOTAM Parser (`internal/aviation/navcanada.go`)
+- [x] ECCC Weather Poller (`internal/weather/eccc.go`)
+- [x] YVR Flight Status Scraper (`internal/aviation/yvr.go`)
+- [x] NavCanada NOTAM Parser (`internal/aviation/navcanada.go`)
 
 ### Part B — Stranded Passenger Score (SPS)
-- [ ] SPS formula + Vancouver tuning (`internal/aviation/scorer.go`)
+- [x] SPS formula + Vancouver tuning (`internal/aviation/scorer.go`)
 
 ### Part C — Alert Lifecycle State Machine
-- [ ] State machine: Watch → Alert → Update → Resolve (`internal/alert/lifecycle.go`)
-- [ ] Slack notification with Block Kit (`internal/alert/slack.go`)
+- [x] State machine: Watch → Alert → Update → Resolve (`internal/alert/lifecycle.go`)
+- [x] Slack notification with Block Kit (`internal/alert/slack.go`)
 
 ### Part D — Hotel Config & Binary
-- [ ] Hotel ↔ airport config loader (`config/airports.go`)
-- [ ] Main poll loop (`cmd/alertd/main.go`)
+- [x] Hotel ↔ airport config loader (`config/airports.go`)
+- [x] Main poll loop (`cmd/alertd/main.go`)
 
 ### Part E — Inventory Slash Command
-- [ ] `/inventory` Slack command handler
+- [x] `/inventory` Slack command handler
 
 ---
 
@@ -444,6 +447,41 @@
 ---
 
 ## Phase 22 — Advanced Intelligence 📋
+
+---
+
+---
+
+## Phase 23 — Agentic Reasoning & Tool-Calling 📋
+
+> Upgrade enrichment from single-call LLM to multi-step reasoning for borderline permits (score 5–7, value > $2M). Claude tool-use for BC Registry lookup + LinkedIn URL generation. See `PHASES.md` Phase 23 for atomic tasks.
+
+- [ ] **Part A** — ReAct loop: second LLM call with tool results injected; activated by `REACT_ENABLED=true`
+- [ ] **Part B** — Tool implementations: `internal/tools/bc_registry.go` (OrgBook API, no key) + `internal/tools/linkedin.go` (URL builder, no API)
+- [ ] **Part C** — Multimodal PDF enrichment via Claude vision (deferred until 5+ cities)
+
+---
+
+## Phase 24 — AI Observability & Quality 📋
+
+> Track LLM call quality, token costs, and prompt versions. Add AI-Ready SQL view to simplify prompt construction. Structural eval harness to catch bad enrichment outputs before they hit Slack. See `PHASES.md` Phase 24.
+
+- [ ] **Part A** — AI-Ready SQL: `v_lead_context` view + `GetContext()` method; refactor prompt builders
+- [ ] **Part B** — Langfuse integration: trace per LLM call (model, tokens, latency, score); noop client when key absent
+- [ ] **Part C** — Enrichment eval: `EvalLead()` structural validation + Sentry on hard failures
+
+---
+
+## Phase 25 — Production Deployment & Event-Driven Ingestion 📋
+
+> Deploy the full stack to production. **Hetzner CX32 + Coolify (~$10/month) is the primary recommendation** — it runs both binaries as persistent containers, deploys your existing `docker-compose.yml` directly, and includes n8n/Prometheus/Loki at no extra cost. Railway is the managed-PaaS alternative (~$10–18/month). GCP Cloud Run is **incompatible with `alertd`** (scales to zero; daemon needs persistent compute). See `docs/planning/DEPLOYMENT_OPTIONS.md` for the full analysis.
+>
+> See `PHASES.md` Phase 25 for atomic tasks.
+
+- [ ] **Part A** — Home server: No-IP/DuckDNS DDNS + port forwarding → Traefik + Let's Encrypt → optional Cloudflare Tunnel; `docs/guides/HOME_DEPLOY.md`
+- [ ] **Part B** — Hetzner + Coolify cloud deploy (if uptime SLA matters): VPS provision, Coolify setup, backup config, `docs/guides/COOLIFY.md`
+- [ ] **Part C** — Event-driven ingestion: `POST /ingest` + `EnrichOne()` (platform-agnostic)
+- [ ] **Part D** — Terraform IaC for GCP (optional; alertd needs Compute Engine VM — Cloud Run won't work)
 
 ---
 

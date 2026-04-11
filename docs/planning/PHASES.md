@@ -681,3 +681,106 @@
 - [ ] **B1** `internal/storage/leads.go` — `SignalQuality(source string, days int) float64` — ratio of (claimed + won) to total leads from source in window
 - [ ] **B2** `config/config.go` — `LOW_QUALITY_SOURCE_THRESHOLD float64` (default 0.05); sources below threshold logged as warning in pipeline metrics
 - [ ] **B3** `internal/enrichment/enricher.go` — check signal quality before enriching; if source quality < threshold, log warning (do not skip — just flag)
+
+---
+
+## Phase 23 — Agentic Reasoning & Tool-Calling 📋
+**Goal:** Upgrade the enrichment layer from single-call LLM to multi-step reasoning for complex or borderline permits. Add Claude tool-use for real-world verification (BC Registry lookup, LinkedIn search URL generation). Only activates for permits scoring 5–7 with value > $2M — avoids unnecessary cost on clear accepts/rejects.
+
+> **TDD rule:** T tasks first. All tool implementations are pure functions tested against fixture responses. No live API calls in the test suite.
+
+### Part A — Interface & ReAct Loop
+- [ ] **A-T** `internal/enrichment/react_test.go` — `TestReactEnricher_CallsToolOnBorderlineScore`: mock `LLMClient` returns score=6; assert second LLM call issued with tool results injected; assert final score updated; fail first
+- [ ] **A-T** `internal/enrichment/react_test.go` — `TestReactEnricher_SkipsToolOnClearScore`: score=9 → assert only one LLM call; score=2 → one call; fail first
+- [ ] **A1** `internal/enrichment/react.go` — `ReactEnricher` struct wrapping `LLMClient`; detect borderline score (5–7, value > $2M); issue second call with tool results as additional context
+- [ ] **A2** `internal/enrichment/enricher.go` — wire `ReactEnricher` as optional wrapper: activated by `REACT_ENABLED=true` env var; falls back to single-call if disabled
+
+### Part B — Tool Implementations
+- [ ] **B-T** `internal/tools/bc_registry_test.go` — `TestBCRegistryLookup` with `httptest.NewServer` fixture; assert company name → registration status, address; non-200 handled; fail first
+- [ ] **B-T** `internal/tools/linkedin_test.go` — `TestGenerateLinkedInSearchURL` table-driven: org name → correct URL-encoded search string; fail first
+- [ ] **B1** `internal/tools/bc_registry.go` — BC Registry open data lookup: `https://orgbook.gov.bc.ca/api/v4/search/topic?name={company}` (no API key); returns `Registered bool`, `Address string`, `ActiveDate string`
+- [ ] **B2** `internal/tools/linkedin.go` — pure function: `GenerateSearchURL(name, title, location string) string` — builds a LinkedIn people search URL (no scraping, no API — URL only)
+- [ ] **B3** `config/config.go` — `ReactEnabled bool` from `REACT_ENABLED=true`; `ReactBorderlineLow`, `ReactBorderlineHigh int` (default 5, 7); `ReactMinValue int64` (default 2000000)
+
+### Part C — Multimodal PDF Enrichment (deferred-ready)
+> Defer until adding 5+ new cities. Tracked here for architecture awareness.
+- [ ] **C-T** `internal/enrichment/pdf_enricher_test.go` — `TestPDFEnricher_ExtractsFromFixture`: load a fixture PDF bytes; assert title, value, location extracted via Claude vision; fail first
+- [ ] **C1** `internal/enrichment/pdf_enricher.go` — `PDFEnricher`: base64-encode PDF page → Claude vision call; extract `RawProject` fields without `pdftotext`; activated by `PDF_VISION_ENABLED=true`
+
+---
+
+## Phase 24 — AI Observability & Quality 📋
+**Goal:** Track Claude API call quality, token costs, and prompt versions. Detect enrichment failures early. Add AI-Ready SQL view to simplify prompt construction and enable query-based context retrieval.
+
+> **TDD rule:** T tasks first. All enrichment quality checks are pure — test against fixture lead structs. Langfuse calls are wrapped behind an interface and mocked in tests.
+
+### Part A — AI-Ready SQL View
+> Replaces hand-built prompt strings in `claude.go` with a DB-computed context string. Works on both Postgres and SQLite.
+
+- [ ] **A-T** `internal/storage/leads_test.go` — `TestGetContext_ReturnsExpectedString`: seed one lead + raw_project row; assert `GetContext(ctx, id)` returns expected formatted string; fail first
+- [ ] **A1** `migrations/005_ai_context.up.sql` — `CREATE VIEW v_lead_context AS SELECT ...` — joins `leads` + `raw_projects`; formats into a pre-built LLM context string with field labels
+- [ ] **A2** `migrations/005_ai_context.down.sql` — `DROP VIEW IF EXISTS v_lead_context`
+- [ ] **A3** `internal/storage/leads.go` — `GetContext(ctx context.Context, id string) (string, error)` — queries `v_lead_context` by lead ID; returns formatted string
+- [ ] **A4** `internal/enrichment/claude.go` — refactor `permitPrompt()`, `creativeBCPrompt()`, `vccPrompt()`, `announcementPrompt()` to accept a `context string` param; remove duplicated field formatting
+- [ ] **A5** `internal/enrichment/enricher.go` — call `leads.GetContext(ctx, id)` before each enrichment call; pass result to prompt functions
+
+### Part B — Langfuse LLM Observability
+- [ ] **B-T** `internal/enrichment/telemetry_test.go` — `TestTelemetryClient_TracksCall`: mock Langfuse HTTP server; assert trace created with model, tokens, latency, prompt_version fields; assert no panic when `LANGFUSE_HOST` unset (noop mode); fail first
+- [ ] **B1** `internal/enrichment/telemetry.go` — `TelemetryClient` interface + `LangfuseClient` impl + `NoopClient` (default when key absent); wraps each LLM call; records: model, prompt_version, input_tokens, output_tokens, latency_ms, priority_score, source
+- [ ] **B2** `internal/enrichment/enricher.go` — inject `TelemetryClient`; wrap LLM call with telemetry trace
+- [ ] **B3** `config/config.go` — `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` (default `https://cloud.langfuse.com`); empty key → noop client
+- [ ] **B4** `docker-compose.yml` — optional `langfuse` service (comment block with instructions); link to Langfuse self-hosted docs
+- [ ] **B5** `docs/planning/AI_DATA_STRATEGY.md` — add Langfuse section: cloud free tier vs. self-hosted Docker trade-offs
+
+### Part C — Enrichment Quality Eval
+- [ ] **C-T** `internal/enrichment/eval_test.go` — `TestEvalLead_RejectsEmptyGC`: lead with empty `GeneralContractor` → eval returns warning; `TestEvalLead_RejectsOutOfRangeScore`: score=11 → error; `TestEvalLead_PassesValidLead`; fail first
+- [ ] **C1** `internal/enrichment/eval.go` — `EvalLead(lead Lead) []EvalWarning`: structural validation (required fields, score in 0–10, crew_size > 0 for out_of_town=true); returns slice of warnings
+- [ ] **C2** `internal/enrichment/enricher.go` — call `EvalLead` after enrichment; log warnings; send to Sentry if severity == error
+- [ ] **C3** `internal/storage/leads.go` — add `eval_warnings TEXT` column (migration `005_ai_context`); store eval output alongside lead for audit trail
+
+---
+
+## Phase 25 — Production Deployment & Event-Driven Ingestion 📋
+**Goal:** Ship the full stack to a production server using the chosen deployment platform (Hetzner + Coolify recommended; see `docs/planning/DEPLOYMENT_OPTIONS.md`). Add opt-in event-driven ingestion so individual leads can be pushed directly to enrichment without running the full batch pipeline.
+
+> **Platform note:** GCP Cloud Run is **incompatible** with `alertd` (scales to zero between requests; the polling daemon requires a persistent compute surface). Hetzner CX32 + Coolify (~$10/month) is the recommended path. Railway is the managed-PaaS alternative (~$10–18/month). See full analysis in `docs/planning/DEPLOYMENT_OPTIONS.md`.
+
+> **TDD rule:** Event handler logic tested with fixture payloads. Coolify deploy steps verified manually — no automated IaC test required for this phase.
+
+### Part A — Home Server Deploy (Free, Start Here)
+> Run on any machine you already own. See `docs/planning/DEPLOYMENT_OPTIONS.md` for the full progression (DDNS → Traefik → Cloudflare Tunnel).
+
+- [ ] **A1** Install No-IP DUC (or DuckDNS updater) on host; register free hostname (e.g. `groupscout.duckdns.org`)
+- [ ] **A2** Configure router: port forward `8080 → Docker host:8080`; verify with `curl http://groupscout.duckdns.org:8080/health`
+- [ ] **A3** `docker-compose.yml` — add `traefik:v3` service; configure Let's Encrypt resolver; add `labels:` to `server` and `alertd` containers for subdomain routing
+- [ ] **A4** Verify: `https://server.groupscout.duckdns.org/health` returns 200 with valid SSL cert; no port number in URL
+- [ ] **A5** (Optional) Replace port forwarding with Cloudflare Tunnel: add `cloudflared` container; configure in Cloudflare Zero Trust dashboard; remove router rule
+- [ ] **A6** `docs/guides/HOME_DEPLOY.md` — guide: DDNS setup, port forwarding, Traefik config, Cloudflare Tunnel alternative
+
+### Part B — Hetzner + Coolify Cloud Deploy (if uptime SLA matters)
+- [ ] **B1** Provision Hetzner CX32 (Ubuntu 24.04) → install Coolify (`curl -fsSL https://cdn.coolify.io/install.sh | bash`)
+- [ ] **B2** Configure Coolify: add GitHub repo, set environment variables, map `docker-compose.yml` services
+- [ ] **B3** Verify: `server` and `alertd` running as persistent containers; Postgres+pgvector up; `/health` returns 200
+- [ ] **B4** Configure Coolify automatic deploys on `git push main`
+- [ ] **B5** Set up Coolify scheduled backup for the Postgres volume (weekly, to Hetzner Object Storage or S3-compatible)
+- [ ] **B6** `docs/guides/COOLIFY.md` — deploy guide: VPS setup, Coolify install, service mapping, env vars, backup config, custom domain + SSL
+
+### Part C — Event-Driven Ingestion (opt-in, platform-agnostic)
+> Complements the existing cron/n8n trigger. A webhook push can trigger per-project enrichment without a full pipeline run — useful for n8n pipelines that discover leads from external sources.
+
+- [ ] **B-T** `cmd/server/events_test.go` — `TestWebhookHandler_DecodesAndEnqueues`: fixture JSON body → decode → assert `RawProject` fields extracted and routed to `EnrichOne`; fail first
+- [ ] **B-T** `cmd/server/events_test.go` — `TestWebhookHandler_RejectsInvalidPayload`: malformed JSON → 400; missing `source` field → 400; fail first
+- [ ] **B1** `internal/enrichment/enricher.go` — `EnrichOne(ctx context.Context, raw RawProject) error` — single-project path alongside existing `RunPipeline()`; reuses the same dedup → score → enrich → store → notify flow
+- [ ] **B2** `cmd/server/main.go` — `POST /ingest` endpoint: accepts a single `RawProject` JSON body; calls `EnrichOne`; returns enriched lead ID on success; protected by existing Bearer token auth
+- [ ] **B3** `config/config.go` — no new env var needed; endpoint is always registered (alongside `/run`, `/digest`, `/health`)
+- [ ] **B4** `docs/API_TESTING.md` — add `/ingest` example request to Bruno collection
+- [ ] **B5** `api/swagger.yaml` — add `POST /ingest` endpoint definition
+
+### Part D — Terraform IaC (GCP, optional)
+> Only pursue this path if GCP-specific requirements exist (compliance, existing credits, org policy). Requires adding a persistent Compute Engine VM for `alertd` — Cloud Run cannot host the daemon.
+
+- [ ] **C1** `terraform/main.tf` — Compute Engine VM for `alertd` (e2-micro or e2-small); Cloud Run for `server` (weekly pipeline trigger only)
+- [ ] **C2** `terraform/cloudsql.tf` — Cloud SQL Postgres 17 + pgvector; private IP; automated backups
+- [ ] **C3** `terraform/secrets.tf` — Secret Manager for all env vars
+- [ ] **C4** `terraform/variables.tf` + `terraform/terraform.tfvars.example`
+- [ ] **C5** `docs/guides/TERRAFORM.md` — GCP deploy guide with alertd architecture note
