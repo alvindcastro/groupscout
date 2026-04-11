@@ -748,14 +748,25 @@
 > **TDD rule:** Event handler logic tested with fixture payloads. Coolify deploy steps verified manually — no automated IaC test required for this phase.
 
 ### Part A — Home Server Deploy (Free, Start Here)
-> Run on any machine you already own. See `docs/planning/DEPLOYMENT_OPTIONS.md` for the full progression (DDNS → Traefik → Cloudflare Tunnel).
+> Run on any machine you already own. Full step-by-step: `docs/guides/HOME_DEPLOY.md`.
+> See `docs/planning/DEPLOYMENT_OPTIONS.md` for DDNS → Traefik → Cloudflare Tunnel progression.
+> **TDD gate:** each task has a verify command. Do not proceed to the next task until verify passes.
 
-- [ ] **A1** Install No-IP DUC (or DuckDNS updater) on host; register free hostname (e.g. `groupscout.duckdns.org`)
-- [ ] **A2** Configure router: port forward `8080 → Docker host:8080`; verify with `curl http://groupscout.duckdns.org:8080/health`
-- [ ] **A3** `docker-compose.yml` — add `traefik:v3` service; configure Let's Encrypt resolver; add `labels:` to `server` and `alertd` containers for subdomain routing
-- [ ] **A4** Verify: `https://server.groupscout.duckdns.org/health` returns 200 with valid SSL cert; no port number in URL
-- [ ] **A5** (Optional) Replace port forwarding with Cloudflare Tunnel: add `cloudflared` container; configure in Cloudflare Zero Trust dashboard; remove router rule
-- [ ] **A6** `docs/guides/HOME_DEPLOY.md` — guide: DDNS setup, port forwarding, Traefik config, Cloudflare Tunnel alternative
+- [ ] **A1** Register DuckDNS hostname (e.g. `groupscout.duckdns.org`); install updater (cron script or `lscr.io/linuxserver/duckdns` container); set `DUCKDNS_TOKEN` in `.env`
+  - Verify: `cat ~/duckdns/duck.log` prints `OK`; `nslookup groupscout.duckdns.org` resolves to current public IP
+  - CGNAT check: if router WAN IP is `100.64.x.x` / `10.x.x.x` → skip A2 and go straight to A5
+- [ ] **A2** Configure router: forward external ports `80` and `443` → Docker host LAN IP; test with temp `traefik/whoami` container before adding Traefik
+  - Verify: `curl http://groupscout.duckdns.org/` from external network (phone off WiFi) returns Whoami response
+- [ ] **A3** `docker-compose.yml` — add `traefik:v3` service (TLS-ALPN challenge, HTTP→HTTPS redirect); remove direct `ports:` from `app`/`alertd`; add `labels:` to `app`, `alertd`, `n8n`, `prometheus`, `grafana`; add `letsencrypt:` volume; add `ACME_EMAIL` to `.env`
+  - TDD gate: `docker compose config --quiet` exits 0 before `docker compose up`
+  - Deploy: `docker compose up -d`; watch for `Obtained certificate from ACME provider` in `docker compose logs traefik`
+- [ ] **A4** Verify HTTPS + subdomain routing (acceptance test — all three must pass):
+  - `curl -fs https://server.groupscout.duckdns.org/health` → `{"status":"ok"}`
+  - `curl -sv https://server.groupscout.duckdns.org/health 2>&1 | grep issuer` → `Let's Encrypt`
+  - `curl -Iv http://server.groupscout.duckdns.org/health 2>&1 | grep -E "301|Location"` → redirect to https
+- [ ] **A5** *(Optional — CGNAT / no port forwarding)* Add `cloudflare/cloudflared:latest` container; configure public hostnames in Cloudflare Zero Trust dashboard; set `CLOUDFLARE_TUNNEL_TOKEN` in `.env`; remove Traefik service if using Tunnel for TLS
+  - Verify: `docker compose logs cloudflared | grep -i registered`; `curl -fs https://server.yourdomain.com/health` → `{"status":"ok"}`
+- [x] **A6** `docs/guides/HOME_DEPLOY.md` — guide: DuckDNS setup, CGNAT detection, port forwarding, Traefik config, Cloudflare Tunnel alternative, security checklist, backup, troubleshooting ✅
 
 ### Part B — Hetzner + Coolify Cloud Deploy (if uptime SLA matters)
 - [ ] **B1** Provision Hetzner CX32 (Ubuntu 24.04) → install Coolify (`curl -fsSL https://cdn.coolify.io/install.sh | bash`)
