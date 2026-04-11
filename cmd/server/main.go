@@ -69,9 +69,9 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := oc.HealthCheck(ctx); err != nil {
-				l.Warn("ollama health check failed; local LLM features may be unavailable", "endpoint", cfg.OllamaEndpoint, "error", err)
+				l.Warn("ollama: unavailable — running in degraded mode", "endpoint", cfg.OllamaEndpoint, "error", err)
 			} else {
-				l.Info("ollama health check ok", "endpoint", cfg.OllamaEndpoint)
+				l.Info("ollama: ready", "endpoint", cfg.OllamaEndpoint)
 			}
 		}()
 	} else {

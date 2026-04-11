@@ -395,12 +395,12 @@ WSL2 has first-class CUDA support. The Windows NVIDIA driver exposes CUDA to WSL
 
 ### Tasks
 
-- [ ] Confirm `ollama` service healthcheck uses `ollama list` (not `curl` — the official image does not contain `curl`)
-- [ ] Set `start_period: 60s` on the healthcheck — model loading on first run can take 30–45s
-- [ ] GroupScout startup: call `OllamaClient.HealthCheck()` after config load; log `"ollama: ready"` or `"ollama: unavailable — running in degraded mode"`
-- [ ] If `HealthCheck()` fails and `OLLAMA_ENABLED=true`, log a warning but do **not** exit — fall back to regex/hardcoded paths
-- [ ] Add `/health` endpoint response field: `"ollama": "ok" | "degraded" | "unavailable"`
-- [ ] Write a `TestHealthCheckDegraded` unit test: mock Ollama returning 503, assert GroupScout reports `"degraded"` not a fatal error
+- [x] Confirm `ollama` service healthcheck uses `ollama list` (not `curl` — the official image does not contain `curl`)
+- [x] Set `start_period: 60s` on the healthcheck — model loading on first run can take 30–45s
+- [x] GroupScout startup: call `OllamaClient.HealthCheck()` after config load; log `"ollama: ready"` or `"ollama: unavailable — running in degraded mode"`
+- [x] If `HealthCheck()` fails and `OLLAMA_ENABLED=true`, log a warning but do **not** exit — fall back to regex/hardcoded paths
+- [x] Add `/health` endpoint response field: `"ollama": "ok" | "degraded" | "unavailable"`
+- [x] Write a `TestHealthCheckDegraded` unit test: mock Ollama returning 503, assert GroupScout reports `"degraded"` not a fatal error
 
 ### Startup sequence
 

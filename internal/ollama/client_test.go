@@ -202,6 +202,27 @@ func TestOllamaClient_HealthCheck(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 	})
+
+	t.Run("degraded_503", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}))
+		defer ts.Close()
+
+		client := &OllamaClient{Endpoint: ts.URL, Timeout: 1 * time.Second}
+		err := client.HealthCheck(context.Background())
+		if err == nil {
+			t.Fatal("expected error for 503, got nil")
+		}
+
+		oerr, ok := err.(*OllamaError)
+		if !ok {
+			t.Fatalf("expected OllamaError, got %T", err)
+		}
+		if oerr.StatusCode != 503 {
+			t.Errorf("expected status code 503, got %d", oerr.StatusCode)
+		}
+	})
 }
 
 func TestNoopClient(t *testing.T) {
