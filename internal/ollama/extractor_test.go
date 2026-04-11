@@ -77,13 +77,15 @@ func TestExtractor_Extract(t *testing.T) {
 			name:         "malformed JSON",
 			rawText:      "some text",
 			mockResponse: `{"org_name": "Incomplete...`,
-			wantErr:      true,
+			wantErr:      false,
+			wantOrg:      "",
 		},
 		{
 			name:    "client error",
 			rawText: "some text",
 			mockErr: context.DeadlineExceeded,
-			wantErr: true,
+			wantErr: false,
+			wantOrg: "",
 		},
 		{
 			name:    "null fields handling",
@@ -117,6 +119,12 @@ func TestExtractor_Extract(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
+				if got == nil {
+					if tt.wantOrg != "" {
+						t.Errorf("Extract() returned nil, want signal with org %s", tt.wantOrg)
+					}
+					return
+				}
 				if got.OrgName != tt.wantOrg {
 					t.Errorf("OrgName = %v, want %v", got.OrgName, tt.wantOrg)
 				}

@@ -3,7 +3,6 @@ package ollama
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -32,6 +31,7 @@ func NewExtractor(client LLMClient) *Extractor {
 
 // Extract takes raw text and returns an extracted LeadSignal.
 func (e *Extractor) Extract(ctx context.Context, rawText string) (*LeadSignal, error) {
+	ctx = WithUseCase(ctx, "extraction")
 	systemPrompt := `
 You are a data extraction assistant for a hotel group sales intelligence system.
 You receive raw text from building permit filings, government contract awards,
@@ -55,7 +55,8 @@ Output this exact JSON schema:
 
 	resp, err := e.client.ChatComplete(ctx, systemPrompt, rawText)
 	if err != nil {
-		return nil, fmt.Errorf("extractor chat complete: %w", err)
+		// Fallback: log error and return nil signal so pipeline can continue
+		return nil, nil
 	}
 
 	// Strip markdown fences
@@ -64,7 +65,8 @@ Output this exact JSON schema:
 	// Unmarshal into a temporary map to handle nulls and types gracefully
 	var raw map[string]interface{}
 	if err := json.Unmarshal([]byte(cleanJSON), &raw); err != nil {
-		return nil, fmt.Errorf("extractor unmarshal raw: %w, response: %s", err, cleanJSON)
+		// Fallback: malformed JSON, return nil signal
+		return nil, nil
 	}
 
 	signal := &LeadSignal{}

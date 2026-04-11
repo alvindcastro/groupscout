@@ -48,7 +48,7 @@ func TestScorer_Rationale(t *testing.T) {
 			name:    "context cancellation",
 			lead:    storage.Lead{Title: "Cancelled"},
 			mockErr: context.Canceled,
-			wantErr: context.Canceled,
+			wantErr: nil,
 		},
 	}
 

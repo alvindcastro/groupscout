@@ -17,6 +17,7 @@ func NewModelfileManager(client *OllamaClient) *ModelfileManager {
 
 // Push sends a Modelfile to the Ollama /api/create endpoint.
 func (m *ModelfileManager) Push(ctx context.Context, modelName, modelfileContent string) error {
+	ctx = WithUseCase(ctx, "modelfile_push")
 	reqBody := map[string]interface{}{
 		"name":      modelName,
 		"modelfile": modelfileContent,
@@ -28,5 +29,6 @@ func (m *ModelfileManager) Push(ctx context.Context, modelName, modelfileContent
 
 // ListModels delegates to the underlying OllamaClient to list available models.
 func (m *ModelfileManager) ListModels(ctx context.Context) ([]string, error) {
+	ctx = WithUseCase(ctx, "list_models")
 	return m.client.ListModels(ctx)
 }

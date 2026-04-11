@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/alvindcastro/groupscout/config"
 	"github.com/alvindcastro/groupscout/internal/collector"
@@ -121,14 +122,38 @@ func main() {
 		l.Warn("API_TOKEN not set; server will be insecure (all requests allowed)")
 	}
 
+	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		status := map[string]string{
+			"status":   "ok",
+			"database": "ok",
+			"ollama":   "unavailable",
+		}
+
 		if err := db.Ping(); err != nil {
 			l.Error("health check failed: DB ping", "error", err)
-			http.Error(w, "Service Unavailable: Database Ping Failed", http.StatusServiceUnavailable)
-			return
+			status["database"] = "error"
+			status["status"] = "error"
 		}
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "OK")
+
+		if cfg.OllamaEnabled {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			defer cancel()
+			if err := ollamaClient.HealthCheck(ctx); err != nil {
+				l.Warn("health check: ollama degraded", "error", err)
+				status["ollama"] = "degraded"
+			} else {
+				status["ollama"] = "ok"
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if status["status"] == "error" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+		json.NewEncoder(w).Encode(status)
 	})
 
 	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {

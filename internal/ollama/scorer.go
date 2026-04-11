@@ -20,6 +20,7 @@ func NewScorer(client LLMClient) *Scorer {
 
 // Rationale generates a 2-3 sentence explanation for why a lead has its priority score.
 func (s *Scorer) Rationale(ctx context.Context, lead storage.Lead) (string, error) {
+	ctx = WithUseCase(ctx, "scoring")
 	systemPrompt := `
 You are a senior hotel sales analyst at a Vancouver-area full-service hotel.
 You receive structured data about a potential group lodging lead.
@@ -38,7 +39,8 @@ Keep your response under 250 characters.
 
 	resp, err := s.client.ChatComplete(ctx, systemPrompt, summary)
 	if err != nil {
-		return "", fmt.Errorf("scorer rationale: %w", err)
+		// Fallback: empty rationale
+		return "", nil
 	}
 
 	rationale := strings.TrimSpace(resp)

@@ -424,18 +424,18 @@ Tests:
 
 ### Tasks
 
-- [ ] Add structured log fields to every Ollama call: `model`, `use_case`, `latency_ms`, `tokens_approx`, `error`
-- [ ] Add Prometheus counters/histograms: `ollama_calls_total{use_case, status}`, `ollama_latency_ms{use_case}`
-- [ ] Implement timeout per use case (configurable via env):
+- [x] Add structured log fields to every Ollama call: `model`, `use_case`, `latency_ms`, `tokens_approx`, `error`
+- [x] Add Prometheus counters/histograms: `ollama_calls_total{use_case, status}`, `ollama_latency_ms{use_case}`
+- [x] Implement timeout per use case (configurable via env):
   - `OLLAMA_EXTRACT_TIMEOUT_S` — default 30s
   - `OLLAMA_SCORE_TIMEOUT_S` — default 20s
   - `OLLAMA_ALERT_COPY_TIMEOUT_S` — default 15s
-- [ ] Implement fallback chain per use case:
+- [x] Implement fallback chain per use case:
   - Signal extraction: fallback to existing regex extractor
   - Lead scoring: fallback to empty rationale (score number only in Slack)
   - Alert copy: fallback to hardcoded template
-- [ ] Write unit tests for fallback logic: mock `LLMClient.ChatComplete()` to return `context.DeadlineExceeded`; assert fallback value returned, no error propagated to caller
-- [ ] Add `/health` endpoint field: `"ollama": "ok" | "degraded" | "unavailable"`
+- [x] Write unit tests for fallback logic: mock `LLMClient.ChatComplete()` to return `context.DeadlineExceeded`; assert fallback value returned, no error propagated to caller
+- [x] Add `/health` endpoint field: `"ollama": "ok" | "degraded" | "unavailable"`
 
 ---
 

@@ -31,6 +31,7 @@ func NewAlertCopyGenerator(client LLMClient) *AlertCopyGenerator {
 
 // Generate builds a prompt and calls the LLM to create alert copy.
 func (g *AlertCopyGenerator) Generate(ctx context.Context, event DisruptionEvent) (string, error) {
+	ctx = WithUseCase(ctx, "alert_copy")
 	systemPrompt := `
 You are a hotel operations assistant at a Vancouver-area airport hotel (near YVR).
 You receive real-time flight disruption data and write 2–3 actionable bullet points
@@ -49,7 +50,8 @@ Rules:
 
 	resp, err := g.client.ChatComplete(ctx, systemPrompt, userPrompt)
 	if err != nil {
-		return "", fmt.Errorf("alertcopy chat complete: %w", err)
+		// Fallback: empty copy, let the caller use hardcoded template
+		return "", nil
 	}
 
 	return resp, nil

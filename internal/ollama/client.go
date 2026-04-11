@@ -7,7 +7,23 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/alvindcastro/groupscout/internal/logger"
 )
+
+type useCaseKey struct{}
+
+// WithUseCase adds a use case name to the context for metrics and logging.
+func WithUseCase(ctx context.Context, useCase string) context.Context {
+	return context.WithValue(ctx, useCaseKey{}, useCase)
+}
+
+func getUseCase(ctx context.Context) string {
+	if v, ok := ctx.Value(useCaseKey{}).(string); ok {
+		return v
+	}
+	return "unknown"
+}
 
 // LLMClient defines the interface for local LLM interactions.
 type LLMClient interface {
@@ -24,6 +40,25 @@ type OllamaClient struct {
 	Timeout  time.Duration
 }
 
+type GenerateResponse struct {
+	Response        string `json:"response"`
+	PromptEvalCount int    `json:"prompt_eval_count"`
+	EvalCount       int    `json:"eval_count"`
+}
+
+type ChatResponse struct {
+	Choices []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
+}
+
 // Generate sends a simple prompt to the Ollama /api/generate endpoint.
 func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, error) {
 	reqBody := map[string]interface{}{
@@ -32,9 +67,7 @@ func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, err
 		"stream": false,
 	}
 
-	var respBody struct {
-		Response string `json:"response"`
-	}
+	var respBody GenerateResponse
 
 	err := c.doWithRetry(ctx, http.MethodPost, "/api/generate", reqBody, &respBody)
 	if err != nil {
@@ -55,13 +88,7 @@ func (c *OllamaClient) ChatComplete(ctx context.Context, system, user string) (s
 		"stream": false,
 	}
 
-	var respBody struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
+	var respBody ChatResponse
 
 	err := c.doWithRetry(ctx, http.MethodPost, "/v1/chat/completions", reqBody, &respBody)
 	if err != nil {
@@ -101,6 +128,9 @@ func (c *OllamaClient) ListModels(ctx context.Context) ([]string, error) {
 }
 
 func (c *OllamaClient) doWithRetry(ctx context.Context, method, path string, body interface{}, out interface{}) error {
+	useCase := getUseCase(ctx)
+	start := time.Now()
+
 	var bodyBytes []byte
 	var err error
 	if body != nil {
@@ -115,21 +145,59 @@ func (c *OllamaClient) doWithRetry(ctx context.Context, method, path string, bod
 		attempt++
 		err = c.doOnce(ctx, method, path, bodyBytes, out)
 		if err == nil {
+			latency := time.Since(start)
+			recordMetrics(useCase, "success", latency)
+			logCall(useCase, c.Model, latency, out, nil)
 			return nil
 		}
 
 		// Retry only on 5xx or connection errors, once, with 2s backoff.
-		// For simplicity, we'll check if it's a retryable error.
 		if attempt < 2 && isRetryable(err) {
 			select {
 			case <-ctx.Done():
+				recordMetrics(useCase, "error", time.Since(start))
+				logCall(useCase, c.Model, time.Since(start), nil, ctx.Err())
 				return ctx.Err()
 			case <-time.After(2 * time.Second):
 				continue
 			}
 		}
 
+		recordMetrics(useCase, "error", time.Since(start))
+		logCall(useCase, c.Model, time.Since(start), nil, err)
 		return err
+	}
+}
+
+func recordMetrics(useCase, status string, latency time.Duration) {
+	CallsTotal.WithLabelValues(useCase, status).Inc()
+	LatencyMS.WithLabelValues(useCase).Observe(float64(latency.Milliseconds()))
+}
+
+func logCall(useCase, model string, latency time.Duration, out interface{}, err error) {
+	tokens := 0
+	if out != nil {
+		switch r := out.(type) {
+		case *GenerateResponse:
+			tokens = r.PromptEvalCount + r.EvalCount
+		case *ChatResponse:
+			tokens = r.Usage.TotalTokens
+		}
+	}
+
+	args := []any{
+		"use_case", useCase,
+		"model", model,
+		"latency_ms", latency.Milliseconds(),
+	}
+	if tokens > 0 {
+		args = append(args, "tokens_approx", tokens)
+	}
+	if err != nil {
+		args = append(args, "error", err.Error())
+		logger.Log.Error("ollama call failed", args...)
+	} else {
+		logger.Log.Info("ollama call successful", args...)
 	}
 }
 

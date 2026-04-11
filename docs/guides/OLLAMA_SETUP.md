@@ -3,6 +3,9 @@
 > How Ollama runs, where it lives, how it talks to GroupScout, and how to keep it working.  
 > Covers: Docker Compose wiring, model persistence, networking, dev vs. prod, health checks, and first-boot model pull.
 
+> **Your machine:** Windows 11 + WSL2 · Intel i5-13400F · **32 GB RAM** · **NVIDIA RTX 4060 Ti (16 GB VRAM)**  
+> Mistral 7B (~4 GB) and Llama 3.1 8B (~5 GB) both fit in VRAM simultaneously with headroom to spare. Inference is ~1–2s per call with GPU, vs 8–15s CPU-only. **GPU passthrough is strongly recommended on this machine.**
+
 ---
 
 ## Table of Contents
@@ -15,10 +18,9 @@
 6. [Phase 5 — GPU Passthrough (Optional)](#phase-5--gpu-passthrough-optional)
 7. [Phase 6 — Health Checks & Startup Ordering](#phase-6--health-checks--startup-ordering)
 8. [Phase 7 — Prod Hardening](#phase-7--prod-hardening)
-9. [Phase 8 — Modelfile Management & Hot-Swap](#phase-8--modelfile-management--hot-swap)
-10. [Reference: Full docker-compose.yml Snippet](#reference-full-docker-composeyml-snippet)
-11. [Reference: Environment Variables](#reference-environment-variables)
-12. [Troubleshooting](#troubleshooting)
+9. [Reference: Full docker-compose.yml Snippet](#reference-full-docker-composeyml-snippet)
+10. [Reference: Environment Variables](#reference-environment-variables)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -133,8 +135,6 @@ networks:
         done
         echo "Pulling mistral..."
         ollama pull mistral
-        echo "Pulling llama3.1:8b (alert copy)..."
-        ollama pull llama3.1:8b
         echo "Pulling phi3:mini (small fallback)..."
         ollama pull phi3:mini
         echo "Model pull complete."
@@ -165,7 +165,7 @@ curl http://ollama:11434/api/tags
 
 ### Tasks
 
-- [ ] Confirm both `app` and `ollama` services share the same Docker network (`groupscout_net`)
+- [ ] Confirm both `groupscout` and `ollama` services share the same Docker network (`groupscout_net`)
 - [ ] Set `OLLAMA_ENDPOINT=http://ollama:11434` in `.env` for Docker deploys
 - [ ] Set `OLLAMA_ENDPOINT=http://localhost:11434` in `.env.local` for native dev
 - [ ] Add a startup log line in GroupScout: `"ollama endpoint: %s"` so it's obvious which URL is in use
@@ -173,12 +173,12 @@ curl http://ollama:11434/api/tags
   ```bash
   docker exec groupscout_app curl -s http://ollama:11434/api/tags | jq .
   ```
-- [ ] Add `ollama` to `app` service's `depends_on` block with `condition: service_healthy`
+- [ ] Add `ollama` to `groupscout` service's `depends_on` block with `condition: service_healthy`
 
-### app service depends_on
+### groupscout service depends_on
 
 ```yaml
-  app:
+  groupscout:
     build: .
     container_name: groupscout_app
     restart: unless-stopped
@@ -428,32 +428,10 @@ docker compose up -d
 - [ ] Document model update procedure in `DOCKER.md`:
   ```bash
   docker exec groupscout_ollama ollama pull mistral   # pulls latest quantization
-  docker restart groupscout_app                       # reload app after model update
+  docker restart groupscout_app                       # reload GroupScout after model update
   ```
 - [ ] Add `OLLAMA_MODEL` to `.env` — allows swapping models (e.g., `mistral` → `phi3:mini`) without code change
 - [ ] Test full stack cold start on a fresh VPS: `docker compose up -d` should result in a working system within 10 minutes (model download time)
-
----
-
-## Phase 8 — Modelfile Management & Hot-Swap
-
-**Goal:** Push new personas or updated prompts to the Ollama server without restarting GroupScout.
-
-### Tasks
-
-- [x] Use the built-in CLI to push models:
-  ```bash
-  go run cmd/server/main.go ollama push-models
-  ```
-- [x] Use the CLI to verify loaded models:
-  ```bash
-  go run cmd/server/main.go ollama list-models
-  ```
-
-### How it works
-The `push-models` command scans `internal/ollama/modelfile/*.modelfile`, reads their contents, and sends them to the Ollama `/api/create` endpoint. It automatically prefixes the model name with `groupscout-` and replaces underscores with hyphens (e.g., `permit_extractor.modelfile` → `groupscout-permit-extractor`).
-
-This allows for rapid iteration on prompts without deployment cycles.
 
 ---
 
@@ -511,8 +489,6 @@ services:
         done
         echo "Pulling mistral (required)..."
         OLLAMA_HOST=http://ollama:11434 ollama pull mistral
-        echo "Pulling llama3.1:8b (alert copy)..."
-        OLLAMA_HOST=http://ollama:11434 ollama pull llama3.1:8b
         echo "Pulling phi3:mini (fallback)..."
         OLLAMA_HOST=http://ollama:11434 ollama pull phi3:mini
         echo "Done."
@@ -520,8 +496,8 @@ services:
       ollama:
         condition: service_healthy
 
-  app:
-    # ... existing app service config ...
+  groupscout:
+    # ... existing groupscout service config ...
     depends_on:
       ollama:
         condition: service_healthy
