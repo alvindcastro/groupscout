@@ -1,8 +1,11 @@
 services:
-  app:
+  groupscout:
     build: .
+    container_name: groupscout_app
     ports:
       - "8080:8080"
+    networks:
+      - groupscout_net
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,12 +35,15 @@ services:
 
   alertd:
     build: .
+    container_name: groupscout_alertd
     command: ["./alertd"]
     ports:
       - "8081:8081"
     env_file: .env
     volumes:
       - ./config:/app/config:ro
+    networks:
+      - groupscout_net
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,12 +51,15 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg17
+    container_name: groupscout_postgres
     environment:
       - POSTGRES_DB=groupscout
       - POSTGRES_USER=groupscout
       - POSTGRES_PASSWORD=groupscout
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - groupscout_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U groupscout"]
       interval: 10s
@@ -62,10 +71,13 @@ services:
 
   n8n:
     image: n8nio/n8n:latest
+    container_name: groupscout_n8n
     ports:
       - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
+    networks:
+      - groupscout_net
     environment:
       - N8N_HOST=localhost
       - N8N_PORT=5678
@@ -75,38 +87,54 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: groupscout_prometheus
     ports:
       - "9090:9090"
     volumes:
       - prometheus_data:/prometheus
+    networks:
+      - groupscout_net
     restart: unless-stopped
 
   grafana:
     image: grafana/grafana:latest
+    container_name: groupscout_grafana
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+    networks:
+      - groupscout_net
     restart: unless-stopped
 
   loki:
     image: grafana/loki:latest
+    container_name: groupscout_loki
     ports:
       - "3100:3100"
+    networks:
+      - groupscout_net
     restart: unless-stopped
 
   ollama:
     image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
+    container_name: groupscout_ollama
+    restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
+    networks:
+      - groupscout_net
+    # Do NOT publish 11434 to host in prod — internal only
+    # ports:
+    #   - "11434:11434"   # uncomment for local debugging only
+    mem_limit: 12g
+    cpus: "2.0"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
       retries: 5
-    restart: unless-stopped
+      start_period: 60s   # models may be loading on first start
 
 volumes:
   pgdata:
@@ -114,3 +142,8 @@ volumes:
   prometheus_data:
   grafana_data:
   ollama_data:
+    name: groupscout_ollama_data
+
+networks:
+  groupscout_net:
+    driver: bridge

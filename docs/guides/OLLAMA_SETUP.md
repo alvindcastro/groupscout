@@ -56,15 +56,15 @@ Ollama runs as a **sidecar container** in the same Docker Compose stack as Group
 
 ### Tasks
 
-- [ ] Add `ollama` service to `docker-compose.yml`
-- [ ] Add `ollama_data` named volume to the `volumes:` section
-- [ ] Mount volume at `/root/.ollama` inside the container (Ollama's default model cache path)
-- [ ] Set `restart: unless-stopped`
-- [ ] Do **not** publish port `11434` to host in production — internal network only
-- [ ] Add `mem_limit: 12g` (adjust to your VPS RAM; Mistral 7B needs ~8 GB loaded)
-- [ ] Add `cpus: "2.0"` to prevent Ollama starving GroupScout during inference
-- [ ] Add Ollama to the existing internal Docker network (`groupscout_net` or whatever is defined)
-- [ ] Confirm `groupscout` service has `depends_on: ollama` with condition `service_healthy`
+- [x] Add `ollama` service to `docker-compose.yml`
+- [x] Add `ollama_data` named volume to the `volumes:` section
+- [x] Mount volume at `/root/.ollama` inside the container (Ollama's default model cache path)
+- [x] Set `restart: unless-stopped`
+- [x] Do **not** publish port `11434` to host in production — internal network only
+- [x] Add `mem_limit: 12g` (adjust to your VPS RAM; Mistral 7B needs ~8 GB loaded)
+- [x] Add `cpus: "2.0"` to prevent Ollama starving GroupScout during inference
+- [x] Add Ollama to the existing internal Docker network (`groupscout_net` or whatever is defined)
+- [x] Confirm `groupscout` service has `depends_on: ollama` with condition `service_healthy`
 
 ### docker-compose.yml snippet — Ollama service
 
