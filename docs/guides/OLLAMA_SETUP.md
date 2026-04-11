@@ -85,7 +85,7 @@ services:
     mem_limit: 12g
     cpus: "2.0"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -129,14 +129,16 @@ networks:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        echo "Waiting for Ollama runtime to be ready..."
-        until curl -sf http://ollama:11434/api/tags; do
+        echo "Waiting for Ollama runtime..."
+        until OLLAMA_HOST=http://ollama:11434 ollama list > /dev/null 2>&1; do
           sleep 3
         done
-        echo "Pulling mistral..."
-        ollama pull mistral
-        echo "Pulling phi3:mini (small fallback)..."
-        ollama pull phi3:mini
+        echo "Pulling mistral (required)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull mistral
+        echo "Pulling llama3.1:8b (optional, alert copy)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull llama3.1:8b
+        echo "Pulling phi3:mini (fallback)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull phi3:mini
         echo "Model pull complete."
     depends_on:
       ollama:
@@ -165,15 +167,16 @@ curl http://ollama:11434/api/tags
 
 ### Tasks
 
-- [ ] Confirm both `groupscout` and `ollama` services share the same Docker network (`groupscout_net`)
-- [ ] Set `OLLAMA_ENDPOINT=http://ollama:11434` in `.env` for Docker deploys
-- [ ] Set `OLLAMA_ENDPOINT=http://localhost:11434` in `.env.local` for native dev
-- [ ] Add a startup log line in GroupScout: `"ollama endpoint: %s"` so it's obvious which URL is in use
-- [ ] Test DNS resolution inside the GroupScout container:
+- [x] Confirm both `groupscout` and `ollama` services share the same Docker network (`groupscout_net`)
+- [x] Set `OLLAMA_ENDPOINT=http://ollama:11434` in `.env` for Docker deploys
+- [x] Set `OLLAMA_ENDPOINT=http://localhost:11434` in `.env.local` for native dev
+- [x] Add a startup log line in GroupScout: `"ollama endpoint: %s"` so it's obvious which URL is in use
+- [x] Test DNS resolution inside the GroupScout container:
   ```bash
   docker exec groupscout_app curl -s http://ollama:11434/api/tags | jq .
   ```
-- [ ] Add `ollama` to `groupscout` service's `depends_on` block with `condition: service_healthy`
+- [x] Add `ollama` to `groupscout` service's `depends_on` block with `condition: service_healthy`
+- [x] Add `/health` endpoint response field: `"ollama": "ok" | "degraded" | "unavailable"`
 
 ### groupscout service depends_on
 
@@ -392,7 +395,7 @@ WSL2 has first-class CUDA support. The Windows NVIDIA driver exposes CUDA to WSL
 
 ### Tasks
 
-- [ ] Confirm `ollama` service healthcheck uses `curl -f http://localhost:11434/api/tags` (not a TCP probe — Ollama binds the port before it's ready to serve)
+- [ ] Confirm `ollama` service healthcheck uses `ollama list` (not `curl` — the official image does not contain `curl`)
 - [ ] Set `start_period: 60s` on the healthcheck — model loading on first run can take 30–45s
 - [ ] GroupScout startup: call `OllamaClient.HealthCheck()` after config load; log `"ollama: ready"` or `"ollama: unavailable — running in degraded mode"`
 - [ ] If `HealthCheck()` fails and `OLLAMA_ENABLED=true`, log a warning but do **not** exit — fall back to regex/hardcoded paths
@@ -456,7 +459,7 @@ services:
     mem_limit: 12g
     cpus: "2.0"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -484,7 +487,7 @@ services:
     command:
       - |
         echo "Waiting for Ollama runtime..."
-        until curl -sf http://ollama:11434/api/tags; do
+        until OLLAMA_HOST=http://ollama:11434 ollama list > /dev/null 2>&1; do
           sleep 3
         done
         echo "Pulling mistral (required)..."

@@ -61,6 +61,7 @@ func main() {
 			Timeout:  30 * time.Second, // default timeout
 		}
 		ollamaClient = oc
+		l.Info(fmt.Sprintf("ollama endpoint: %s", cfg.OllamaEndpoint))
 		l.Info("ollama enabled", "endpoint", cfg.OllamaEndpoint, "model", cfg.OllamaModel)
 
 		// Health check (non-blocking)
