@@ -218,12 +218,12 @@ Windows Host
 
 ### Tasks
 
-- [ ] Install Ollama inside WSL2 (not Windows — the Linux binary runs in WSL2)
-- [ ] Configure Ollama to start automatically with WSL2 session via `.bashrc` or a systemd unit
-- [ ] Pull required models inside WSL2
-- [ ] Add `.env.local` to `.gitignore` — contains `OLLAMA_ENDPOINT=http://localhost:11434`
-- [ ] Verify GoLand / PyCharm terminal (WSL2 backend) can reach `localhost:11434`
-- [ ] Confirm `OLLAMA_ENABLED=false` in `.env` boots GroupScout cleanly with no errors
+- [x] Install Ollama inside WSL2 (not Windows — the Linux binary runs in WSL2)
+- [x] Configure Ollama to start automatically with WSL2 session via `.bashrc` or a systemd unit
+- [x] Pull required models inside WSL2
+- [x] Add `.env.local` to `.gitignore` — contains `OLLAMA_ENDPOINT=http://localhost:11434`
+- [x] Verify GoLand / PyCharm terminal (WSL2 backend) can reach `localhost:11434`
+- [x] Confirm `OLLAMA_ENABLED=false` in `.env` boots GroupScout cleanly with no errors
 
 ### Install Ollama inside WSL2
 
