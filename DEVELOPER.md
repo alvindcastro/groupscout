@@ -91,4 +91,6 @@ go test ./cmd/alertd/... ./internal/alert/...
 - [API_CONFIG.md](./docs/API_CONFIG.md) - Detailed API and endpoint configuration.
 - [API_TESTING.md](./docs/API_TESTING.md) - Guide on how to test the APIs.
 - [ALERTD_SETUP.md](./docs/guides/ALERTD_SETUP.md) - Specific configuration for the alert system.
+- [OLLAMA_INTEGRATION.md](./docs/planning/OLLAMA_INTEGRATION.md) - Local LLM integration plan and phases.
+- [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Docker and native setup guide for Ollama.
 - [PHASES.md](./docs/planning/PHASES.md) - Build tracker and phase history.

@@ -23,6 +23,7 @@ import (
 	"github.com/alvindcastro/groupscout/internal/enrichment"
 	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/alvindcastro/groupscout/internal/notify"
+	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
@@ -42,6 +43,33 @@ func main() {
 	if cfg.SentryDSN != "" {
 		defer sentry.Flush(2 * time.Second)
 	}
+
+	// Ollama initialization
+	var ollamaClient ollama.LLMClient
+	if cfg.OllamaEnabled {
+		oc := &ollama.OllamaClient{
+			Endpoint: cfg.OllamaEndpoint,
+			Model:    cfg.OllamaModel,
+			Timeout:  30 * time.Second, // default timeout
+		}
+		ollamaClient = oc
+		l.Info("ollama enabled", "endpoint", cfg.OllamaEndpoint, "model", cfg.OllamaModel)
+
+		// Health check (non-blocking)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := oc.HealthCheck(ctx); err != nil {
+				l.Warn("ollama health check failed; local LLM features may be unavailable", "endpoint", cfg.OllamaEndpoint, "error", err)
+			} else {
+				l.Info("ollama health check ok", "endpoint", cfg.OllamaEndpoint)
+			}
+		}()
+	} else {
+		ollamaClient = &ollama.NoopClient{}
+		l.Info("ollama disabled (using no-op client)")
+	}
+	_ = ollamaClient // will be used in subsequent phases
 
 	db, err := storage.Open(cfg.DatabaseURL)
 	if err != nil {

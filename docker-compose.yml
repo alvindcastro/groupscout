@@ -6,6 +6,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgres://groupscout:groupscout@postgres:5432/groupscout
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
@@ -23,6 +25,9 @@ services:
       - ANNOUNCEMENTS_ENABLED=true
       - EVENTBRITE_ENABLED=true
       - MIN_PERMIT_VALUE_CAD=500000
+      - OLLAMA_ENABLED=${OLLAMA_ENABLED:-true}
+      - OLLAMA_ENDPOINT=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-mistral}
     restart: unless-stopped
 
   alertd:
@@ -90,8 +95,22 @@ services:
       - "3100:3100"
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   pgdata:
   n8n_data:
   prometheus_data:
   grafana_data:
+  ollama_data:

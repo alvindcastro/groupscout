@@ -9,40 +9,49 @@ import (
 
 // Config holds all runtime configuration loaded from environment variables.
 type Config struct {
-	DatabaseURL            string
-	ClaudeAPIKey           string
-	GeminiAPIKey           string
-	AIProvider             string
-	SlackWebhookURL        string
-	ResendAPIKey           string
-	RichmondPermitsURL     string
-	DeltaPermitsURL        string
-	CreativeBCEnabled      bool
-	CreativeBCURL          string
-	VCCEnabled             bool
-	VCCURL                 string
-	BCBidEnabled           bool
-	BCBidRSSURL            string
-	NewsEnabled            bool
-	NewsRSSURL             string
-	AnnouncementsEnabled   bool
-	EventbriteEnabled      bool
-	EventbriteURL          string
-	EnrichmentEnabled      bool
-	EnrichmentThreshold    int
-	PriorityAlertThreshold int
-	MinPermitValueCAD      int64
-	Port                   int
-	APIToken               string
-	DigestDay              string
-	DigestHour             int
-	JSONLog                bool
-	SentryDSN              string
-	ECCCAlertsURL          string
-	YVRFlightStatusURL     string
-	NavCanadaNOTAMURL      string
-	HunterAPIKey           string
-	LLMBaseURL             string
+	DatabaseURL             string
+	ClaudeAPIKey            string
+	GeminiAPIKey            string
+	AIProvider              string
+	SlackWebhookURL         string
+	ResendAPIKey            string
+	RichmondPermitsURL      string
+	DeltaPermitsURL         string
+	CreativeBCEnabled       bool
+	CreativeBCURL           string
+	VCCEnabled              bool
+	VCCURL                  string
+	BCBidEnabled            bool
+	BCBidRSSURL             string
+	NewsEnabled             bool
+	NewsRSSURL              string
+	AnnouncementsEnabled    bool
+	EventbriteEnabled       bool
+	EventbriteURL           string
+	EnrichmentEnabled       bool
+	EnrichmentThreshold     int
+	PriorityAlertThreshold  int
+	MinPermitValueCAD       int64
+	Port                    int
+	APIToken                string
+	DigestDay               string
+	DigestHour              int
+	JSONLog                 bool
+	SentryDSN               string
+	ECCCAlertsURL           string
+	YVRFlightStatusURL      string
+	NavCanadaNOTAMURL       string
+	HunterAPIKey            string
+	LLMBaseURL              string
+	OllamaEnabled           bool
+	OllamaEndpoint          string
+	OllamaModel             string
+	OllamaExtractionEnabled bool
+	OllamaScoringEnabled    bool
+	OllamaAlertCopyEnabled  bool
+	OllamaExtractTimeoutS   int
+	OllamaScoreTimeoutS     int
+	OllamaAlertCopyTimeoutS int
 }
 
 // Load reads config from environment variables, falling back to sensible defaults.
@@ -52,40 +61,49 @@ type Config struct {
 func Load() (*Config, error) {
 	loadDotEnv(".env")
 	return &Config{
-		DatabaseURL:            getEnv("DATABASE_URL", "groupscout.db"),
-		ClaudeAPIKey:           os.Getenv("CLAUDE_API_KEY"),
-		GeminiAPIKey:           os.Getenv("GEMINI_API_KEY"),
-		AIProvider:             getEnv("AI_PROVIDER", "claude"),
-		SlackWebhookURL:        os.Getenv("SLACK_WEBHOOK_URL"),
-		ResendAPIKey:           os.Getenv("RESEND_API_KEY"),
-		RichmondPermitsURL:     os.Getenv("RICHMOND_PERMITS_URL"),
-		DeltaPermitsURL:        os.Getenv("DELTA_PERMITS_URL"),
-		CreativeBCEnabled:      os.Getenv("CREATIVEBC_ENABLED") == "true",
-		CreativeBCURL:          os.Getenv("CREATIVEBC_URL"),
-		VCCEnabled:             getEnv("VCC_ENABLED", "false") == "true",
-		VCCURL:                 os.Getenv("VCC_URL"),
-		BCBidEnabled:           getEnv("BCBID_ENABLED", "true") == "true",
-		BCBidRSSURL:            getEnv("BCBID_RSS_URL", "https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53"),
-		NewsEnabled:            os.Getenv("NEWS_ENABLED") == "true",
-		NewsRSSURL:             getEnv("NEWS_RSS_URL", "https://news.google.com/rss/search?q=%22Richmond+BC%22+construction+OR+%22Metro+Vancouver%22+infrastructure+contract+awarded+OR+%22YVR%22+expansion&hl=en-CA&gl=CA&ceid=CA:en"),
-		AnnouncementsEnabled:   getEnv("ANNOUNCEMENTS_ENABLED", "true") == "true",
-		EventbriteEnabled:      getEnv("EVENTBRITE_ENABLED", "true") == "true",
-		EventbriteURL:          getEnv("EVENTBRITE_URL", "https://www.eventbrite.ca/d/canada--vancouver/professional-services--events/"),
-		EnrichmentEnabled:      getEnv("ENRICHMENT_ENABLED", "true") == "true",
-		EnrichmentThreshold:    getEnvInt("ENRICHMENT_THRESHOLD", 1),
-		PriorityAlertThreshold: getEnvInt("PRIORITY_ALERT_THRESHOLD", 9),
-		MinPermitValueCAD:      int64(getEnvInt("MIN_PERMIT_VALUE_CAD", 500_000)),
-		Port:                   getEnvInt("PORT", 8080),
-		APIToken:               os.Getenv("API_TOKEN"),
-		DigestDay:              getEnv("DIGEST_DAY", "monday"),
-		DigestHour:             getEnvInt("DIGEST_HOUR", 9),
-		JSONLog:                getEnv("JSON_LOG", "false") == "true",
-		SentryDSN:              os.Getenv("SENTRY_DSN"),
-		ECCCAlertsURL:          getEnv("ECCC_ALERTS_URL", "https://api.weather.gc.ca/collections/alerts/items"),
-		YVRFlightStatusURL:     getEnv("YVR_FLIGHT_STATUS_URL", "https://www.yvr.ca/en/passengers/flights"),
-		NavCanadaNOTAMURL:      getEnv("NAVCANADA_NOTAM_URL", "https://www.navcanada.ca/en/flight-planning/notam-portal.aspx"),
-		HunterAPIKey:           os.Getenv("HUNTER_API_KEY"),
-		LLMBaseURL:             os.Getenv("LLM_BASE_URL"),
+		DatabaseURL:             getEnv("DATABASE_URL", "groupscout.db"),
+		ClaudeAPIKey:            os.Getenv("CLAUDE_API_KEY"),
+		GeminiAPIKey:            os.Getenv("GEMINI_API_KEY"),
+		AIProvider:              getEnv("AI_PROVIDER", "claude"),
+		SlackWebhookURL:         os.Getenv("SLACK_WEBHOOK_URL"),
+		ResendAPIKey:            os.Getenv("RESEND_API_KEY"),
+		RichmondPermitsURL:      os.Getenv("RICHMOND_PERMITS_URL"),
+		DeltaPermitsURL:         os.Getenv("DELTA_PERMITS_URL"),
+		CreativeBCEnabled:       os.Getenv("CREATIVEBC_ENABLED") == "true",
+		CreativeBCURL:           os.Getenv("CREATIVEBC_URL"),
+		VCCEnabled:              getEnv("VCC_ENABLED", "false") == "true",
+		VCCURL:                  os.Getenv("VCC_URL"),
+		BCBidEnabled:            getEnv("BCBID_ENABLED", "true") == "true",
+		BCBidRSSURL:             getEnv("BCBID_RSS_URL", "https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53"),
+		NewsEnabled:             os.Getenv("NEWS_ENABLED") == "true",
+		NewsRSSURL:              getEnv("NEWS_RSS_URL", "https://news.google.com/rss/search?q=%22Richmond+BC%22+construction+OR+%22Metro+Vancouver%22+infrastructure+contract+awarded+OR+%22YVR%22+expansion&hl=en-CA&gl=CA&ceid=CA:en"),
+		AnnouncementsEnabled:    getEnv("ANNOUNCEMENTS_ENABLED", "true") == "true",
+		EventbriteEnabled:       getEnv("EVENTBRITE_ENABLED", "true") == "true",
+		EventbriteURL:           getEnv("EVENTBRITE_URL", "https://www.eventbrite.ca/d/canada--vancouver/professional-services--events/"),
+		EnrichmentEnabled:       getEnv("ENRICHMENT_ENABLED", "true") == "true",
+		EnrichmentThreshold:     getEnvInt("ENRICHMENT_THRESHOLD", 1),
+		PriorityAlertThreshold:  getEnvInt("PRIORITY_ALERT_THRESHOLD", 9),
+		MinPermitValueCAD:       int64(getEnvInt("MIN_PERMIT_VALUE_CAD", 500_000)),
+		Port:                    getEnvInt("PORT", 8080),
+		APIToken:                os.Getenv("API_TOKEN"),
+		DigestDay:               getEnv("DIGEST_DAY", "monday"),
+		DigestHour:              getEnvInt("DIGEST_HOUR", 9),
+		JSONLog:                 getEnv("JSON_LOG", "false") == "true",
+		SentryDSN:               os.Getenv("SENTRY_DSN"),
+		ECCCAlertsURL:           getEnv("ECCC_ALERTS_URL", "https://api.weather.gc.ca/collections/alerts/items"),
+		YVRFlightStatusURL:      getEnv("YVR_FLIGHT_STATUS_URL", "https://www.yvr.ca/en/passengers/flights"),
+		NavCanadaNOTAMURL:       getEnv("NAVCANADA_NOTAM_URL", "https://www.navcanada.ca/en/flight-planning/notam-portal.aspx"),
+		HunterAPIKey:            os.Getenv("HUNTER_API_KEY"),
+		LLMBaseURL:              os.Getenv("LLM_BASE_URL"),
+		OllamaEnabled:           getEnv("OLLAMA_ENABLED", "false") == "true",
+		OllamaEndpoint:          getEnv("OLLAMA_ENDPOINT", "http://localhost:11434"),
+		OllamaModel:             getEnv("OLLAMA_MODEL", "mistral"),
+		OllamaExtractionEnabled: getEnv("OLLAMA_EXTRACTION_ENABLED", "false") == "true",
+		OllamaScoringEnabled:    getEnv("OLLAMA_SCORING_ENABLED", "false") == "true",
+		OllamaAlertCopyEnabled:  getEnv("OLLAMA_ALERT_COPY_ENABLED", "false") == "true",
+		OllamaExtractTimeoutS:   getEnvInt("OLLAMA_EXTRACT_TIMEOUT_S", 30),
+		OllamaScoreTimeoutS:     getEnvInt("OLLAMA_SCORE_TIMEOUT_S", 20),
+		OllamaAlertCopyTimeoutS: getEnvInt("OLLAMA_ALERT_COPY_TIMEOUT_S", 15),
 	}, nil
 }
 

@@ -146,4 +146,6 @@ go run cmd/server/main.go --run-once
 *   [ROADMAP.md](./docs/planning/ROADMAP.md) - Project roadmap and development progress.
 *   [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
 *   [SETUP.md](./docs/guides/SETUP.md) - Installation and configuration guide.
+*   [OLLAMA_INTEGRATION.md](./docs/planning/OLLAMA_INTEGRATION.md) - Local LLM integration plan and phases.
+*   [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Docker and native setup guide for Ollama.
 *   [groupscout-build-log.md](./docs/prompts/groupscout-build-log.md) - Developer's narrative and blog-style build notes.
