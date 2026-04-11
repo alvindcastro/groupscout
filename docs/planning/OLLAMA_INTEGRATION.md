@@ -374,11 +374,11 @@ Tests (table-driven, testdata/disruption.json as fixture):
 
 ### Tasks
 
-- [ ] Write `internal/ollama/modelfile_manager_test.go` — test `Push()` method with mock HTTP server
-- [ ] Implement `internal/ollama/modelfile_manager.go` — `ModelfileManager` struct, `Push(ctx, name, modelfileContent string) error` method using Ollama `/api/create` endpoint
-- [ ] Add CLI subcommand: `go run cmd/server/main.go ollama push-models` — reads all `.modelfile` files from `internal/ollama/modelfile/` and pushes to local Ollama
-- [ ] Add `ollama list-models` subcommand — calls `/api/tags`, pretty-prints loaded models
-- [ ] Document in `DEVELOPER.md`: workflow for updating a persona prompt without downtime
+- [x] Write `internal/ollama/modelfile_manager_test.go` — test `Push()` method with mock HTTP server
+- [x] Implement `internal/ollama/modelfile_manager.go` — `ModelfileManager` struct, `Push(ctx, name, modelfileContent string) error` method using Ollama `/api/create` endpoint
+- [x] Add CLI subcommand: `go run cmd/server/main.go ollama push-models` — reads all `.modelfile` files from `internal/ollama/modelfile/` and pushes to local Ollama
+- [x] Add `ollama list-models` subcommand — calls `/api/tags`, pretty-prints loaded models
+- [x] Document in `DEVELOPER.md`: workflow for updating a persona prompt without downtime
 
 ---
 

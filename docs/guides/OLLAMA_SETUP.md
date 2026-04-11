@@ -15,9 +15,10 @@
 6. [Phase 5 — GPU Passthrough (Optional)](#phase-5--gpu-passthrough-optional)
 7. [Phase 6 — Health Checks & Startup Ordering](#phase-6--health-checks--startup-ordering)
 8. [Phase 7 — Prod Hardening](#phase-7--prod-hardening)
-9. [Reference: Full docker-compose.yml Snippet](#reference-full-docker-composeyml-snippet)
-10. [Reference: Environment Variables](#reference-environment-variables)
-11. [Troubleshooting](#troubleshooting)
+9. [Phase 8 — Modelfile Management & Hot-Swap](#phase-8--modelfile-management--hot-swap)
+10. [Reference: Full docker-compose.yml Snippet](#reference-full-docker-composeyml-snippet)
+11. [Reference: Environment Variables](#reference-environment-variables)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -431,6 +432,28 @@ docker compose up -d
   ```
 - [ ] Add `OLLAMA_MODEL` to `.env` — allows swapping models (e.g., `mistral` → `phi3:mini`) without code change
 - [ ] Test full stack cold start on a fresh VPS: `docker compose up -d` should result in a working system within 10 minutes (model download time)
+
+---
+
+## Phase 8 — Modelfile Management & Hot-Swap
+
+**Goal:** Push new personas or updated prompts to the Ollama server without restarting GroupScout.
+
+### Tasks
+
+- [x] Use the built-in CLI to push models:
+  ```bash
+  go run cmd/server/main.go ollama push-models
+  ```
+- [x] Use the CLI to verify loaded models:
+  ```bash
+  go run cmd/server/main.go ollama list-models
+  ```
+
+### How it works
+The `push-models` command scans `internal/ollama/modelfile/*.modelfile`, reads their contents, and sends them to the Ollama `/api/create` endpoint. It automatically prefixes the model name with `groupscout-` and replaces underscores with hyphens (e.g., `permit_extractor.modelfile` → `groupscout-permit-extractor`).
+
+This allows for rapid iteration on prompts without deployment cycles.
 
 ---
 

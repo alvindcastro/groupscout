@@ -44,6 +44,27 @@ go run cmd/alertd/main.go
 ```
 Alertd requires a configuration file at `config/airports.yaml` to define hotels and their monitored airports.
 
+### 3. Ollama Modelfile Management
+GroupScout uses local Ollama models for enrichment and alert copy. Modelfiles define the personas and instructions for these models.
+
+**Push Modelfiles:**
+To update or create the personas on your local Ollama server without restarting the main server:
+```bash
+go run cmd/server/main.go ollama push-models
+```
+This reads all `.modelfile` files from `internal/ollama/modelfile/` and pushes them to the Ollama endpoint.
+
+**List Models:**
+To see which models are currently loaded in your Ollama instance:
+```bash
+go run cmd/server/main.go ollama list-models
+```
+
+**Workflow for Updating Persona Prompts:**
+1. Edit the relevant `.modelfile` in `internal/ollama/modelfile/`.
+2. Run `go run cmd/server/main.go ollama push-models`.
+3. The new persona is immediately available for the next LLM call.
+
 ## 🛠 New Features & How to Run
 
 ### `/inventory` Slack Slash Command (alertd)

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -35,6 +36,12 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
+	}
+
+	// Ollama CLI subcommands
+	if flag.NArg() > 0 && flag.Arg(0) == "ollama" {
+		handleOllamaCommands(cfg)
+		return
 	}
 
 	logger.Init(cfg.JSONLog, cfg.SentryDSN)
@@ -392,4 +399,73 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func handleOllamaCommands(cfg *config.Config) {
+	if flag.NArg() < 2 {
+		fmt.Println("Usage: ollama [push-models | list-models]")
+		os.Exit(1)
+	}
+
+	oc := &ollama.OllamaClient{
+		Endpoint: cfg.OllamaEndpoint,
+		Model:    cfg.OllamaModel,
+		Timeout:  30 * time.Second,
+	}
+	manager := ollama.NewModelfileManager(oc)
+	ctx := context.Background()
+
+	switch flag.Arg(1) {
+	case "push-models":
+		pushModels(ctx, manager)
+	case "list-models":
+		listModels(ctx, manager)
+	default:
+		fmt.Printf("Unknown ollama subcommand: %s\n", flag.Arg(1))
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func pushModels(ctx context.Context, manager *ollama.ModelfileManager) {
+	files, err := os.ReadDir("internal/ollama/modelfile")
+	if err != nil {
+		log.Fatalf("failed to read modelfiles: %v", err)
+	}
+
+	for _, f := range files {
+		if !strings.HasSuffix(f.Name(), ".modelfile") {
+			continue
+		}
+
+		path := filepath.Join("internal/ollama/modelfile", f.Name())
+		content, err := os.ReadFile(path)
+		if err != nil {
+			log.Printf("failed to read %s: %v", path, err)
+			continue
+		}
+
+		// "permit_extractor.modelfile" → "groupscout-permit-extractor"
+		stem := strings.TrimSuffix(f.Name(), ".modelfile")
+		modelName := "groupscout-" + strings.ReplaceAll(stem, "_", "-")
+
+		fmt.Printf("Pushing %s as %s... ", f.Name(), modelName)
+		if err := manager.Push(ctx, modelName, string(content)); err != nil {
+			fmt.Printf("FAILED: %v\n", err)
+		} else {
+			fmt.Println("OK")
+		}
+	}
+}
+
+func listModels(ctx context.Context, manager *ollama.ModelfileManager) {
+	models, err := manager.ListModels(ctx)
+	if err != nil {
+		log.Fatalf("failed to list models: %v", err)
+	}
+
+	fmt.Println("Loaded Ollama models:")
+	for _, m := range models {
+		fmt.Printf("- %s\n", m)
+	}
 }
