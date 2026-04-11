@@ -348,10 +348,10 @@ Then set `OLLAMA_ENDPOINT=http://172.28.144.1:11434` in the Windows `.env`.
 WSL2 has first-class CUDA support. The Windows NVIDIA driver exposes CUDA to WSL2 directly. You do **not** install a Linux NVIDIA driver — it conflicts.
 
 #### Tasks
-
-- [ ] Confirm GPU is visible in WSL2: `nvidia-smi` (should show your GPU without installing anything)
-- [ ] If `nvidia-smi` is missing inside WSL2, update the Windows NVIDIA driver to 470.76+ from [nvidia.com/drivers](https://www.nvidia.com/Download/index.aspx)
-- [ ] Install CUDA toolkit inside WSL2 (for Docker GPU passthrough):
+ 
+- [x] Confirm GPU is visible in WSL2: `nvidia-smi` (should show your GPU without installing anything)
+- [x] If `nvidia-smi` is missing inside WSL2, update the Windows NVIDIA driver to 470.76+ from [nvidia.com/drivers](https://www.nvidia.com/Download/index.aspx)
+- [/] Install CUDA toolkit inside WSL2 (for Docker GPU passthrough):
   ```bash
   # Add NVIDIA Container Toolkit repo
   curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
@@ -362,9 +362,9 @@ WSL2 has first-class CUDA support. The Windows NVIDIA driver exposes CUDA to WSL
   sudo nvidia-ctk runtime configure --runtime=docker
   sudo systemctl restart docker
   ```
-- [ ] Verify Docker can see the GPU: `docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi`
-- [ ] Add GPU block to `ollama` service in `docker-compose.yml` (snippet below)
-- [ ] For native WSL2 Ollama (no Docker): GPU works automatically — Ollama detects CUDA on startup. Check `ollama serve` logs for `"CUDA detected"`.
+- [/] Verify Docker can see the GPU: `docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi`
+- [x] Add GPU block to `ollama` service in `docker-compose.yml` (snippet below)
+- [x] For native WSL2 Ollama (no Docker): GPU works automatically — Ollama detects CUDA on startup. Check `ollama serve` logs for `"CUDA detected"`.
 
 #### docker-compose.yml snippet — GPU passthrough
 
