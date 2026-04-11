@@ -137,6 +137,15 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s   # models may be loading on first start
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   ollama-init:
     image: ollama/ollama:latest
