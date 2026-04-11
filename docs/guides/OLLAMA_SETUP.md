@@ -132,6 +132,8 @@ networks:
         done
         echo "Pulling mistral..."
         ollama pull mistral
+        echo "Pulling llama3.1:8b (alert copy)..."
+        ollama pull llama3.1:8b
         echo "Pulling phi3:mini (small fallback)..."
         ollama pull phi3:mini
         echo "Model pull complete."
@@ -486,6 +488,8 @@ services:
         done
         echo "Pulling mistral (required)..."
         OLLAMA_HOST=http://ollama:11434 ollama pull mistral
+        echo "Pulling llama3.1:8b (alert copy)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull llama3.1:8b
         echo "Pulling phi3:mini (fallback)..."
         OLLAMA_HOST=http://ollama:11434 ollama pull phi3:mini
         echo "Done."

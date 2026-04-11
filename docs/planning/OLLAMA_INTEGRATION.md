@@ -293,13 +293,13 @@ Tests:
 
 ### Tasks
 
-- [ ] Write `internal/ollama/alertcopy_test.go` — fixture `testdata/disruption.json` with sample SPS event; assert non-empty copy, test each alert state
-- [ ] Implement `internal/ollama/alertcopy.go` — `AlertCopyGenerator` struct, `Generate(ctx, event DisruptionEvent) (string, error)` method
-- [ ] Write `modelfile/disruption_alert.modelfile` — hotel ops persona
-- [ ] Map `DisruptionEvent` fields into a structured prompt (storm type, SPS score, time of day, estimated pax count, duration)
-- [ ] Integrate into `cmd/alertd` Slack message builder — replace hardcoded "Suggested actions" section
-- [ ] Add `OLLAMA_ALERT_COPY_ENABLED` toggle — fallback to hardcoded template if disabled or Ollama unreachable
-- [ ] Prefer `llama3.1:8b` for this use case; fall back to `mistral` if not available
+- [x] Write `internal/ollama/alertcopy_test.go` — fixture `testdata/disruption.json` with sample SPS event; assert non-empty copy, test each alert state
+- [x] Implement `internal/ollama/alertcopy.go` — `AlertCopyGenerator` struct, `Generate(ctx, event DisruptionEvent) (string, error)` method
+- [x] Write `modelfile/disruption_alert.modelfile` — hotel ops persona
+- [x] Map `DisruptionEvent` fields into a structured prompt (storm type, SPS score, time of day, estimated pax count, duration)
+- [x] Integrate into `cmd/alertd` Slack message builder — replace hardcoded "Suggested actions" section
+- [x] Add `OLLAMA_ALERT_COPY_ENABLED` toggle — fallback to hardcoded template if disabled or Ollama unreachable
+- [x] Prefer `llama3.1:8b` for this use case; fall back to `mistral` if not available
 
 ---
 

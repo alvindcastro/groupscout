@@ -14,6 +14,7 @@ type LLMClient interface {
 	Generate(ctx context.Context, prompt string) (string, error)
 	ChatComplete(ctx context.Context, system, user string) (string, error)
 	HealthCheck(ctx context.Context) error
+	ListModels(ctx context.Context) ([]string, error)
 }
 
 // OllamaClient implements the LLMClient interface for the Ollama HTTP API.
@@ -77,6 +78,26 @@ func (c *OllamaClient) ChatComplete(ctx context.Context, system, user string) (s
 // HealthCheck verifies that the Ollama server is reachable and responding.
 func (c *OllamaClient) HealthCheck(ctx context.Context) error {
 	return c.doWithRetry(ctx, http.MethodGet, "/api/tags", nil, nil)
+}
+
+// ListModels returns a list of model names currently available in Ollama.
+func (c *OllamaClient) ListModels(ctx context.Context) ([]string, error) {
+	var respBody struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+
+	err := c.doWithRetry(ctx, http.MethodGet, "/api/tags", nil, &respBody)
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, len(respBody.Models))
+	for i, m := range respBody.Models {
+		names[i] = m.Name
+	}
+	return names, nil
 }
 
 func (c *OllamaClient) doWithRetry(ctx context.Context, method, path string, body interface{}, out interface{}) error {
@@ -182,4 +203,8 @@ func (c *NoopClient) ChatComplete(ctx context.Context, system, user string) (str
 
 func (c *NoopClient) HealthCheck(ctx context.Context) error {
 	return nil
+}
+
+func (c *NoopClient) ListModels(ctx context.Context) ([]string, error) {
+	return nil, nil
 }

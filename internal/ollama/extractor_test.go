@@ -19,6 +19,10 @@ func (m *mockLLMClient) ChatComplete(ctx context.Context, system, user string) (
 	return m.chatCompleteFunc(ctx, system, user)
 }
 
+func (m *mockLLMClient) ListModels(ctx context.Context) ([]string, error) {
+	return nil, nil
+}
+
 func (m *mockLLMClient) HealthCheck(ctx context.Context) error {
 	return nil
 }
