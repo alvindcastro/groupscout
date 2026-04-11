@@ -293,11 +293,39 @@ EOF
 
 ### Pull models inside WSL2
 
+You can use the `Makefile` to pull all required models at once:
+
+```bash
+make ollama-pull
+```
+
+Alternatively, pull them manually:
+
 ```bash
 ollama pull mistral        # ~4 GB — required
+ollama pull llama3.1:8b    # ~5 GB — optional, alert copy
 ollama pull phi3:mini      # ~2 GB — fast fallback
+```
 
-# Verify models are loaded
+### Verify setup
+
+Run the automated test script to verify your local Ollama installation and model availability:
+
+```bash
+./scripts/test-ollama.sh
+```
+
+### Push Persona Modelfiles
+
+GroupScout uses custom personas (e.g., `permit_extractor`) defined in `.modelfile` files. You must push these to your local Ollama instance:
+
+```bash
+make ollama-push
+# OR
+go run cmd/server/main.go ollama push-models
+```
+
+### Verify models are loaded
 ollama list
 ```
 

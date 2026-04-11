@@ -795,3 +795,15 @@
 - [ ] **C3** `terraform/secrets.tf` — Secret Manager for all env vars
 - [ ] **C4** `terraform/variables.tf` + `terraform/terraform.tfvars.example`
 - [ ] **C5** `docs/guides/TERRAFORM.md` — GCP deploy guide with alertd architecture note
+
+---
+
+## Phase 20 — Housekeeping & Developer Experience ✅
+**Goal:** Improve local development workflow and project documentation.
+
+- [x] **20.1** `Makefile` — Central hub for build, test, lint, and Docker tasks.
+- [x] **20.2** `scripts/test-ollama.sh` — Automated verification of local Ollama setup.
+- [x] **20.3** `docs/guides/TESTING.md` — Comprehensive testing guide updated with Ollama details.
+- [x] **20.4** `DEVELOPER.md` — Refactored to highlight the new Makefile-driven workflow.
+- [x] **20.5** `.env.example` — Verified all essential variables are present and documented.
+- [x] **20.6** `README.md` — Documentation links and setup steps verified for accuracy.

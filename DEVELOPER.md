@@ -2,6 +2,17 @@
 
 This guide provides technical details for developers working on the `groupscout` project, including the main lead generation server and the `alertd` airport disruption monitor.
 
+## 🛠 Project Management (Makefile)
+
+The `Makefile` is the central hub for common development tasks. Run `make help` to see all available commands.
+
+### Common Tasks:
+- `make build`: Build `server` and `alertd` binaries.
+- `make test`: Run all Go tests.
+- `make run`: Run the lead generation server.
+- `make docker-up`: Start the full Docker stack.
+- `make clean`: Remove build artifacts.
+
 ## 🏗 Project Architecture
 
 GroupScout consists of two primary Go binaries:
@@ -87,15 +98,23 @@ When `/inventory 34` is called, the current `alertd` instance updates its in-mem
 
 ## 🧪 Testing
 
-Run all tests:
+We use a combination of unit tests, integration tests, and manual verification scripts.
+
+### 1. Automated Tests
 ```bash
-go test ./...
+make test
+```
+See [docs/guides/TESTING.md](./docs/guides/TESTING.md) for details on running specific tests and Postgres integration.
+
+### 2. Ollama & LLM Testing
+A dedicated script verifies Ollama connectivity and model availability:
+```bash
+./scripts/test-ollama.sh
 ```
 
-Run specific tests for `alertd`:
-```bash
-go test ./cmd/alertd/... ./internal/alert/...
-```
+### 3. API Testing
+Manual API testing can be done via `curl` or the **Bruno** collection in `api/bruno`.
+See [docs/API_TESTING.md](./docs/API_TESTING.md) for examples.
 
 ## 📂 Project Structure
 - `api/`: OpenAPI / Swagger specifications.
