@@ -11,6 +11,8 @@ services:
         condition: service_healthy
       ollama:
         condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     environment:
       - DATABASE_URL=postgres://groupscout:groupscout@postgres:5432/groupscout
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
@@ -135,6 +137,32 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s   # models may be loading on first start
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: groupscout_ollama_init
+    restart: "no"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - groupscout_net
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Ollama runtime..."
+        until curl -sf http://ollama:11434/api/tags; do
+          sleep 3
+        done
+        echo "Pulling mistral (required)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull mistral
+        echo "Pulling llama3.1:8b (optional, alert copy)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull llama3.1:8b
+        echo "Pulling phi3:mini (fallback)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull phi3:mini
+        echo "Model pull complete."
+    depends_on:
+      ollama:
+        condition: service_healthy
 
 volumes:
   pgdata:

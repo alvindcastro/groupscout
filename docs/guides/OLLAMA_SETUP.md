@@ -108,12 +108,12 @@ networks:
 
 ### Tasks
 
-- [ ] Add `ollama-init` service to `docker-compose.yml` — runs once, pulls required models, then exits
-- [ ] Use `ollama/ollama:latest` image for init service (same image, different entrypoint)
-- [ ] Pull models: `mistral` (required), `llama3.1:8b` (optional, alert copy), `phi3:mini` (fallback)
-- [ ] Use `depends_on` in `groupscout` service: wait for both `ollama` (healthy) and `ollama-init` (completed)
-- [ ] Mark `ollama-init` with `restart: "no"` — it must not loop
-- [ ] Verify volume is shared between `ollama` and `ollama-init` so pulled models are visible to the runtime
+- [x] Add `ollama-init` service to `docker-compose.yml` — runs once, pulls required models, then exits
+- [x] Use `ollama/ollama:latest` image for init service (same image, different entrypoint)
+- [x] Pull models: `mistral` (required), `llama3.1:8b` (optional, alert copy), `phi3:mini` (fallback)
+- [x] Use `depends_on` in `groupscout` service: wait for both `ollama` (healthy) and `ollama-init` (completed)
+- [x] Mark `ollama-init` with `restart: "no"` — it must not loop
+- [x] Verify volume is shared between `ollama` and `ollama-init` so pulled models are visible to the runtime
 
 ### docker-compose.yml snippet — Init service
 
