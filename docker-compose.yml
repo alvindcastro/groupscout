@@ -1,11 +1,18 @@
 services:
-  app:
+  groupscout:
     build: .
+    container_name: groupscout_app
     ports:
       - "8080:8080"
+    networks:
+      - groupscout_net
     depends_on:
       postgres:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     environment:
       - DATABASE_URL=postgres://groupscout:groupscout@postgres:5432/groupscout
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
@@ -23,16 +30,22 @@ services:
       - ANNOUNCEMENTS_ENABLED=true
       - EVENTBRITE_ENABLED=true
       - MIN_PERMIT_VALUE_CAD=500000
+      - OLLAMA_ENABLED=${OLLAMA_ENABLED:-true}
+      - OLLAMA_ENDPOINT=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-mistral}
     restart: unless-stopped
 
   alertd:
     build: .
+    container_name: groupscout_alertd
     command: ["./alertd"]
     ports:
       - "8081:8081"
     env_file: .env
     volumes:
       - ./config:/app/config:ro
+    networks:
+      - groupscout_net
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,12 +53,15 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg17
+    container_name: groupscout_postgres
     environment:
       - POSTGRES_DB=groupscout
       - POSTGRES_USER=groupscout
       - POSTGRES_PASSWORD=groupscout
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - groupscout_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U groupscout"]
       interval: 10s
@@ -57,10 +73,13 @@ services:
 
   n8n:
     image: n8nio/n8n:latest
+    container_name: groupscout_n8n
     ports:
       - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
+    networks:
+      - groupscout_net
     environment:
       - N8N_HOST=localhost
       - N8N_PORT=5678
@@ -70,28 +89,112 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: groupscout_prometheus
     ports:
       - "9090:9090"
     volumes:
       - prometheus_data:/prometheus
+    networks:
+      - groupscout_net
     restart: unless-stopped
 
   grafana:
     image: grafana/grafana:latest
+    container_name: groupscout_grafana
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+    networks:
+      - groupscout_net
     restart: unless-stopped
 
   loki:
     image: grafana/loki:latest
+    container_name: groupscout_loki
     ports:
       - "3100:3100"
+    networks:
+      - groupscout_net
     restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: groupscout_promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/promtail.yaml:/etc/promtail/promtail.yaml:ro
+    command: -config.file=/etc/promtail/promtail.yaml
+    networks:
+      - groupscout_net
+    restart: unless-stopped
+    depends_on:
+      - loki
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: groupscout_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - groupscout_net
+    # Do NOT publish 11434 to host in prod — internal only
+    # ports:
+    #   - "11434:11434"   # uncomment for local debugging only
+    mem_limit: 12g
+    cpus: "2.0"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s   # models may be loading on first start
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: groupscout_ollama_init
+    restart: "no"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - groupscout_net
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Ollama runtime..."
+        until OLLAMA_HOST=http://ollama:11434 ollama list > /dev/null 2>&1; do
+          sleep 3
+        done
+        echo "Pulling mistral (required)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull mistral
+        echo "Pulling llama3.1:8b (optional, alert copy)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull llama3.1:8b
+        echo "Pulling phi3:mini (fallback)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull phi3:mini
+        echo "Model pull complete."
+    depends_on:
+      ollama:
+        condition: service_healthy
 
 volumes:
   pgdata:
   n8n_data:
   prometheus_data:
   grafana_data:
+  ollama_data:
+    name: groupscout_ollama_data
+
+networks:
+  groupscout_net:
+    driver: bridge

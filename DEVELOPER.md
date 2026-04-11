@@ -2,6 +2,17 @@
 
 This guide provides technical details for developers working on the `groupscout` project, including the main lead generation server and the `alertd` airport disruption monitor.
 
+## 🛠 Project Management (Makefile)
+
+The `Makefile` is the central hub for common development tasks. Run `make help` to see all available commands.
+
+### Common Tasks:
+- `make build`: Build `server` and `alertd` binaries.
+- `make test`: Run all Go tests.
+- `make run`: Run the lead generation server.
+- `make docker-up`: Start the full Docker stack.
+- `make clean`: Remove build artifacts.
+
 ## 🏗 Project Architecture
 
 GroupScout consists of two primary Go binaries:
@@ -44,6 +55,27 @@ go run cmd/alertd/main.go
 ```
 Alertd requires a configuration file at `config/airports.yaml` to define hotels and their monitored airports.
 
+### 3. Ollama Modelfile Management
+GroupScout uses local Ollama models for enrichment and alert copy. Modelfiles define the personas and instructions for these models.
+
+**Push Modelfiles:**
+To update or create the personas on your local Ollama server without restarting the main server:
+```bash
+go run cmd/server/main.go ollama push-models
+```
+This reads all `.modelfile` files from `internal/ollama/modelfile/` and pushes them to the Ollama endpoint.
+
+**List Models:**
+To see which models are currently loaded in your Ollama instance:
+```bash
+go run cmd/server/main.go ollama list-models
+```
+
+**Workflow for Updating Persona Prompts:**
+1. Edit the relevant `.modelfile` in `internal/ollama/modelfile/`.
+2. Run `go run cmd/server/main.go ollama push-models`.
+3. The new persona is immediately available for the next LLM call.
+
 ## 🛠 New Features & How to Run
 
 ### `/inventory` Slack Slash Command (alertd)
@@ -66,15 +98,23 @@ When `/inventory 34` is called, the current `alertd` instance updates its in-mem
 
 ## 🧪 Testing
 
-Run all tests:
+We use a combination of unit tests, integration tests, and manual verification scripts.
+
+### 1. Automated Tests
 ```bash
-go test ./...
+make test
+```
+See [docs/guides/TESTING.md](./docs/guides/TESTING.md) for details on running specific tests and Postgres integration.
+
+### 2. Ollama & LLM Testing
+A dedicated script verifies Ollama connectivity and model availability:
+```bash
+./scripts/test-ollama.sh
 ```
 
-Run specific tests for `alertd`:
-```bash
-go test ./cmd/alertd/... ./internal/alert/...
-```
+### 3. API Testing
+Manual API testing can be done via `curl` or the **Bruno** collection in `api/bruno`.
+See [docs/API_TESTING.md](./docs/API_TESTING.md) for examples.
 
 ## 📂 Project Structure
 - `api/`: OpenAPI / Swagger specifications.
@@ -91,4 +131,6 @@ go test ./cmd/alertd/... ./internal/alert/...
 - [API_CONFIG.md](./docs/API_CONFIG.md) - Detailed API and endpoint configuration.
 - [API_TESTING.md](./docs/API_TESTING.md) - Guide on how to test the APIs.
 - [ALERTD_SETUP.md](./docs/guides/ALERTD_SETUP.md) - Specific configuration for the alert system.
+- [OLLAMA_INTEGRATION.md](./docs/planning/OLLAMA_INTEGRATION.md) - Local LLM integration plan and phases.
+- [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Docker and native setup guide for Ollama.
 - [PHASES.md](./docs/planning/PHASES.md) - Build tracker and phase history.

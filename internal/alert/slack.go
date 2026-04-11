@@ -161,7 +161,12 @@ func buildBlocks(msg AlertMessage) []interface{} {
 			"type": "section",
 			"text": map[string]interface{}{
 				"type": "mrkdwn",
-				"text": fmt.Sprintf("*Suggested Actions:*\n• %s", strings.Join(msg.Actions, "\n• ")),
+				"text": func() string {
+					if msg.GeneratedCopy != "" {
+						return fmt.Sprintf("*Suggested Actions:*\n%s", msg.GeneratedCopy)
+					}
+					return fmt.Sprintf("*Suggested Actions:*\n• %s", strings.Join(msg.Actions, "\n• "))
+				}(),
 			},
 		},
 	}

@@ -10,12 +10,14 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/alvindcastro/groupscout/config"
 	"github.com/alvindcastro/groupscout/internal/alert"
 	"github.com/alvindcastro/groupscout/internal/aviation"
+	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/weather"
 )
 
@@ -67,9 +69,39 @@ func main() {
 		log.Fatalf("Failed to load hotel config: %v", err)
 	}
 
+	cfg, _ := config.Load()
+
 	ecccClient := weather.NewECCCClient()
 	yvrScraper := aviation.NewYVRScraper()
 	navCanadaClient := aviation.NewNavCanadaClient()
+
+	var generator *ollama.AlertCopyGenerator
+	if cfg.OllamaEnabled && cfg.OllamaAlertCopyEnabled {
+		ollamaClient := &ollama.OllamaClient{
+			Endpoint: cfg.OllamaEndpoint,
+			Model:    "llama3.1:8b",
+			Timeout:  time.Duration(cfg.OllamaAlertCopyTimeoutS) * time.Second,
+		}
+
+		// Check if preferred model exists, fallback to mistral if not
+		models, err := ollamaClient.ListModels(context.Background())
+		if err == nil {
+			found := false
+			for _, m := range models {
+				if strings.HasPrefix(m, "llama3.1") {
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Println("Ollama: llama3.1:8b not found, falling back to mistral for alert copy")
+				ollamaClient.Model = "mistral"
+			}
+		}
+
+		generator = ollama.NewAlertCopyGenerator(ollamaClient)
+		log.Printf("Ollama Disruption Alert Copy enabled (using %s)", ollamaClient.Model)
+	}
 
 	// Start HTTP server for Slack slash commands
 	port := os.Getenv("ALERTD_PORT")
@@ -89,9 +121,13 @@ func main() {
 	var hotels []hotelState
 	for _, hc := range hotelConfigs {
 		notifier := alert.NewSlackAlerter(*slackToken, hc.SlackChannel)
+		manager := alert.NewLifecycleManager(notifier)
+		if generator != nil {
+			manager.WithOllama(generator)
+		}
 		hotels = append(hotels, hotelState{
 			config:  hc,
-			manager: alert.NewLifecycleManager(notifier),
+			manager: manager,
 		})
 	}
 

@@ -9,11 +9,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/alvindcastro/groupscout/config"
 	"github.com/alvindcastro/groupscout/internal/collector"
@@ -23,6 +25,7 @@ import (
 	"github.com/alvindcastro/groupscout/internal/enrichment"
 	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/alvindcastro/groupscout/internal/notify"
+	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
@@ -36,12 +39,46 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
+	// Ollama CLI subcommands
+	if flag.NArg() > 0 && flag.Arg(0) == "ollama" {
+		handleOllamaCommands(cfg)
+		return
+	}
+
 	logger.Init(cfg.JSONLog, cfg.SentryDSN)
 	l := logger.Log
 
 	if cfg.SentryDSN != "" {
 		defer sentry.Flush(2 * time.Second)
 	}
+
+	// Ollama initialization
+	var ollamaClient ollama.LLMClient
+	if cfg.OllamaEnabled {
+		oc := &ollama.OllamaClient{
+			Endpoint: cfg.OllamaEndpoint,
+			Model:    cfg.OllamaModel,
+			Timeout:  30 * time.Second, // default timeout
+		}
+		ollamaClient = oc
+		l.Info(fmt.Sprintf("ollama endpoint: %s", cfg.OllamaEndpoint))
+		l.Info("ollama enabled", "endpoint", cfg.OllamaEndpoint, "model", cfg.OllamaModel)
+
+		// Health check (non-blocking)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := oc.HealthCheck(ctx); err != nil {
+				l.Warn("ollama: unavailable — running in degraded mode", "endpoint", cfg.OllamaEndpoint, "error", err)
+			} else {
+				l.Info("ollama: ready", "endpoint", cfg.OllamaEndpoint)
+			}
+		}()
+	} else {
+		ollamaClient = &ollama.NoopClient{}
+		l.Info("ollama disabled (using no-op client)")
+	}
+	_ = ollamaClient // will be used in subsequent phases
 
 	db, err := storage.Open(cfg.DatabaseURL)
 	if err != nil {
@@ -86,14 +123,38 @@ func main() {
 		l.Warn("API_TOKEN not set; server will be insecure (all requests allowed)")
 	}
 
+	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		status := map[string]string{
+			"status":   "ok",
+			"database": "ok",
+			"ollama":   "unavailable",
+		}
+
 		if err := db.Ping(); err != nil {
 			l.Error("health check failed: DB ping", "error", err)
-			http.Error(w, "Service Unavailable: Database Ping Failed", http.StatusServiceUnavailable)
-			return
+			status["database"] = "error"
+			status["status"] = "error"
 		}
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "OK")
+
+		if cfg.OllamaEnabled {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			defer cancel()
+			if err := ollamaClient.HealthCheck(ctx); err != nil {
+				l.Warn("health check: ollama degraded", "error", err)
+				status["ollama"] = "degraded"
+			} else {
+				status["ollama"] = "ok"
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if status["status"] == "error" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+		json.NewEncoder(w).Encode(status)
 	})
 
 	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
@@ -254,6 +315,25 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
+
+	var ollamaExtractor *ollama.Extractor
+	var ollamaScorer *ollama.Scorer
+	if cfg.OllamaEnabled {
+		oc := &ollama.OllamaClient{
+			Endpoint: cfg.OllamaEndpoint,
+			Model:    cfg.OllamaModel,
+			Timeout:  time.Duration(cfg.OllamaExtractTimeoutS) * time.Second,
+		}
+		ollamaExtractor = ollama.NewExtractor(oc)
+
+		sc := &ollama.OllamaClient{
+			Endpoint: cfg.OllamaEndpoint,
+			Model:    cfg.OllamaModel,
+			Timeout:  time.Duration(cfg.OllamaScoreTimeoutS) * time.Second,
+		}
+		ollamaScorer = ollama.NewScorer(sc)
+	}
+
 	rc := permits.NewRichmondCollector()
 	rc.MinValue = cfg.MinPermitValueCAD
 	rc.Verbose = true
@@ -312,7 +392,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 	l.Info("active collectors", "count", len(names), "names", names)
 
-	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold)
+	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold, ollamaExtractor, ollamaScorer, cfg.OllamaExtractionEnabled, cfg.OllamaScoringEnabled)
 	e.Verbose = true
 
 	l.Info("running pipeline...")
@@ -345,4 +425,73 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func handleOllamaCommands(cfg *config.Config) {
+	if flag.NArg() < 2 {
+		fmt.Println("Usage: ollama [push-models | list-models]")
+		os.Exit(1)
+	}
+
+	oc := &ollama.OllamaClient{
+		Endpoint: cfg.OllamaEndpoint,
+		Model:    cfg.OllamaModel,
+		Timeout:  30 * time.Second,
+	}
+	manager := ollama.NewModelfileManager(oc)
+	ctx := context.Background()
+
+	switch flag.Arg(1) {
+	case "push-models":
+		pushModels(ctx, manager)
+	case "list-models":
+		listModels(ctx, manager)
+	default:
+		fmt.Printf("Unknown ollama subcommand: %s\n", flag.Arg(1))
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func pushModels(ctx context.Context, manager *ollama.ModelfileManager) {
+	files, err := os.ReadDir("internal/ollama/modelfile")
+	if err != nil {
+		log.Fatalf("failed to read modelfiles: %v", err)
+	}
+
+	for _, f := range files {
+		if !strings.HasSuffix(f.Name(), ".modelfile") {
+			continue
+		}
+
+		path := filepath.Join("internal/ollama/modelfile", f.Name())
+		content, err := os.ReadFile(path)
+		if err != nil {
+			log.Printf("failed to read %s: %v", path, err)
+			continue
+		}
+
+		// "permit_extractor.modelfile" → "groupscout-permit-extractor"
+		stem := strings.TrimSuffix(f.Name(), ".modelfile")
+		modelName := "groupscout-" + strings.ReplaceAll(stem, "_", "-")
+
+		fmt.Printf("Pushing %s as %s... ", f.Name(), modelName)
+		if err := manager.Push(ctx, modelName, string(content)); err != nil {
+			fmt.Printf("FAILED: %v\n", err)
+		} else {
+			fmt.Println("OK")
+		}
+	}
+}
+
+func listModels(ctx context.Context, manager *ollama.ModelfileManager) {
+	models, err := manager.ListModels(ctx)
+	if err != nil {
+		log.Fatalf("failed to list models: %v", err)
+	}
+
+	fmt.Println("Loaded Ollama models:")
+	for _, m := range models {
+		fmt.Printf("- %s\n", m)
+	}
 }

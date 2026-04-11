@@ -1,0 +1,10 @@
+{
+  "cause": "atmospheric_river",
+  "sps": 8.5,
+  "alert_state": "hard_alert",
+  "flights_cancelled": 45,
+  "flights_scheduled": 120,
+  "est_stranded": 650,
+  "started_at": "2026-04-10T14:00:00Z",
+  "recovery_eta": "2026-04-11T02:00:00Z"
+}

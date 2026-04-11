@@ -26,6 +26,7 @@
 *   **Vector Search:** Native **pgvector** support in Postgres and a Go-native cosine similarity fallback for SQLite.
 *   **Sentry:** Production-grade error monitoring and real-time alerting.
 *   **pdftotext:** Used for high-accuracy PDF parsing (via Poppler or Git for Windows).
+*   **Ollama:** Local LLM runtime for privacy-preserving lead extraction and scoring rationale.
 *   **Anthropic Claude API:** Advanced project analysis and room night estimation.
 *   **SendGrid:** Delivery of weekly HTML email digests.
 *   **Slack Webhooks:** Real-time delivery of prioritized leads.
@@ -105,6 +106,14 @@ DELTA_PERMITS_URL=https://www.delta.ca/sites/default/files/2024-03/Building%20Pe
 VCC_URL=https://www.vancouverconventioncentre.com/events
 BCBID_RSS_URL=https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53
 EVENTBRITE_URL=https://www.eventbrite.ca/d/canada--vancouver/professional-services--events/
+
+# --- OLLAMA ---
+OLLAMA_ENABLED=true
+OLLAMA_ENDPOINT=http://localhost:11434
+OLLAMA_MODEL=mistral
+OLLAMA_EXTRACTION_ENABLED=true
+OLLAMA_SCORING_ENABLED=true
+OLLAMA_ALERT_COPY_ENABLED=true
 ```
 
 ### 🏃 How to Run
@@ -142,8 +151,11 @@ go run cmd/server/main.go --run-once
 ### 📄 Documentation
  
 *   [DEVELOPER.md](./DEVELOPER.md) - Developer's guide for running and testing the system.
+*   [TESTING.md](./docs/guides/TESTING.md) - Comprehensive testing guide (unit, integration, Ollama).
 *   [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
 *   [ROADMAP.md](./docs/planning/ROADMAP.md) - Project roadmap and development progress.
 *   [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
 *   [SETUP.md](./docs/guides/SETUP.md) - Installation and configuration guide.
+*   [OLLAMA_INTEGRATION.md](./docs/planning/OLLAMA_INTEGRATION.md) - Local LLM integration plan and phases.
+*   [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Docker and native setup guide for Ollama.
 *   [groupscout-build-log.md](./docs/prompts/groupscout-build-log.md) - Developer's narrative and blog-style build notes.

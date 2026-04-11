@@ -6,6 +6,7 @@ import (
 
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
+	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 	"github.com/getsentry/sentry-go"
 )
@@ -20,13 +21,17 @@ type EnricherAI interface {
 // It runs every registered Collector, skips permits already in the DB,
 // calls Claude to enrich new ones, and writes the resulting Lead records.
 type Enricher struct {
-	collectors             []collector.Collector
-	rawStore               storage.RawProjectStore
-	leadStore              storage.LeadStore
-	ai                     EnricherAI
-	scorer                 *Scorer
-	PriorityAlertThreshold int
-	Verbose                bool
+	collectors              []collector.Collector
+	rawStore                storage.RawProjectStore
+	leadStore               storage.LeadStore
+	ai                      EnricherAI
+	scorer                  *Scorer
+	ollamaExtractor         *ollama.Extractor
+	ollamaScorer            *ollama.Scorer
+	ollamaExtractionEnabled bool
+	ollamaScoringEnabled    bool
+	PriorityAlertThreshold  int
+	Verbose                 bool
 }
 
 // NewEnricher wires together all pipeline dependencies.
@@ -37,14 +42,22 @@ func NewEnricher(
 	ai EnricherAI,
 	scorer *Scorer,
 	priorityAlertThreshold int,
+	ollamaExtractor *ollama.Extractor,
+	ollamaScorer *ollama.Scorer,
+	ollamaExtractionEnabled bool,
+	ollamaScoringEnabled bool,
 ) *Enricher {
 	return &Enricher{
-		collectors:             collectors,
-		rawStore:               rawStore,
-		leadStore:              leadStore,
-		ai:                     ai,
-		scorer:                 scorer,
-		PriorityAlertThreshold: priorityAlertThreshold,
+		collectors:              collectors,
+		rawStore:                rawStore,
+		leadStore:               leadStore,
+		ai:                      ai,
+		scorer:                  scorer,
+		PriorityAlertThreshold:  priorityAlertThreshold,
+		ollamaExtractor:         ollamaExtractor,
+		ollamaScorer:            ollamaScorer,
+		ollamaExtractionEnabled: ollamaExtractionEnabled,
+		ollamaScoringEnabled:    ollamaScoringEnabled,
 	}
 }
 
@@ -124,7 +137,31 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		return false, fmt.Errorf("insert raw project: %w", err)
 	}
 
-	// 1. Rule-based pre-scoring
+	// 1. Ollama Extraction (Phase 2)
+	if e.ollamaExtractionEnabled && e.ollamaExtractor != nil {
+		signal, err := e.ollamaExtractor.Extract(ctx, p.Description)
+		if err == nil {
+			if e.Verbose {
+				l.Info("ollama extraction successful", "org", signal.OrgName, "type", signal.ProjectType)
+			}
+			// Augment RawProject fields if they are empty
+			if p.Title == "" && signal.OrgName != "" {
+				p.Title = signal.OrgName
+			}
+			if p.Location == "" && signal.Location != "" {
+				p.Location = signal.Location
+			}
+			// Store signal in RawData for downstream use
+			if p.RawData == nil {
+				p.RawData = make(map[string]any)
+			}
+			p.RawData["ollama_signal"] = signal
+		} else {
+			l.Warn("ollama extraction failed; continuing with original data", "error", err)
+		}
+	}
+
+	// 2. Rule-based pre-scoring
 	score, reason := e.scorer.Score(p)
 	if !e.scorer.ShouldEnrich(score) {
 		if e.Verbose {
@@ -157,11 +194,22 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 
 	// Persist the lead
 	lead := toLeadRecord(p, enriched)
+
+	// 3. Ollama Rationale (Phase 3)
+	if e.ollamaScoringEnabled && e.ollamaScorer != nil {
+		rationale, err := e.ollamaScorer.Rationale(ctx, lead)
+		if err == nil {
+			lead.Rationale = rationale
+		} else {
+			l.Warn("ollama rationale generation failed", "error", err)
+		}
+	}
+
 	if err := e.leadStore.Insert(ctx, &lead); err != nil {
 		return false, fmt.Errorf("insert lead: %w", err)
 	}
 
-	// 3. Priority Alert
+	// 4. Priority Alert
 	if e.PriorityAlertThreshold > 0 && enriched.PriorityScore >= e.PriorityAlertThreshold {
 		if e.Verbose {
 			l.Info("high priority lead detected", "score", enriched.PriorityScore)

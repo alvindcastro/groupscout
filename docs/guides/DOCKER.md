@@ -37,6 +37,7 @@ This starts all services in the background.
 | `prometheus`| 9090 | Metrics collection |
 | `grafana` | 3000 | Dashboards and log viewer |
 | `loki` | 3100 | Log aggregation |
+| `promtail`| 9080 | Log scraper (internal) |
 
 ## 🛠 Common Commands
 
@@ -71,6 +72,58 @@ docker compose down
 # Stop and remove containers, volumes, and images
 docker compose down --rmi all --volumes
 ```
+
+## 🧠 Ollama Model Management
+
+Models are stored in a persistent volume (`groupscout_ollama_data`).
+
+### Update a Model
+To pull the latest version of a model (e.g., `mistral`):
+```bash
+docker exec groupscout_ollama ollama pull mistral
+docker restart groupscout_app
+```
+
+### Changing the Default Model
+Edit the `OLLAMA_MODEL` variable in your `.env` file and restart the stack:
+```env
+OLLAMA_MODEL=phi3:mini
+```
+
+## 💾 Backups
+
+It is recommended to back up your database and Ollama models periodically.
+
+### Automated Backup Script
+Run the provided script to back up all named volumes:
+```bash
+./scripts/backup-volumes.sh
+```
+This creates compressed tarballs in the `./backups` directory.
+
+### Manual Database Dump (Postgres)
+```bash
+docker exec -t groupscout_postgres pg_dumpall -c -U groupscout > dump.sql
+```
+
+## 📊 Monitoring & Logging
+
+GroupScout includes a full observability stack.
+
+### Logging (Loki + Promtail)
+Logs from all containers are automatically scraped by `promtail` and sent to `loki`.
+- **View logs in Grafana**: Open `http://localhost:3000`, go to **Explore**, and select the **Loki** data source.
+- **Filter by container**: Use `{container="groupscout_app"}` or `{container="groupscout_ollama"}`.
+
+### Metrics (Prometheus + Grafana)
+Metrics are collected by `prometheus` and can be visualized in `grafana`.
+- **Prometheus UI**: `http://localhost:9090`
+- **Grafana UI**: `http://localhost:3000` (default login: `admin/admin`)
+
+#### Custom Ollama Panel
+To monitor Ollama resource usage, add a panel with these queries:
+- **CPU Usage**: `rate(container_cpu_usage_seconds_total{container="groupscout_ollama"}[5m])`
+- **Memory Usage**: `container_memory_usage_bytes{container="groupscout_ollama"}`
 
 ## 🔍 Troubleshooting
 

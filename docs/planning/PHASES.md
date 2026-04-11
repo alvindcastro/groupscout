@@ -35,7 +35,7 @@
 
 ---
 
-## Phase 2 — First Full Pipeline 🔄
+## Phase 2 — First Full Pipeline ✅
 **Goal:** One real Richmond permit flows all the way to a Slack message. End-to-end with one source.
 
 ### Part A — Richmond Permit Scraper
@@ -64,7 +64,7 @@
 
 ---
 
-## Phase 3 — Harden + Add Sources
+## Phase 3 — Harden + Add Sources ✅
 **Goal:** Real leads flowing nightly. Digest hitting Slack every Monday. No duplicate work.
 
 ### Part A — Deduplication
@@ -516,7 +516,7 @@
 
 ---
 
-## Phase 17 — Airport Disruption Alert System 🔄
+## Phase 17 — Airport Disruption Alert System ✅
 **Goal:** A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack with actionable revenue ops information. Distinct from the lead pipeline — different cadence, different failure modes.
 
 > Full context and Vancouver-specific tuning: `docs/groupscout-plan.md` sections 4–6.
@@ -607,17 +607,17 @@
 
 ---
 
-## Phase 20 — Analytics & Source Attribution 📋
+## Phase 27 — Analytics & Source Attribution 📋
 **Goal:** Weekly digest that shows which signal sources are generating closed business, enabling the sales team to prioritize outreach.
 
 > **TDD rule for this phase:** T tasks first. Aggregate queries tested against in-memory SQLite fixture data.
 
-- [ ] **20-T** `internal/storage/analytics_test.go` — seed test DB; `TestSourceAttribution` asserts correct grouped counts + hit rate %; `TestDemandDensityByWeek` asserts bucketing by arrival week; all fail first
-- [ ] **20.1** `internal/storage/leads.go` — aggregate query: leads grouped by source + outcome for a configurable time window
-- [ ] **20.2-T** `internal/notify/slack_test.go` — assert analytics Block Kit section: Source / Leads / Claimed / Won / Hit Rate columns; fail first
-- [ ] **20.2** `internal/notify/slack.go` — analytics summary Block Kit section: Source → Leads → Claimed → Won → Hit Rate %
-- [ ] **20.3** `cmd/server/main.go` — wire analytics summary into existing `/digest` endpoint (appended section, not a new endpoint)
-- [ ] **20.4** Market demand view: upcoming leads bucketed by expected arrival week, grouped by source type — gives managers a forward demand density view
+- [ ] **27-T** `internal/storage/analytics_test.go` — seed test DB; `TestSourceAttribution` asserts correct grouped counts + hit rate %; `TestDemandDensityByWeek` asserts bucketing by arrival week; all fail first
+- [ ] **27.1** `internal/storage/leads.go` — aggregate query: leads grouped by source + outcome for a configurable time window
+- [ ] **27.2-T** `internal/notify/slack_test.go` — assert analytics Block Kit section: Source / Leads / Claimed / Won / Hit Rate columns; fail first
+- [ ] **27.2** `internal/notify/slack.go` — analytics summary Block Kit section: Source → Leads → Claimed → Won → Hit Rate %
+- [ ] **27.3** `cmd/server/main.go` — wire analytics summary into existing `/digest` endpoint (appended section, not a new endpoint)
+- [ ] **27.4** Market demand view: upcoming leads bucketed by expected arrival week, grouped by source type — gives managers a forward demand density view
 
 ---
 
@@ -634,7 +634,7 @@
 
 ---
 
-## Phase 21 — Multi-Property Support 📋
+## Phase 22 — Multi-Property Support 📋
 **Goal:** Configure and run GroupScout for multiple hotel properties with different geographies, segments, and thresholds. No changes to the collector/enrichment core — all config-driven.
 
 > **Why now:** Sandman Hotels has multiple YVR-adjacent properties. Multi-property support unlocks the ability to run one deployment for the whole portfolio and route leads to the right Slack channel per property.
@@ -660,7 +660,7 @@
 
 ---
 
-## Phase 22 — Advanced Intelligence: Repeat Detection & Signal Quality 📋
+## Phase 23 — Advanced Intelligence: Repeat Detection & Signal Quality 📋
 **Goal:** Detect organizations that have brought groups to the market before. Surface signal quality metrics that help the team focus on leads most likely to convert.
 
 > **Why:** Repeat groups are the highest-conversion leads — they've already bought once. Detecting them requires cross-referencing new leads against historical outreach log outcomes.
@@ -684,7 +684,7 @@
 
 ---
 
-## Phase 23 — Agentic Reasoning & Tool-Calling 📋
+## Phase 24 — Agentic Reasoning & Tool-Calling 📋
 **Goal:** Upgrade the enrichment layer from single-call LLM to multi-step reasoning for complex or borderline permits. Add Claude tool-use for real-world verification (BC Registry lookup, LinkedIn search URL generation). Only activates for permits scoring 5–7 with value > $2M — avoids unnecessary cost on clear accepts/rejects.
 
 > **TDD rule:** T tasks first. All tool implementations are pure functions tested against fixture responses. No live API calls in the test suite.
@@ -709,7 +709,7 @@
 
 ---
 
-## Phase 24 — AI Observability & Quality 📋
+## Phase 25 — AI Observability & Quality 📋
 **Goal:** Track Claude API call quality, token costs, and prompt versions. Detect enrichment failures early. Add AI-Ready SQL view to simplify prompt construction and enable query-based context retrieval.
 
 > **TDD rule:** T tasks first. All enrichment quality checks are pure — test against fixture lead structs. Langfuse calls are wrapped behind an interface and mocked in tests.
@@ -740,7 +740,7 @@
 
 ---
 
-## Phase 25 — Production Deployment & Event-Driven Ingestion 📋
+## Phase 26 — Production Deployment & Event-Driven Ingestion 📋
 **Goal:** Ship the full stack to a production server using the chosen deployment platform (Hetzner + Coolify recommended; see `docs/planning/DEPLOYMENT_OPTIONS.md`). Add opt-in event-driven ingestion so individual leads can be pushed directly to enrichment without running the full batch pipeline.
 
 > **Platform note:** GCP Cloud Run is **incompatible** with `alertd` (scales to zero between requests; the polling daemon requires a persistent compute surface). Hetzner CX32 + Coolify (~$10/month) is the recommended path. Railway is the managed-PaaS alternative (~$10–18/month). See full analysis in `docs/planning/DEPLOYMENT_OPTIONS.md`.
@@ -795,3 +795,27 @@
 - [ ] **C3** `terraform/secrets.tf` — Secret Manager for all env vars
 - [ ] **C4** `terraform/variables.tf` + `terraform/terraform.tfvars.example`
 - [ ] **C5** `docs/guides/TERRAFORM.md` — GCP deploy guide with alertd architecture note
+
+---
+
+## Phase 20 — Housekeeping & Developer Experience ✅
+**Goal:** Improve local development workflow and project documentation.
+
+- [x] **20.1** `Makefile` — Central hub for build, test, lint, and Docker tasks.
+- [x] **20.2** `scripts/test-ollama.sh` — Automated verification of local Ollama setup.
+- [x] **20.3** `docs/guides/TESTING.md` — Comprehensive testing guide updated with Ollama details.
+- [x] **20.4** `DEVELOPER.md` — Refactored to highlight the new Makefile-driven workflow.
+- [x] **20.5** `.env.example` — Verified all essential variables are present and documented.
+- [x] **20.6** `README.md` — Documentation links and setup steps verified for accuracy.
+- [x] **20.7** `scripts/doctor.sh` — Environment health check script for new devs.
+
+---
+
+## Phase 21 — Ollama Prod Hardening ✅
+**Goal:** Secure and observe the local LLM infrastructure in production.
+
+- [x] **21.1** `docker-compose.yml` — Added `promtail` for log aggregation and removed public Ollama port.
+- [x] **21.2** `config/promtail.yaml` — Configured container log scraping for Loki.
+- [x] **21.3** `scripts/backup-volumes.sh` — Created automated backup script for all Docker volumes including `ollama_data`.
+- [x] **21.4** `docs/guides/DOCKER.md` — Updated with model management, backup, and monitoring instructions.
+- [x] **21.5** `docs/guides/OLLAMA_SETUP.md` — Phase 7 tasks marked as completed.
