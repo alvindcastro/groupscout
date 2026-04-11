@@ -118,6 +118,20 @@ services:
       - groupscout_net
     restart: unless-stopped
 
+  promtail:
+    image: grafana/promtail:latest
+    container_name: groupscout_promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/promtail.yaml:/etc/promtail/promtail.yaml:ro
+    command: -config.file=/etc/promtail/promtail.yaml
+    networks:
+      - groupscout_net
+    restart: unless-stopped
+    depends_on:
+      - loki
+
   ollama:
     image: ollama/ollama:latest
     container_name: groupscout_ollama

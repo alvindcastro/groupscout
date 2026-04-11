@@ -452,16 +452,16 @@ docker compose up -d
 
 ### Tasks
 
-- [ ] Confirm port `11434` is **not** in `ports:` for the `ollama` service in prod — internal network only
-- [ ] Add `ollama_data` volume to backup script / cron — models are large but avoid re-downloading on VPS rebuild
-- [ ] Add Ollama container logs to Loki (already in the stack) — use `logging: driver: loki` or Promtail scrape
+- [x] Confirm port `11434` is **not** in `ports:` for the `ollama` service in prod — internal network only
+- [x] Add `ollama_data` volume to backup script / cron — models are large but avoid re-downloading on VPS rebuild
+- [x] Add Ollama container logs to Loki (already in the stack) — use `logging: driver: loki` or Promtail scrape
 - [ ] Add Grafana dashboard panel: Ollama container CPU and memory usage (Prometheus `container_cpu_usage_seconds_total{name="groupscout_ollama"}`)
-- [ ] Document model update procedure in `DOCKER.md`:
+- [x] Document model update procedure in `DOCKER.md`:
   ```bash
   docker exec groupscout_ollama ollama pull mistral   # pulls latest quantization
   docker restart groupscout_app                       # reload GroupScout after model update
   ```
-- [ ] Add `OLLAMA_MODEL` to `.env` — allows swapping models (e.g., `mistral` → `phi3:mini`) without code change
+- [x] Add `OLLAMA_MODEL` to `.env` — allows swapping models (e.g., `mistral` → `phi3:mini`) without code change
 - [ ] Test full stack cold start on a fresh VPS: `docker compose up -d` should result in a working system within 10 minutes (model download time)
 
 ---

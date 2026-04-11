@@ -1,4 +1,4 @@
-.PHONY: help build test lint run run-once docker-up docker-down docker-logs ollama-pull ollama-push db-migrate clean
+.PHONY: help build test lint run run-once docker-up docker-down docker-logs ollama-pull ollama-push db-migrate doctor clean fmt vet
 
 # Default target: help
 help:
@@ -6,6 +6,8 @@ help:
 	@echo "-------------------------------"
 	@echo "build            - Build the server and alertd binaries"
 	@echo "test             - Run all Go tests"
+	@echo "fmt              - Format all Go files"
+	@echo "vet              - Run go vet"
 	@echo "lint             - Run golangci-lint (if installed)"
 	@echo "run              - Run the lead generation server"
 	@echo "run-alertd       - Run the alertd service"
@@ -16,6 +18,7 @@ help:
 	@echo "ollama-pull      - Pull required LLM models to local Ollama"
 	@echo "ollama-push      - Push persona Modelfiles to local Ollama"
 	@echo "db-migrate       - Run database migrations (Postgres)"
+	@echo "doctor           - Run environment health check"
 	@echo "clean            - Remove built binaries and temporary files"
 
 build:
@@ -24,6 +27,12 @@ build:
 
 test:
 	go test -v ./...
+
+fmt:
+	go fmt ./...
+
+vet:
+	go vet ./...
 
 lint:
 	@if command -v golangci-lint > /dev/null; then \
@@ -63,6 +72,10 @@ db-migrate:
 	@echo "Ensure DATABASE_URL is set in your environment."
 	# Add your migration command here if using a specific tool, 
 	# otherwise it's handled by the app on startup.
+
+doctor:
+	@chmod +x scripts/doctor.sh
+	@./scripts/doctor.sh
 
 clean:
 	rm -rf build/

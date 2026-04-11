@@ -807,3 +807,15 @@
 - [x] **20.4** `DEVELOPER.md` — Refactored to highlight the new Makefile-driven workflow.
 - [x] **20.5** `.env.example` — Verified all essential variables are present and documented.
 - [x] **20.6** `README.md` — Documentation links and setup steps verified for accuracy.
+- [x] **20.7** `scripts/doctor.sh` — Environment health check script for new devs.
+
+---
+
+## Phase 21 — Ollama Prod Hardening ✅
+**Goal:** Secure and observe the local LLM infrastructure in production.
+
+- [x] **21.1** `docker-compose.yml` — Added `promtail` for log aggregation and removed public Ollama port.
+- [x] **21.2** `config/promtail.yaml` — Configured container log scraping for Loki.
+- [x] **21.3** `scripts/backup-volumes.sh` — Created automated backup script for all Docker volumes including `ollama_data`.
+- [x] **21.4** `docs/guides/DOCKER.md` — Updated with model management, backup, and monitoring instructions.
+- [x] **21.5** `docs/guides/OLLAMA_SETUP.md` — Phase 7 tasks marked as completed.
