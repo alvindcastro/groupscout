@@ -83,24 +83,48 @@ Verify B1:
 
 ---
 
-## Part C — Enrichment Linking
+## Part C — Enrichment Linking ✅ COMPLETE
 
 ```
 Context:
 - Enricher orchestrates the flow: Collect -> Score -> Enrich -> Store.
-- We must store the raw data BEFORE or DURING enrichment and link it to the Lead.
+- Raw data is stored via AuditStore BEFORE enrichment so it is never lost.
+- The resulting Lead always carries the audit trail ID.
 
-Task C1 — Enricher Integration (TDD):
-  1. Update internal/enrichment/enricher_test.go:
-     - Mock the new AuditStore.
-     - Assert that Enrich() calls AuditStore.Store() if raw data is present.
-     - Assert that the resulting Lead has the correct RawInputID.
-  2. Update internal/enrichment/enricher.go:
-     - Inject AuditStore into Enricher.
-     - In Enrich/EnrichOne, store raw data and set Lead.RawInputID.
+Implementation (all in enricher.go → processProject):
+  1. AuditStore is injected into Enricher via NewEnricher().
+  2. processProject() calls auditStore.ExistsByHash() for dedup (NOT rawStore).
+  3. If not a duplicate, auditStore.Store() is called with:
+       - Hash         ← p.Hash
+       - PayloadType  ← p.RawType
+       - Payload      ← p.RawData
+       - SourceURL    ← p.SourceURL
+       - CollectorName ← p.Source
+  4. The returned UUID is passed as rawInputID to toLeadRecord() and to
+     skipped-lead records, ensuring EVERY lead (enriched or skipped) has
+     a valid raw_input_id FK.
 
-Verify C1:
+Tests (internal/enrichment/enricher_test.go):
+  - TestToLeadRecord_rawInputIDPropagated
+      Confirms toLeadRecord() sets Lead.RawInputID from the passed UUID string.
+  - TestEnricher_processProject_storesAllAuditFields
+      Confirms all five fields (Hash, PayloadType, Payload, SourceURL,
+      CollectorName) from RawProject reach AuditStore.Store().
+  - TestEnricher_processProject_callsStoreAndLinksID
+      Confirms enriched lead.RawInputID == the UUID returned by auditStore.Store().
+  - TestEnricher_processProject_linksIDToSkippedLead
+      Confirms skipped leads also have RawInputID set.
+  - TestEnricher_processProject_dedupCheck
+      Confirms dedup uses auditStore.ExistsByHash().
+
+Integration tests (internal/storage/leads_integration_test.go):
+  - TestLeadStore_WithRawInputID
+      Stores a RawInput, inserts a Lead with raw_input_id FK, reads it back,
+      asserts the field round-trips correctly.
+
+Verify:
   go test ./internal/enrichment/...
+  go test ./internal/storage/... -tags integration  # requires TEST_POSTGRES_URL
 ```
 
 ---

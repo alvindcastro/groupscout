@@ -36,7 +36,7 @@ func (s *sqliteRawStore) Insert(ctx context.Context, p *collector.RawProject) er
 	query := `
 		INSERT INTO raw_projects (id, source, external_id, raw_data, raw_type, collected_at, hash)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(hash) DO NOTHING
+		ON CONFLICT (hash) DO NOTHING
 	`
 	_, err := s.db.ExecContext(ctx, Rebind(s.dsn, query),
 		NewUUID(), p.Source, p.ExternalID, string(p.RawData), p.RawType, time.Now().UTC(), p.Hash)

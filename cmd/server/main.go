@@ -303,6 +303,7 @@ func main() {
 func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	l := logger.Log
 	rawStore := storage.NewRawProjectStoreWithDSN(db, cfg.DatabaseURL)
+	auditStore := storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL)
 	leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
 
 	var ai enrichment.EnricherAI
@@ -392,7 +393,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 	l.Info("active collectors", "count", len(names), "names", names)
 
-	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold, ollamaExtractor, ollamaScorer, cfg.OllamaExtractionEnabled, cfg.OllamaScoringEnabled)
+	e := enrichment.NewEnricher(collectors, rawStore, auditStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold, ollamaExtractor, ollamaScorer, cfg.OllamaExtractionEnabled, cfg.OllamaScoringEnabled)
 	e.Verbose = true
 
 	l.Info("running pipeline...")

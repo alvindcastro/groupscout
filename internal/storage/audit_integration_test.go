@@ -53,6 +53,62 @@ func TestAuditStore_RoundTrip(t *testing.T) {
 	assert.Equal(t, id, gotByHash.ID)
 }
 
+func TestAuditStore_DuplicateHash(t *testing.T) {
+	db, dsn := newTestDB(t)
+	store := NewAuditStoreWithDSN(db, dsn)
+	ctx := context.Background()
+
+	payload := []byte("duplicate payload")
+	hash := "duplicate-hash"
+
+	raw1 := RawInput{
+		Hash:          hash,
+		Payload:       payload,
+		CollectorName: "collector-1",
+	}
+
+	// 1. Store first
+	id1, err := store.Store(ctx, raw1)
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, id1)
+
+	// 2. Store again with same hash
+	raw2 := RawInput{
+		Hash:          hash,
+		Payload:       payload,
+		CollectorName: "collector-2",
+	}
+	id2, err := store.Store(ctx, raw2)
+	require.NoError(t, err)
+	assert.Equal(t, id1, id2, "should return same ID for duplicate hash")
+
+	// 3. Verify it's still the first one
+	got, err := store.GetByID(ctx, id1)
+	require.NoError(t, err)
+	assert.Equal(t, "collector-1", got.CollectorName, "should not have been overwritten by duplicate")
+}
+
+func TestAuditStore_ExistsByHash(t *testing.T) {
+	db, dsn := newTestDB(t)
+	store := NewAuditStoreWithDSN(db, dsn)
+	ctx := context.Background()
+
+	hash := "exists-test-hash"
+	exists, err := store.ExistsByHash(ctx, hash)
+	require.NoError(t, err)
+	assert.False(t, exists)
+
+	_, err = store.Store(ctx, RawInput{
+		Hash:    hash,
+		Payload: []byte("exists test"),
+	})
+	require.NoError(t, err)
+
+	exists, err = store.ExistsByHash(ctx, hash)
+	require.NoError(t, err)
+	assert.True(t, exists)
+}
+
 func TestAuditStore_GetNonExistent(t *testing.T) {
 	db, dsn := newTestDB(t)
 	store := NewAuditStoreWithDSN(db, dsn)

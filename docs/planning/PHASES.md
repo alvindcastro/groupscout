@@ -824,8 +824,8 @@
 ### Part B — Collector & Enricher Integration
 - [x] **27.5** `internal/collector/collector.go` — update `RawProject` to include `RawData []byte` and `RawType string`.
 - [x] **27.6** Update Richmond and Delta collectors to return raw PDF content.
-- [ ] **27.7** Update News/Creative BC/VCC collectors to return raw API/RSS responses.
-- [ ] **27.8** `internal/enrichment/enricher.go` — store raw input in `AuditStore` and link to `Lead` before LLM call.
+- [x] **27.7** Update News/Creative BC/VCC collectors to return raw API/RSS responses.
+- [x] **27.8** `internal/enrichment/enricher.go` — store raw input in `AuditStore` and link to `Lead` before LLM call.
 - [x] **27.12** RawProject Metadata — Added `Metadata map[string]any` to `collector.RawProject` for structured pipeline data and fixed enrichment pipeline.
 
 ### Part C — Verification & Access

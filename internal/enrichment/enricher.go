@@ -22,6 +22,7 @@ type EnricherAI interface {
 type Enricher struct {
 	collectors              []collector.Collector
 	rawStore                storage.RawProjectStore
+	auditStore              storage.AuditStore
 	leadStore               storage.LeadStore
 	ai                      EnricherAI
 	scorer                  *Scorer
@@ -37,6 +38,7 @@ type Enricher struct {
 func NewEnricher(
 	collectors []collector.Collector,
 	rawStore storage.RawProjectStore,
+	auditStore storage.AuditStore,
 	leadStore storage.LeadStore,
 	ai EnricherAI,
 	scorer *Scorer,
@@ -49,6 +51,7 @@ func NewEnricher(
 	return &Enricher{
 		collectors:              collectors,
 		rawStore:                rawStore,
+		auditStore:              auditStore,
 		leadStore:               leadStore,
 		ai:                      ai,
 		scorer:                  scorer,
@@ -120,7 +123,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	l := logger.Log.With("project", p.ExternalID, "source", p.Source)
 
 	// Dedup check — skip if we've seen this permit before
-	exists, err := e.rawStore.ExistsByHash(ctx, p.Hash)
+	exists, err := e.auditStore.ExistsByHash(ctx, p.Hash)
 	if err != nil {
 		return false, fmt.Errorf("check hash: %w", err)
 	}
@@ -131,9 +134,21 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		return false, nil
 	}
 
-	// Persist the raw record before enrichment so it's never lost
+	// Store raw input for audit trail before enrichment so it's never lost
+	rawInputID, err := e.auditStore.Store(ctx, storage.RawInput{
+		Hash:          p.Hash,
+		PayloadType:   p.RawType,
+		Payload:       p.RawData,
+		SourceURL:     p.SourceURL,
+		CollectorName: p.Source,
+	})
+	if err != nil {
+		return false, fmt.Errorf("store audit trail: %w", err)
+	}
+
+	// Also persist to legacy rawStore for backward compatibility (optional, but keeping it for now if needed)
 	if err := e.rawStore.Insert(ctx, &p); err != nil {
-		return false, fmt.Errorf("insert raw project: %w", err)
+		l.Warn("failed to insert legacy raw project", "error", err)
 	}
 
 	// 1. Ollama Extraction (Phase 2)
@@ -168,6 +183,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		}
 		// Create a "skipped" lead record
 		lead := storage.Lead{
+			RawInputID:     rawInputID.String(),
 			Source:         p.Source,
 			Title:          p.Title,
 			Location:       p.Location,
@@ -192,7 +208,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	}
 
 	// Persist the lead
-	lead := toLeadRecord(p, enriched)
+	lead := toLeadRecord(p, enriched, rawInputID.String())
 
 	// 3. Ollama Rationale (Phase 3)
 	if e.ollamaScoringEnabled && e.ollamaScorer != nil {
@@ -231,10 +247,11 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 // toLeadRecord maps a RawProject + EnrichedLead into a storage.Lead.
 // Applicant and Contractor are taken directly from the raw permit data so that
 // phone numbers and contact details from the PDF are preserved as-is.
-func toLeadRecord(p collector.RawProject, e *EnrichedLead) storage.Lead {
+func toLeadRecord(p collector.RawProject, e *EnrichedLead, rawInputID string) storage.Lead {
 	applicant, _ := p.Metadata["applicant"].(string)
 	contractor, _ := p.Metadata["contractor"].(string)
 	return storage.Lead{
+		RawInputID:              rawInputID,
 		Source:                  p.Source,
 		Title:                   p.Title,
 		Location:                p.Location,

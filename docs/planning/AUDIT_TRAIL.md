@@ -23,13 +23,23 @@
 - [x] BC Bid: Store the raw RSS XML and individual item descriptions.
 - [x] News/Creative BC/VCC: Store the raw API/RSS responses.
 
-### Part C — Enrichment Linking
+### Part C — Enrichment Linking ✅ COMPLETE
 - [x] Link `raw_input_id` to `leads` table to provide a direct link to the source data.
     - [x] Update migration `006_audit_trail.up.sql` to add `raw_input_id` to `leads` table.
-- [ ] Update `enricher.go` to store raw input before calling LLM.
-    - [ ] Check if hash exists first to avoid redundant storage.
-    - [ ] Associate the `raw_input_id` with the generated `Lead` object.
-- [ ] Ensure `ExistsByHash` still works but now points to the original raw input.
+    - [x] SQLite schema in `db.go` includes `raw_input_id TEXT REFERENCES raw_inputs(id)`.
+- [x] Update `enricher.go` to store raw input before calling LLM.
+    - [x] Check if hash exists first to avoid redundant storage (`auditStore.ExistsByHash`).
+    - [x] Associate the `raw_input_id` with the generated `Lead` object (both enriched and skipped leads).
+    - [x] All five fields captured: `Hash`, `PayloadType`, `Payload`, `SourceURL`, `CollectorName`.
+- [x] Ensure `ExistsByHash` now points to the original raw input (`auditStore`, not `rawStore`).
+- [x] TDD coverage (unit — `enricher_test.go`):
+    - `TestToLeadRecord_rawInputIDPropagated` — `RawInputID` propagates through `toLeadRecord`.
+    - `TestEnricher_processProject_storesAllAuditFields` — all five audit fields reach `AuditStore.Store`.
+    - `TestEnricher_processProject_callsStoreAndLinksID` — enriched lead `RawInputID` matches store return.
+    - `TestEnricher_processProject_linksIDToSkippedLead` — skipped leads also linked.
+    - `TestEnricher_processProject_dedupCheck` — dedup uses audit store, not raw project store.
+- [x] TDD coverage (integration — `leads_integration_test.go`):
+    - `TestLeadStore_WithRawInputID` — lead + raw input FK round-trips in Postgres.
 
 ### Part D — Verification & Access
 - [ ] Create `GET /leads/{id}/raw` endpoint to retrieve the raw input used for a specific lead.

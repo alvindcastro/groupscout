@@ -30,8 +30,8 @@ func TestFullStack_postgres(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	leadStore := NewLeadStore(db)
-	rawStore := NewRawProjectStore(db)
+	leadStore := NewLeadStoreWithDSN(db, dsn)
+	rawStore := NewRawProjectStoreWithDSN(db, dsn)
 	embStore := NewEmbeddingStore(db, dsn)
 
 	// Raw project

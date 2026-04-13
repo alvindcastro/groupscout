@@ -25,6 +25,7 @@ type AuditStore interface {
 	Store(ctx context.Context, raw RawInput) (uuid.UUID, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*RawInput, error)
 	GetByHash(ctx context.Context, hash string) (*RawInput, error)
+	ExistsByHash(ctx context.Context, hash string) (bool, error)
 }
 
 type sqlAuditStore struct {
@@ -98,4 +99,14 @@ func (s *sqlAuditStore) GetByHash(ctx context.Context, hash string) (*RawInput, 
 		return nil, fmt.Errorf("get raw_input by hash: %w", err)
 	}
 	return &r, nil
+}
+
+func (s *sqlAuditStore) ExistsByHash(ctx context.Context, hash string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM raw_inputs WHERE hash = ?)`
+	var exists bool
+	err := s.db.QueryRowContext(ctx, Rebind(s.dsn, query), hash).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("exists by hash: %w", err)
+	}
+	return exists, nil
 }
