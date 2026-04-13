@@ -1,26 +1,27 @@
-package ollama
+package enrichment
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
+	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
-// Scorer handles generating rationale for lead scores.
-type Scorer struct {
-	client LLMClient
+// OllamaScorer handles generating rationale for lead scores.
+type OllamaScorer struct {
+	client ollama.LLMClient
 }
 
-// NewScorer returns a new Scorer.
-func NewScorer(client LLMClient) *Scorer {
-	return &Scorer{client: client}
+// NewOllamaScorer returns a new OllamaScorer.
+func NewOllamaScorer(client ollama.LLMClient) *OllamaScorer {
+	return &OllamaScorer{client: client}
 }
 
 // Rationale generates a 2-3 sentence explanation for why a lead has its priority score.
-func (s *Scorer) Rationale(ctx context.Context, lead storage.Lead) (string, error) {
-	ctx = WithUseCase(ctx, "scoring")
+func (s *OllamaScorer) Rationale(ctx context.Context, lead storage.Lead) (string, error) {
+	ctx = ollama.WithUseCase(ctx, "scoring")
 	systemPrompt := `
 You are a senior hotel sales analyst at a Vancouver-area full-service hotel.
 You receive structured data about a potential group lodging lead.

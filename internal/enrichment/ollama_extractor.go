@@ -1,4 +1,4 @@
-package ollama
+package enrichment
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"github.com/alvindcastro/groupscout/internal/ollama"
 )
 
 // LeadSignal represents structured data extracted from raw text.
@@ -19,19 +21,19 @@ type LeadSignal struct {
 	Confidence   float64   `json:"confidence"`
 }
 
-// Extractor uses an LLMClient to extract signals from raw text.
+// Extractor uses an ollama.LLMClient to extract signals from raw text.
 type Extractor struct {
-	client LLMClient
+	client ollama.LLMClient
 }
 
 // NewExtractor returns a new Extractor.
-func NewExtractor(client LLMClient) *Extractor {
+func NewExtractor(client ollama.LLMClient) *Extractor {
 	return &Extractor{client: client}
 }
 
 // Extract takes raw text and returns an extracted LeadSignal.
 func (e *Extractor) Extract(ctx context.Context, rawText string) (*LeadSignal, error) {
-	ctx = WithUseCase(ctx, "extraction")
+	ctx = ollama.WithUseCase(ctx, "extraction")
 	systemPrompt := `
 You are a data extraction assistant for a hotel group sales intelligence system.
 You receive raw text from building permit filings, government contract awards,

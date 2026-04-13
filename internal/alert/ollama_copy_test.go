@@ -1,4 +1,4 @@
-package ollama
+package alert
 
 import (
 	"context"
@@ -9,20 +9,40 @@ import (
 	"time"
 )
 
+type mockLLMClient struct {
+	chatCompleteFunc func(ctx context.Context, system, user string) (string, error)
+}
+
+func (m *mockLLMClient) Generate(ctx context.Context, prompt string) (string, error) {
+	return "", nil
+}
+
+func (m *mockLLMClient) ChatComplete(ctx context.Context, system, user string) (string, error) {
+	return m.chatCompleteFunc(ctx, system, user)
+}
+
+func (m *mockLLMClient) ListModels(ctx context.Context) ([]string, error) {
+	return nil, nil
+}
+
+func (m *mockLLMClient) HealthCheck(ctx context.Context) error {
+	return nil
+}
+
 func TestAlertCopyGenerator_Generate(t *testing.T) {
 	fixtureData, err := os.ReadFile("testdata/disruption.json")
 	if err != nil {
 		t.Fatalf("failed to read fixture: %v", err)
 	}
 
-	var fixtureEvent DisruptionEvent
+	var fixtureEvent LLMAlertInput
 	if err := json.Unmarshal(fixtureData, &fixtureEvent); err != nil {
 		t.Fatalf("failed to unmarshal fixture: %v", err)
 	}
 
 	tests := []struct {
 		name         string
-		event        DisruptionEvent
+		event        LLMAlertInput
 		mockResponse string
 		mockErr      error
 		wantContains []string
@@ -36,7 +56,7 @@ func TestAlertCopyGenerator_Generate(t *testing.T) {
 		},
 		{
 			name: "Fog event",
-			event: DisruptionEvent{
+			event: LLMAlertInput{
 				Cause:            "fog",
 				SPS:              4.2,
 				AlertState:       "soft_alert",
@@ -50,7 +70,7 @@ func TestAlertCopyGenerator_Generate(t *testing.T) {
 		},
 		{
 			name: "Resolve state",
-			event: DisruptionEvent{
+			event: LLMAlertInput{
 				Cause:      "snow",
 				AlertState: "resolve",
 			},

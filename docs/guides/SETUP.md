@@ -349,7 +349,7 @@ If you've been using SQLite (`groupscout.db`) and want to move your data to a ne
 2.  **Run the migration script**:
 
     ```bash
-    go run scripts/migrate_to_postgres/main.go \
+    go run cmd/tools/migrate_db/main.go \
       --sqlite groupscout.db \
       --postgres "postgres://groupscout:groupscout@localhost:5432/groupscout"
     ```

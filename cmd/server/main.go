@@ -23,8 +23,8 @@ import (
 	"github.com/alvindcastro/groupscout/internal/collector/news"
 	"github.com/alvindcastro/groupscout/internal/collector/permits"
 	"github.com/alvindcastro/groupscout/internal/enrichment"
+	"github.com/alvindcastro/groupscout/internal/leadnotify"
 	"github.com/alvindcastro/groupscout/internal/logger"
-	"github.com/alvindcastro/groupscout/internal/notify"
 	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
@@ -229,7 +229,7 @@ func main() {
 			return
 		}
 
-		emailNotifier := notify.NewEmailNotifier(cfg.ResendAPIKey)
+		emailNotifier := leadnotify.NewEmailNotifier(cfg.ResendAPIKey)
 		toEmail := r.URL.Query().Get("to")
 		if toEmail == "" {
 			toEmail = "alvin@groupscout.ai" // default
@@ -283,7 +283,7 @@ func main() {
 		logger.Log.Info("lead received from n8n", "source", l.Source, "title", l.Title)
 
 		// Optionally notify Slack immediately
-		notifier := notify.NewSlackNotifier(cfg.SlackWebhookURL)
+		notifier := leadnotify.NewSlackNotifier(cfg.SlackWebhookURL)
 		if err := notifier.Send(context.Background(), []storage.Lead{l}); err != nil {
 			logger.Log.Warn("failed to notify Slack for n8n lead", "error", err)
 		}
@@ -316,22 +316,22 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
 
-	var ollamaExtractor *ollama.Extractor
-	var ollamaScorer *ollama.Scorer
+	var ollamaExtractor *enrichment.Extractor
+	var ollamaScorer *enrichment.OllamaScorer
 	if cfg.OllamaEnabled {
 		oc := &ollama.OllamaClient{
 			Endpoint: cfg.OllamaEndpoint,
 			Model:    cfg.OllamaModel,
 			Timeout:  time.Duration(cfg.OllamaExtractTimeoutS) * time.Second,
 		}
-		ollamaExtractor = ollama.NewExtractor(oc)
+		ollamaExtractor = enrichment.NewExtractor(oc)
 
 		sc := &ollama.OllamaClient{
 			Endpoint: cfg.OllamaEndpoint,
 			Model:    cfg.OllamaModel,
 			Timeout:  time.Duration(cfg.OllamaScoreTimeoutS) * time.Second,
 		}
-		ollamaScorer = ollama.NewScorer(sc)
+		ollamaScorer = enrichment.NewOllamaScorer(sc)
 	}
 
 	rc := permits.NewRichmondCollector()
@@ -412,7 +412,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		return nil
 	}
 
-	notifier := notify.NewSlackNotifier(cfg.SlackWebhookURL)
+	notifier := leadnotify.NewSlackNotifier(cfg.SlackWebhookURL)
 	if err := notifier.Send(ctx, leads); err != nil {
 		return fmt.Errorf("slack notify: %w", err)
 	}

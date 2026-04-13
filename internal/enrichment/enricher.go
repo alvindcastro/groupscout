@@ -6,7 +6,6 @@ import (
 
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
-	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 	"github.com/getsentry/sentry-go"
 )
@@ -26,8 +25,8 @@ type Enricher struct {
 	leadStore               storage.LeadStore
 	ai                      EnricherAI
 	scorer                  *Scorer
-	ollamaExtractor         *ollama.Extractor
-	ollamaScorer            *ollama.Scorer
+	ollamaExtractor         *Extractor
+	ollamaScorer            *OllamaScorer
 	ollamaExtractionEnabled bool
 	ollamaScoringEnabled    bool
 	PriorityAlertThreshold  int
@@ -42,8 +41,8 @@ func NewEnricher(
 	ai EnricherAI,
 	scorer *Scorer,
 	priorityAlertThreshold int,
-	ollamaExtractor *ollama.Extractor,
-	ollamaScorer *ollama.Scorer,
+	ollamaExtractor *Extractor,
+	ollamaScorer *OllamaScorer,
 	ollamaExtractionEnabled bool,
 	ollamaScoringEnabled bool,
 ) *Enricher {

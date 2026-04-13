@@ -150,7 +150,7 @@ docker compose up -d
 
 ### 📄 Documentation
 
-*   [DEVELOPER.md](./DEVELOPER.md) - Developer's guide for running and testing the system.
+*   [DEVELOPER.md](./docs/DEVELOPER.md) - Developer's guide for running and testing the system.
 *   [PHASES.md](./docs/planning/PHASES.md) - Living task tracker and build progress.
 *   [CHANGELOG.md](./docs/CHANGELOG.md) - Plain-English record of all changes.
 *   [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.

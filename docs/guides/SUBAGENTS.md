@@ -4,16 +4,61 @@ This guide explains how to use the specialized Junie subagents in the `groupscou
 
 ## 🤖 Available Subagents
 
-We have defined the following subagents in `.junie/agents/`:
+We have defined the following subagents in `.junie/agents/`. Each subagent has specific core responsibilities and a tailored toolset.
 
-| Subagent Name | Description | Specialized Area |
-| :--- | :--- | :--- |
-| `tdd-tester` | Focuses on Test-Driven Development and high coverage. | `*_test.go`, `internal/` |
-| `database-architect` | Expert in SQL migrations and storage layer optimization. | `migrations/`, `internal/storage/` |
-| `collector-specialist`| Handles data ingestion logic and scraping. | `internal/collector/` |
-| `enrichment-processor`| Focuses on data transformation and AI processing. | `internal/enrichment/`, `internal/ollama/` |
-| `api-integrator` | Manages API design, middleware, and service integration. | `internal/api/`, `internal/alert/`, `cmd/` |
-| `infrastructure-specialist` | Expert in Docker, Makefile, and deployment. | `Dockerfile`, `Makefile`, `scripts/` |
+### 1. TDD Tester (`tdd-tester`)
+- **Focus:** Test-Driven Development and high coverage.
+- **Area:** `*_test.go`, `internal/`
+- **Responsibilities:**
+  - Create reproduction tests for bugs.
+  - Draft test specifications for new features.
+  - Refactor existing tests for better clarity and performance.
+  - Ensure all tests pass before submitting changes.
+
+### 2. Database Architect (`database-architect`)
+- **Focus:** SQL migrations and storage layer optimization.
+- **Area:** `migrations/`, `internal/storage/`
+- **Responsibilities:**
+  - Create and manage SQL migrations in the `migrations/` directory.
+  - Optimize database queries and indexing strategies in `internal/storage/`.
+  - Ensure data integrity and proper error handling in DB operations.
+  - Handle database connection lifecycle and pooling configuration.
+
+### 3. Collector Specialist (`collector-specialist`)
+- **Focus:** Data ingestion logic and scraping.
+- **Area:** `internal/collector/`
+- **Responsibilities:**
+  - Implement new data collectors for external APIs or websites.
+  - Handle rate limiting, retries, and error parsing for external sources.
+  - Maintain existing collectors in `internal/collector/news`, `events`, and `permits`.
+  - Ensure collectors adhere to the `internal/collector.Collector` interface.
+
+### 4. Enrichment Processor (`enrichment-processor`)
+- **Focus:** Data transformation and AI processing.
+- **Area:** `internal/enrichment/`, `internal/ollama/`
+- **Responsibilities:**
+  - Develop and refine data enrichment logic.
+  - Manage LLM prompts and model files in `internal/ollama/modelfile`.
+  - Implement scoring and extraction logic (e.g., lead scoring, disruption alerts).
+  - Optimize the flow between raw data ingestion and enriched output.
+
+### 5. API Integrator (`api-integrator`)
+- **Focus:** API design, middleware, and service integration.
+- **Area:** `internal/api/`, `internal/alert/`, `cmd/`
+- **Responsibilities:**
+  - Implement and maintain API handlers in `internal/api/`.
+  - Orchestrate logic between `server` and `alertd` daemons.
+  - Manage notification logic in `internal/notify/` and `internal/alert/`.
+  - Ensure robust request validation, error handling, and Slack command integration.
+
+### 6. Infrastructure Specialist (`infrastructure-specialist`)
+- **Focus:** Docker, Makefile, and deployment.
+- **Area:** `Dockerfile`, `Makefile`, `scripts/`
+- **Responsibilities:**
+  - Maintain and optimize the Docker environment and `Makefile` commands.
+  - Manage project configuration files and environment variable templates.
+  - Automate build and deployment scripts in the `scripts/` directory.
+  - Ensure system reliability and scalability across different deployment options.
 
 ## 🚀 How to Use
 
@@ -68,5 +113,4 @@ Detailed instructions for the agent...
 
 ## 🔗 Related Resources
 - [Junie CLI Documentation](https://junie.jetbrains.com/docs/junie-cli-subagents.html)
-- [Project Planning: SUBAGENTS.md](../planning/SUBAGENTS.md)
-- [DEVELOPER.md](../../DEVELOPER.md)
+- [DEVELOPER.md](../DEVELOPER.md)

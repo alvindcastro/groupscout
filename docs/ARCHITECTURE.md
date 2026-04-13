@@ -40,7 +40,7 @@ Responsible for identifying high-value leads and preparing them for outreach.
 - **Deduplication**: Ensures that only new, unique projects are sent for AI enrichment via SHA-256 hash checks.
 - **Outreach Drafting**: Generates personalized cold email drafts for each lead using the active LLM provider.
 
-#### 4. Notification & Observability Layer (`internal/notify`)
+#### 4. Notification & Observability Layer (`internal/leadnotify`)
 Dispatches alerts and monitors system health.
 - **Slack**: Sends real-time alerts and lead digests to configured webhooks. Phase 19 adds interactive action buttons (Claim/Dismiss/Snooze). Phase 20 appends analytics summary to the digest. Multi-property support (Phase 21) routes messages to property-specific webhooks.
 - **Email**: Sends weekly HTML summaries and outreach drafts via Resend.
@@ -70,7 +70,7 @@ For a detailed end-to-end breakdown of these processes, including architecture d
 ### Technology Stack
 
 -   **Language**: Go (Golang)
--   **Database**: PostgreSQL (with `pgvector`) and SQLite (local-first, easily portable). Includes a one-way migration script (`scripts/migrate_to_postgres/main.go`).
+-   **Database**: PostgreSQL (with `pgvector`) and SQLite (local-first, easily portable). Includes a one-way migration script (`cmd/tools/migrate_db/main.go`).
 -   **AI / LLM**: Claude (Anthropic Messages API) + Gemini (Google) — both implemented. Phase 16 adds OpenAI-compatible client (OpenAI, Groq, Mistral, Azure, Ollama) and `FallbackClient`.
 -   **Integrations**: Slack Webhooks + Interactive Actions, Resend API, Hunter.io (Phase 18), Sentry, **n8n**, Prometheus, Grafana Loki
 -   **Configuration**: Environment variables (supporting `.env` files); `config/properties.yaml` for multi-property (Phase 21)
@@ -87,12 +87,13 @@ For a detailed end-to-end breakdown of these processes, including architecture d
 -   `internal/collector/`: Source-specific data fetching grouped into `permits`, `events`, and `news` sub-packages.
 -   `docs/`: Structured project documentation (`guides`, `planning`, `prompts`).
 -   `config/`: Configuration loading, environment management.
--   `internal/notify/`: Slack (lead alerts + interactive actions + digest), email.
+-   `internal/leadnotify/`: Slack (lead alerts + interactive actions + digest), email.
 -   `internal/weather/`: ECCC weather alert poller and classifier (Phase 17).
 -   `internal/aviation/`: YVR flight scraper, NavCanada NOTAM parser, SPS scorer (Phase 17).
 -   `internal/alert/`: Disruption alert lifecycle state machine + Slack updater (Phase 17).
 -   `migrations/`: SQL migration files.
--   `scripts/`: Utility scripts for database maintenance.
+-   `scripts/`: Shell utility scripts (e.g., volume backups, environment health checks).
+-   `cmd/tools/`: Internal maintenance tools (e.g., database migration, clearing, checking).
 
 ---
 
