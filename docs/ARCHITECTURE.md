@@ -23,7 +23,7 @@ Responsible for gathering raw data from external sources. Each data source imple
 - **Standardized Output**: Every collector produces `RawProject` structs, normalizing diverse data into a common format before storage.
 
 #### 2. Storage Layer (`internal/storage`)
-Handles data persistence and deduplication with dual-driver support (**PostgreSQL** and **SQLite**).
+Handles data persistence and deduplication with dual-driver support (**PostgreSQL** as primary, and **SQLite** for local dev).
 - **Driver Selection**: Automatically switches between `pgx` (Postgres) and `sqlite` based on the `DATABASE_URL` prefix.
 - **Migrations**: Uses `golang-migrate` for versioned Postgres schema updates, while maintaining an idempotent inline schema for SQLite.
 - **SQL Rebinding**: Dynamically converts standard `?` placeholders to driver-specific formats (e.g., `$1`, `$2` for Postgres).

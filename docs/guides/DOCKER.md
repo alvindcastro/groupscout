@@ -71,6 +71,15 @@ docker compose down
 
 # Stop and remove containers, volumes, and images
 docker compose down --rmi all --volumes
+
+# Clear everything (database, volumes, and local SQLite)
+make clear
+```
+
+### Reset and Run Pipeline
+To completely reset the environment and run one pipeline pass to verify the flow:
+```bash
+make start-fresh
 ```
 
 ## 🧠 Ollama Model Management

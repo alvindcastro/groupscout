@@ -39,7 +39,7 @@ func (s *sqliteRawStore) Insert(ctx context.Context, p *collector.RawProject) er
 		ON CONFLICT (hash) DO NOTHING
 	`
 	_, err := s.db.ExecContext(ctx, Rebind(s.dsn, query),
-		NewUUID(), p.Source, p.ExternalID, string(p.RawData), p.RawType, time.Now().UTC(), p.Hash)
+		NewUUID(), p.Source, p.ExternalID, p.RawData, p.RawType, time.Now().UTC(), p.Hash)
 	return err
 }
 

@@ -20,6 +20,8 @@ help:
 	@echo "db-migrate       - Run database migrations (Postgres)"
 	@echo "doctor           - Run environment health check"
 	@echo "clean            - Remove built binaries and temporary files"
+	@echo "clear            - Clear all database data, Docker volumes and builds"
+	@echo "start-fresh      - Reset everything and run one pipeline pass"
 
 build:
 	go build -o build/server ./cmd/server
@@ -80,3 +82,17 @@ doctor:
 clean:
 	rm -rf build/
 	rm -f coverage.out coverage.html
+
+# clear: Removes all data, stops containers, and cleans build artifacts
+clear:
+	@echo "Clearing all data..."
+	docker compose down -v
+	rm -f groupscout.db
+	rm -rf build/
+	@echo "Data cleared."
+
+# start-fresh: Clears everything, starts services, and runs one pipeline pass
+start-fresh: clear docker-up
+	@echo "Waiting for services to be ready..."
+	@sleep 15
+	go run cmd/server/main.go --run-once

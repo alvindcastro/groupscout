@@ -867,3 +867,28 @@
 
 ### Part C — Observability
 - [ ] **29.6** Link specific prompt versions to `enriched_leads` in the database for A/B testing analysis.
+
+---
+
+## Phase 30 — Advanced Audit & Verification 📋
+**Goal:** Transform the raw audit trail into a proactive verification and quality assurance system.
+
+> **TDD rule for this phase:** Verification logic tested by mocking misaligned lead/raw data and asserting AI flags.
+
+### Part A — Verification Workflow
+- [ ] **30.1** `migrations/007_verification.up.sql` — Add `verification_status`, `verification_notes`, and `corrections` (JSONB) to `leads` table.
+- [ ] **30.2** `internal/storage/leads.go` — Update `LeadStore` to support updating verification fields and applying corrections.
+- [ ] **30.3** `cmd/server/main.go` — Implement `POST /leads/{id}/verify` endpoint with validation.
+- [ ] **30.4** `cmd/server/main.go` — Implement `PATCH /leads/{id}/corrections` to apply manual user fixes.
+
+### Part B — AI Verification Agent
+- [ ] **30.5-T** `internal/enrichment/verifier_test.go` — Mock Lead + RawInput with deliberate discrepancy; assert `Verifier` returns high-severity discrepancy.
+- [ ] **30.5** `internal/enrichment/verifier.go` — Implement `Verifier` struct using `verification_prompt` from `docs/prompts/PROMPTS_PHASE30.md`.
+- [ ] **30.6** `internal/enrichment/enricher.go` — Integrate `Verifier` as an optional post-enrichment step (gated by `ENABLE_AUTO_VERIFY` env var).
+- [ ] **30.7** `cmd/server/main.go` — Implement `GET /leads/{id}/verification-report` to trigger on-demand AI audit.
+
+### Part C — Health & Analytics
+- [ ] **30.8** `internal/storage/stats.go` — Implement extraction accuracy aggregator (group by collector, count verified vs flagged).
+- [ ] **30.9** `cmd/server/main.go` — Implement `GET /stats/extraction-accuracy`.
+- [ ] **30.10** `internal/enrichment/drift.go` — Implement structural drift detection using layout snapshots.
+- [ ] **30.11** `groupscout audit-report` — CLI command to generate a project-wide quality summary.

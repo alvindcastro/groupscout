@@ -23,17 +23,21 @@ If you run `go run cmd/server/main.go --run-once`, look for these log markers:
 - `skipping enrichment: low score score=0`: The project was recorded but wasn't interesting enough to justify AI costs.
 
 ### 2. Inspect the Database
-Use `sqlite3` (or your preferred DB viewer) to see what's happening under the hood:
+Use `psql` (Postgres) or `sqlite3` (SQLite) to see what's happening under the hood.
 
+#### Postgres (Recommended)
 ```bash
-# See the total count of collected projects vs. those that were enriched
-sqlite3 groupscout.db "SELECT status, count(*) FROM leads GROUP BY status;"
+# Total count of collected projects vs. those that were enriched
+docker exec groupscout_postgres psql -U groupscout -d groupscout -c "SELECT status, count(*) FROM leads GROUP BY status;"
 
 # Look at the most recent "skipped" leads and why they were skipped
-sqlite3 groupscout.db "SELECT title, priority_score, priority_reason FROM leads WHERE status = 'skipped' ORDER BY created_at DESC LIMIT 10;"
+docker exec groupscout_postgres psql -U groupscout -d groupscout -c "SELECT title, priority_score, priority_reason FROM leads WHERE status = 'skipped' ORDER BY created_at DESC LIMIT 10;"
+```
 
-# Check if the collectors are finding anything at all
-sqlite3 groupscout.db "SELECT source, count(*) FROM raw_projects GROUP BY source;"
+#### SQLite
+```bash
+# Total count of collected projects vs. those that were enriched
+sqlite3 groupscout.db "SELECT status, count(*) FROM leads GROUP BY status;"
 ```
 
 ### 3. Adjust Thresholds
@@ -60,7 +64,7 @@ This usually happens if:
 ### How do I re-process old leads?
 If you want to force the pipeline to re-process everything (e.g., after changing the scoring logic), you must clear the database:
 ```bash
-# WARNING: This deletes all historical data!
-rm groupscout.db
+# This stops containers, removes volumes, and deletes local SQLite db
+make clear
 ```
 *(Or manually delete rows from `raw_projects` and `leads` tables).*

@@ -39,6 +39,18 @@
 - [ ] **Phase 27** — Input Audit & Verification Trail: store raw PDFs/API responses for verification 📋
 - [ ] **Phase 28** — Analytics & Source Attribution: weekly performance summary 📋
 - [ ] **Phase 29** — Prompt Engineering & Strict TDD: evaluation harness and Few-Shot library 📋
+- [ ] **Phase 30** — Advanced Audit & Verification: AI-driven cross-referencing and source health monitoring 📋
+
+---
+
+## Phase 30 — Advanced Audit & Verification 📋
+**Goal:** Transform the raw audit trail into a proactive verification and quality assurance system.
+
+- [ ] AI-driven verification pass (JSON vs Raw payload)
+- [ ] Manual verification and feedback loops (POST /leads/{id}/verify)
+- [ ] Extraction accuracy analytics and source health metrics
+- [ ] PDF/HTML layout drift detection
+- [ ] Lead change detection (comparing raw snapshots over time)
 
 ---
 

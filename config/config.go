@@ -63,7 +63,7 @@ type Config struct {
 func Load() (*Config, error) {
 	loadDotEnv(".env")
 	return &Config{
-		DatabaseURL:             getEnv("DATABASE_URL", "groupscout.db"),
+		DatabaseURL:             getEnv("DATABASE_URL", "postgres://groupscout:groupscout@localhost:5432/groupscout?sslmode=disable"),
 		ClaudeAPIKey:            os.Getenv("CLAUDE_API_KEY"),
 		GeminiAPIKey:            os.Getenv("GEMINI_API_KEY"),
 		AIProvider:              getEnv("AI_PROVIDER", "claude"),
