@@ -191,7 +191,7 @@ func TestToRawProject(t *testing.T) {
 		Contractor:   "Safara Cladding Inc",
 	}
 
-	p := toRawProject(rec)
+	p := toRawProject(rec, []byte("test pdf content"))
 
 	if p.Source != "richmond_permits" {
 		t.Errorf("Source = %q, want %q", p.Source, "richmond_permits")
@@ -208,11 +208,11 @@ func TestToRawProject(t *testing.T) {
 	if p.IssuedAt != date {
 		t.Errorf("IssuedAt = %v, want %v", p.IssuedAt, date)
 	}
-	// RawData must preserve all original fields
-	for _, key := range []string{"folder_number", "sub_type", "work_proposed", "status", "issue_date", "value_cad", "address", "applicant", "contractor"} {
-		if _, ok := p.RawData[key]; !ok {
-			t.Errorf("RawData missing key %q", key)
-		}
+	if string(p.RawData) != "test pdf content" {
+		t.Errorf("RawData = %q, want %q", string(p.RawData), "test pdf content")
+	}
+	if p.RawType != "application/pdf" {
+		t.Errorf("RawType = %q, want %q", p.RawType, "application/pdf")
 	}
 }
 

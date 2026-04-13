@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -34,17 +33,13 @@ func NewRawProjectStoreWithDSN(db *sql.DB, dsn string) RawProjectStore {
 }
 
 func (s *sqliteRawStore) Insert(ctx context.Context, p *collector.RawProject) error {
-	raw, err := json.Marshal(p.RawData)
-	if err != nil {
-		return fmt.Errorf("marshal raw_data: %w", err)
-	}
 	query := `
-		INSERT INTO raw_projects (id, source, external_id, raw_data, collected_at, hash)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(hash) DO NOTHING
+		INSERT INTO raw_projects (id, source, external_id, raw_data, raw_type, collected_at, hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (hash) DO NOTHING
 	`
-	_, err = s.db.ExecContext(ctx, Rebind(s.dsn, query),
-		NewUUID(), p.Source, p.ExternalID, string(raw), time.Now().UTC(), p.Hash)
+	_, err := s.db.ExecContext(ctx, Rebind(s.dsn, query),
+		NewUUID(), p.Source, p.ExternalID, p.RawData, p.RawType, time.Now().UTC(), p.Hash)
 	return err
 }
 
@@ -61,6 +56,12 @@ func HashProject(source, externalID, title string, issuedAt time.Time) string {
 	h := sha256.Sum256([]byte(
 		source + "|" + externalID + "|" + title + "|" + issuedAt.Format("2006-01-02"),
 	))
+	return fmt.Sprintf("%x", h)
+}
+
+// HashPayload returns the sha256 hash of a byte slice for audit trail deduplication.
+func HashPayload(payload []byte) string {
+	h := sha256.Sum256(payload)
 	return fmt.Sprintf("%x", h)
 }
 

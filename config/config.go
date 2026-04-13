@@ -34,6 +34,7 @@ type Config struct {
 	MinPermitValueCAD       int64
 	Port                    int
 	APIToken                string
+	BaseURL                 string
 	DigestDay               string
 	DigestHour              int
 	JSONLog                 bool
@@ -52,6 +53,7 @@ type Config struct {
 	OllamaExtractTimeoutS   int
 	OllamaScoreTimeoutS     int
 	OllamaAlertCopyTimeoutS int
+	PIIStripEnabled         bool
 }
 
 // Load reads config from environment variables, falling back to sensible defaults.
@@ -61,7 +63,7 @@ type Config struct {
 func Load() (*Config, error) {
 	loadDotEnv(".env")
 	return &Config{
-		DatabaseURL:             getEnv("DATABASE_URL", "groupscout.db"),
+		DatabaseURL:             getEnv("DATABASE_URL", "postgres://groupscout:groupscout@localhost:5432/groupscout?sslmode=disable"),
 		ClaudeAPIKey:            os.Getenv("CLAUDE_API_KEY"),
 		GeminiAPIKey:            os.Getenv("GEMINI_API_KEY"),
 		AIProvider:              getEnv("AI_PROVIDER", "claude"),
@@ -86,6 +88,7 @@ func Load() (*Config, error) {
 		MinPermitValueCAD:       int64(getEnvInt("MIN_PERMIT_VALUE_CAD", 500_000)),
 		Port:                    getEnvInt("PORT", 8080),
 		APIToken:                os.Getenv("API_TOKEN"),
+		BaseURL:                 getEnv("BASE_URL", ""),
 		DigestDay:               getEnv("DIGEST_DAY", "monday"),
 		DigestHour:              getEnvInt("DIGEST_HOUR", 9),
 		JSONLog:                 getEnv("JSON_LOG", "false") == "true",
@@ -104,6 +107,7 @@ func Load() (*Config, error) {
 		OllamaExtractTimeoutS:   getEnvInt("OLLAMA_EXTRACT_TIMEOUT_S", 30),
 		OllamaScoreTimeoutS:     getEnvInt("OLLAMA_SCORE_TIMEOUT_S", 20),
 		OllamaAlertCopyTimeoutS: getEnvInt("OLLAMA_ALERT_COPY_TIMEOUT_S", 15),
+		PIIStripEnabled:         os.Getenv("PII_STRIP") == "true",
 	}, nil
 }
 

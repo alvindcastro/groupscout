@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/alvindcastro/groupscout/internal/aviation"
-	"github.com/alvindcastro/groupscout/internal/ollama"
 )
 
 type EventState string
@@ -57,7 +56,7 @@ type LifecycleManager struct {
 	events        map[string]*DisruptionEvent
 	notifier      Notifier
 	ollamaEnabled bool
-	generator     *ollama.AlertCopyGenerator
+	generator     *AlertCopyGenerator
 }
 
 func NewLifecycleManager(notifier Notifier) *LifecycleManager {
@@ -67,7 +66,7 @@ func NewLifecycleManager(notifier Notifier) *LifecycleManager {
 	}
 }
 
-func (m *LifecycleManager) WithOllama(generator *ollama.AlertCopyGenerator) *LifecycleManager {
+func (m *LifecycleManager) WithOllama(generator *AlertCopyGenerator) *LifecycleManager {
 	m.ollamaEnabled = true
 	m.generator = generator
 	return m
@@ -114,7 +113,7 @@ func (m *LifecycleManager) Process(ctx context.Context, airportCode string, sps 
 			msg := buildAlertMessage(airportCode, sps, minutesActive, roomsAvail)
 
 			if m.ollamaEnabled && m.generator != nil {
-				copy, err := m.generator.Generate(ctx, ollama.DisruptionEvent{
+				copy, err := m.generator.Generate(ctx, LLMAlertInput{
 					Cause:            sps.Explanation,
 					SPS:              sps.Score,
 					AlertState:       string(sps.State),
@@ -156,7 +155,7 @@ func (m *LifecycleManager) Process(ctx context.Context, airportCode string, sps 
 			msg := buildAlertMessage(airportCode, sps, minutesActive, roomsAvail)
 
 			if m.ollamaEnabled && m.generator != nil {
-				copy, err := m.generator.Generate(ctx, ollama.DisruptionEvent{
+				copy, err := m.generator.Generate(ctx, LLMAlertInput{
 					Cause:            sps.Explanation,
 					SPS:              sps.Score,
 					AlertState:       string(sps.State),

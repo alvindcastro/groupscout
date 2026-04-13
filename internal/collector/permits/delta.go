@@ -98,7 +98,7 @@ func (d *DeltaCollector) Collect(ctx context.Context) ([]collector.RawProject, e
 		return nil, fmt.Errorf("delta: DELTA_PERMITS_URL is not set")
 	}
 
-	path, cleanup, err := d.downloadPDF(ctx)
+	path, rawData, cleanup, err := d.downloadPDF(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -121,54 +121,71 @@ func (d *DeltaCollector) Collect(ctx context.Context) ([]collector.RawProject, e
 	}
 
 	var projects []collector.RawProject
+	var skippedValue, skippedType int
 	for _, rec := range records {
-		if !isDeltaRelevant(rec, d.MinValue) {
+		if rec.ValueCAD <= d.MinValue {
+			skippedValue++
 			continue
 		}
-		p := toDeltaRawProject(rec)
+		if !deltaRelevantTypes[strings.ToLower(rec.TypePrefix)] {
+			skippedType++
+			continue
+		}
+		p := toDeltaRawProject(rec, rawData)
 		p.SourceURL = d.URL
 		p.Hash = hashDeltaPermit(rec.PermitNumber, rec.CivicAddress, rec.IssueDate)
 		projects = append(projects, p)
 	}
 
 	if d.Verbose {
-		logger.Log.Info("filtering complete", "source", "delta", "passed", len(projects), "min_value", d.MinValue)
+		logger.Log.Info("filtering complete",
+			"source", "delta",
+			"passed", len(projects),
+			"skipped_low_value", skippedValue,
+			"skipped_residential", skippedType,
+			"min_value", d.MinValue,
+		)
 	}
 
 	return projects, nil
 }
 
-// downloadPDF fetches the Delta permit PDF and returns a temp file path plus cleanup func.
-func (d *DeltaCollector) downloadPDF(ctx context.Context) (path string, cleanup func(), err error) {
+// downloadPDF fetches the Delta permit PDF and returns a temp file path, raw bytes, plus cleanup func.
+func (d *DeltaCollector) downloadPDF(ctx context.Context) (path string, data []byte, cleanup func(), err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.URL, nil)
 	if err != nil {
-		return "", nil, fmt.Errorf("delta: build request: %w", err)
+		return "", nil, nil, fmt.Errorf("delta: build request: %w", err)
 	}
 	req.Header.Set("User-Agent", "groupscout-leadgen/1.0 (hotel group sales intelligence)")
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		return "", nil, fmt.Errorf("delta: download pdf: %w", err)
+		return "", nil, nil, fmt.Errorf("delta: download pdf: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", nil, fmt.Errorf("delta: pdf download returned HTTP %d", resp.StatusCode)
+		return "", nil, nil, fmt.Errorf("delta: pdf download returned HTTP %d", resp.StatusCode)
+	}
+
+	data, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("delta: read pdf body: %w", err)
 	}
 
 	tmp, err := os.CreateTemp("", "delta-*.pdf")
 	if err != nil {
-		return "", nil, fmt.Errorf("delta: create temp file: %w", err)
+		return "", nil, nil, fmt.Errorf("delta: create temp file: %w", err)
 	}
 
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
-		return "", nil, fmt.Errorf("delta: write pdf: %w", err)
+		return "", nil, nil, fmt.Errorf("delta: write pdf: %w", err)
 	}
 	tmp.Close()
 
-	return tmp.Name(), func() { os.Remove(tmp.Name()) }, nil
+	return tmp.Name(), data, func() { os.Remove(tmp.Name()) }, nil
 }
 
 // parseDeltaPDF extracts permit records from a Delta permit PDF.
@@ -336,7 +353,7 @@ func isDeltaRelevant(rec deltaRecord, minValue int64) bool {
 }
 
 // toDeltaRawProject maps a deltaRecord to the normalized collector.RawProject used by the pipeline.
-func toDeltaRawProject(rec deltaRecord) collector.RawProject {
+func toDeltaRawProject(rec deltaRecord, rawData []byte) collector.RawProject {
 	title := rec.TypeRaw
 	if rec.CivicAddress != "" {
 		title = fmt.Sprintf("%s — %s", rec.TypeRaw, rec.CivicAddress)
@@ -354,17 +371,8 @@ func toDeltaRawProject(rec deltaRecord) collector.RawProject {
 		Value:       rec.ValueCAD,
 		Description: fmt.Sprintf("Work: %s | Builder: %s", rec.Purpose, rec.Builder),
 		IssuedAt:    rec.IssueDate,
-		RawData: map[string]any{
-			"permit_number": rec.PermitNumber,
-			"type_raw":      rec.TypeRaw,
-			"type_prefix":   rec.TypePrefix,
-			"purpose":       rec.Purpose,
-			"issue_date":    rec.IssueDate.Format("2006-01-02"),
-			"value_cad":     rec.ValueCAD,
-			"address":       rec.CivicAddress,
-			"applicant":     rec.Builder, // Delta uses "builder" but maps to applicant slot
-			"contractor":    "",          // Delta permits don't list a separate contractor
-		},
+		RawData:     rawData,
+		RawType:     "application/pdf",
 	}
 }
 

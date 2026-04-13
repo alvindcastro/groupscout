@@ -29,17 +29,16 @@ Key selling points for construction crews:
 
 ## Phased Roadmap
 
-### Phase 1 — Manual Intelligence ✅ (Concept Validated)
-Do it by hand first. Google Sheet, manual permit checks, outreach templates.
+> **Current Status:** Phase 3 completed; transitioning to Advanced Audit & Intelligence.
+> For the live big-picture roadmap, see [ROADMAP.md](./ROADMAP.md).
+> For atomic task tracking, see [PHASES.md](./PHASES.md).
 
-### Phase 2 — Lightweight Automation ✅ (Concept Validated)
-Google Alerts + Make.com/Zapier → Airtable. AI-generated weekly digest.
-
-### Phase 3 — Go Backend (Current Phase)
-Automated pipeline: collect → enrich → store → notify. No UI.
-
-### Phase 4 — Full Platform (Future)
-Expand segments (sports, film, govt). UI dashboard. PMS integration. Rebooking radar.
+- [x] **Phase 1** — Manual Intelligence (Concept Validated)
+- [x] **Phase 2** — Lightweight Automation (Concept Validated)
+- [x] **Phase 3** — Go Backend (Current Foundation)
+- [x] **Phase 15** — Postgres & pgvector Migration
+- [x] **Phase 27** — Input Audit & Verification Trail
+- [ ] **Phase 30** — Advanced Audit & Verification (Next)
 
 ---
 

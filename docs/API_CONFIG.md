@@ -15,7 +15,7 @@ Default port: `8080` (Configurable via `PORT`)
 |---|---|---|---|
 | `/health` | `GET` | System health check (DB + API connectivity). | No |
 | `/run` | `POST` | Manually triggers the collect-enrich-notify pipeline. | Yes (Bearer Token) |
-| `/digest` | `POST` | Sends a weekly email summary of leads via Resend. | Yes (Bearer Token) |
+| `/digest` | `POST` | Sends a weekly email summary of leads via SendGrid. | Yes (Bearer Token) |
 | `/n8n/webhook` | `POST` | Receives raw lead data from n8n for storage and enrichment. | Yes (Bearer Token) |
 
 #### Alertd Binary (`cmd/alertd`)
@@ -37,7 +37,7 @@ GroupScout integrates with several external SaaS providers.
 | **Google Gemini** | `GEMINI_API_KEY` | `https://generativelanguage.googleapis.com/...` | Alternative AI provider. |
 | **Slack Webhooks** | `SLACK_WEBHOOK_URL` | `https://hooks.slack.com/services/...` | Posting lead digests to channels. |
 | **Slack Bot API** | `SLACK_BOT_TOKEN` | `https://slack.com/api/...` | Used by `alertd` for stateful alert updates. |
-| **Resend** | `RESEND_API_KEY` | `https://api.resend.com/emails` | Sending weekly lead summary emails. |
+| **SendGrid** | `SENDGRID_API_KEY` | `https://api.sendgrid.com/v3/...` | Sending weekly lead summary emails. |
 | **Hunter.io** | `HUNTER_API_KEY` | `https://api.hunter.io/v2/...` | (Phase 18) Finding decision-maker contact info. |
 | **Sentry** | `SENTRY_DSN` | - | Error tracking and observability. |
 

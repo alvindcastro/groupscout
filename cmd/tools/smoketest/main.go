@@ -22,7 +22,7 @@ import (
 
 	"github.com/alvindcastro/groupscout/config"
 	"github.com/alvindcastro/groupscout/internal/collector/permits"
-	"github.com/alvindcastro/groupscout/internal/notify"
+	"github.com/alvindcastro/groupscout/internal/leadnotify"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
@@ -132,7 +132,7 @@ func sendTestSlack(ctx context.Context) {
 		},
 	}
 
-	notifier := notify.NewSlackNotifier(webhookURL)
+	notifier := leadnotify.NewSlackNotifier(webhookURL, "http://localhost:8080")
 	log.Printf("sending %d test leads to Slack...", len(leads))
 	if err := notifier.Send(ctx, leads); err != nil {
 		log.Fatalf("slack send failed: %v", err)

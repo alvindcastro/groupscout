@@ -140,6 +140,54 @@ WHERE hash = 'your_hash_here';
 
 ---
 
+## Audit Trail (Raw Inputs)
+
+The `raw_inputs` table stores the original payloads from collectors before they are converted into leads.
+
+### Recent audit records
+```sql
+SELECT collector_name, payload_type, created_at, source_url
+FROM raw_inputs
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+### Check for PII Redaction
+If `PII_STRIP=true` is enabled, emails and phone numbers should be replaced with `[REDACTED EMAIL]` and `[REDACTED PHONE]`.
+```sql
+SELECT payload 
+FROM raw_inputs 
+WHERE payload::text LIKE '%[REDACTED]%'
+LIMIT 10;
+```
+
+### Retention & Purging
+Raw inputs are preserved to maintain the audit trail. However, they can be purged to save space, provided they are no longer referenced by a lead.
+
+#### Count records older than 30 days
+```sql
+SELECT COUNT(*) 
+FROM raw_inputs 
+WHERE created_at < NOW() - INTERVAL '30 days';
+```
+
+#### Count records that can be safely purged (not referenced by leads)
+```sql
+SELECT COUNT(*) 
+FROM raw_inputs ri
+WHERE ri.created_at < NOW() - INTERVAL '30 days'
+AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.raw_input_id = ri.id);
+```
+
+#### Manually trigger a purge
+```sql
+DELETE FROM raw_inputs 
+WHERE created_at < NOW() - INTERVAL '30 days'
+AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.raw_input_id = ri.id);
+```
+
+---
+
 ## Outreach Log
 
 ```sql

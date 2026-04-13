@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -55,11 +56,16 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]collector.RawProject, err
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read body: %w", err)
+	}
+
 	if c.Verbose {
 		logger.Log.Debug("VCC response", "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"))
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
@@ -117,6 +123,8 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]collector.RawProject, err
 			Title:       title,
 			Description: fmt.Sprintf("Category: %s | Date: %s", category, dateStr),
 			SourceURL:   link,
+			RawData:     body,
+			RawType:     "text/html",
 		}
 		projects = append(projects, project)
 	})

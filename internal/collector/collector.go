@@ -16,7 +16,9 @@ type RawProject struct {
 	Description string         // raw text description
 	IssuedAt    time.Time      // date from the source (permit issue date, award date, etc.)
 	SourceURL   string         // direct URL to the source document (PDF, page, feed item)
-	RawData     map[string]any // full original payload preserved for audit
+	RawData     []byte         // full original payload preserved for audit
+	RawType     string         // mime type or extension (e.g. "application/pdf", "json")
+	Metadata    map[string]any // structured metadata added during collection or enrichment
 	Hash        string         // sha256 dedup key — set before inserting to DB
 }
 

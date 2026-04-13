@@ -1,0 +1,1 @@
+ALTER TABLE raw_projects DROP COLUMN IF NOT EXISTS raw_type;

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/alvindcastro/groupscout/config"
@@ -23,8 +24,8 @@ import (
 	"github.com/alvindcastro/groupscout/internal/collector/news"
 	"github.com/alvindcastro/groupscout/internal/collector/permits"
 	"github.com/alvindcastro/groupscout/internal/enrichment"
+	"github.com/alvindcastro/groupscout/internal/leadnotify"
 	"github.com/alvindcastro/groupscout/internal/logger"
-	"github.com/alvindcastro/groupscout/internal/notify"
 	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
@@ -42,6 +43,12 @@ func main() {
 	// Ollama CLI subcommands
 	if flag.NArg() > 0 && flag.Arg(0) == "ollama" {
 		handleOllamaCommands(cfg)
+		return
+	}
+
+	// Audit CLI subcommand
+	if flag.NArg() > 0 && flag.Arg(0) == "audit" {
+		handleAuditCommand(cfg)
 		return
 	}
 
@@ -229,7 +236,7 @@ func main() {
 			return
 		}
 
-		emailNotifier := notify.NewEmailNotifier(cfg.ResendAPIKey)
+		emailNotifier := leadnotify.NewEmailNotifier(cfg.ResendAPIKey)
 		toEmail := r.URL.Query().Get("to")
 		if toEmail == "" {
 			toEmail = "alvin@groupscout.ai" // default
@@ -283,13 +290,61 @@ func main() {
 		logger.Log.Info("lead received from n8n", "source", l.Source, "title", l.Title)
 
 		// Optionally notify Slack immediately
-		notifier := notify.NewSlackNotifier(cfg.SlackWebhookURL)
+		notifier := leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL)
 		if err := notifier.Send(context.Background(), []storage.Lead{l}); err != nil {
 			logger.Log.Warn("failed to notify Slack for n8n lead", "error", err)
 		}
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{"status": "success", "id": l.ID})
+	})
+
+	http.HandleFunc("/leads/", func(w http.ResponseWriter, r *http.Request) {
+		// Manual routing for /leads/{id}/raw
+		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(parts) != 3 || parts[0] != "leads" || parts[2] != "raw" {
+			http.NotFound(w, r)
+			return
+		}
+		leadID := parts[1]
+
+		ctx := r.Context()
+		leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
+		lead, err := leadStore.GetByID(ctx, leadID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if lead == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		if lead.RawInputID == "" {
+			http.Error(w, "Lead has no raw input associated", http.StatusNotFound)
+			return
+		}
+
+		rawInputID, err := uuid.Parse(lead.RawInputID)
+		if err != nil {
+			http.Error(w, "Invalid raw input ID", http.StatusInternalServerError)
+			return
+		}
+
+		auditStore := storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL)
+		raw, err := auditStore.GetByID(ctx, rawInputID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if raw == nil {
+			http.Error(w, "Raw input not found in audit store", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", raw.PayloadType)
+		w.WriteHeader(http.StatusOK)
+		w.Write(raw.Payload)
 	})
 
 	addr := ":" + strconv.Itoa(cfg.Port)
@@ -303,6 +358,7 @@ func main() {
 func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	l := logger.Log
 	rawStore := storage.NewRawProjectStoreWithDSN(db, cfg.DatabaseURL)
+	auditStore := storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL)
 	leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
 
 	var ai enrichment.EnricherAI
@@ -316,22 +372,22 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
 
-	var ollamaExtractor *ollama.Extractor
-	var ollamaScorer *ollama.Scorer
+	var ollamaExtractor *enrichment.Extractor
+	var ollamaScorer *enrichment.OllamaScorer
 	if cfg.OllamaEnabled {
 		oc := &ollama.OllamaClient{
 			Endpoint: cfg.OllamaEndpoint,
 			Model:    cfg.OllamaModel,
 			Timeout:  time.Duration(cfg.OllamaExtractTimeoutS) * time.Second,
 		}
-		ollamaExtractor = ollama.NewExtractor(oc)
+		ollamaExtractor = enrichment.NewExtractor(oc)
 
 		sc := &ollama.OllamaClient{
 			Endpoint: cfg.OllamaEndpoint,
 			Model:    cfg.OllamaModel,
 			Timeout:  time.Duration(cfg.OllamaScoreTimeoutS) * time.Second,
 		}
-		ollamaScorer = ollama.NewScorer(sc)
+		ollamaScorer = enrichment.NewOllamaScorer(sc)
 	}
 
 	rc := permits.NewRichmondCollector()
@@ -392,7 +448,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	}
 	l.Info("active collectors", "count", len(names), "names", names)
 
-	e := enrichment.NewEnricher(collectors, rawStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold, ollamaExtractor, ollamaScorer, cfg.OllamaExtractionEnabled, cfg.OllamaScoringEnabled)
+	e := enrichment.NewEnricher(collectors, rawStore, auditStore, leadStore, ai, scorer, cfg.PriorityAlertThreshold, ollamaExtractor, ollamaScorer, cfg.OllamaExtractionEnabled, cfg.OllamaScoringEnabled)
 	e.Verbose = true
 
 	l.Info("running pipeline...")
@@ -412,7 +468,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 		return nil
 	}
 
-	notifier := notify.NewSlackNotifier(cfg.SlackWebhookURL)
+	notifier := leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL)
 	if err := notifier.Send(ctx, leads); err != nil {
 		return fmt.Errorf("slack notify: %w", err)
 	}
@@ -493,5 +549,73 @@ func listModels(ctx context.Context, manager *ollama.ModelfileManager) {
 	fmt.Println("Loaded Ollama models:")
 	for _, m := range models {
 		fmt.Printf("- %s\n", m)
+	}
+}
+
+func handleAuditCommand(cfg *config.Config) {
+	auditCmd := flag.NewFlagSet("audit", flag.ExitOnError)
+	savePath := auditCmd.String("save", "", "save payload to a file")
+	showMeta := auditCmd.Bool("meta", false, "show metadata only")
+	auditCmd.Parse(flag.Args()[1:])
+
+	if auditCmd.NArg() < 1 {
+		fmt.Println("Usage: groupscout audit <lead_id> [--save <path>] [--meta]")
+		os.Exit(1)
+	}
+	leadID := auditCmd.Arg(0)
+
+	db, err := storage.Open(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("database: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
+	lead, err := leadStore.GetByID(ctx, leadID)
+	if err != nil {
+		log.Fatalf("get lead: %v", err)
+	}
+	if lead == nil {
+		log.Fatalf("lead %s not found", leadID)
+	}
+
+	if lead.RawInputID == "" {
+		log.Fatalf("lead %s has no raw input associated", leadID)
+	}
+
+	rawInputID, err := uuid.Parse(lead.RawInputID)
+	if err != nil {
+		log.Fatalf("invalid raw input ID: %v", err)
+	}
+
+	auditStore := storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL)
+	raw, err := auditStore.GetByID(ctx, rawInputID)
+	if err != nil {
+		log.Fatalf("get audit record: %v", err)
+	}
+	if raw == nil {
+		log.Fatalf("raw input %s not found", lead.RawInputID)
+	}
+
+	if *showMeta {
+		fmt.Printf("Lead:         %s\n", lead.Title)
+		fmt.Printf("Audit ID:     %s\n", raw.ID)
+		fmt.Printf("Source URL:   %s\n", raw.SourceURL)
+		fmt.Printf("Collector:    %s\n", raw.CollectorName)
+		fmt.Printf("Payload Type: %s\n", raw.PayloadType)
+		fmt.Printf("Fetched At:   %s\n", raw.CreatedAt.Format(time.RFC3339))
+		fmt.Printf("Hash:         %s\n", raw.Hash)
+		return
+	}
+
+	if *savePath != "" {
+		if err := os.WriteFile(*savePath, raw.Payload, 0644); err != nil {
+			log.Fatalf("save file: %v", err)
+		}
+		fmt.Printf("Saved payload to %s\n", *savePath)
+	} else {
+		os.Stdout.Write(raw.Payload)
+		fmt.Println()
 	}
 }

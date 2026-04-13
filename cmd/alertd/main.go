@@ -75,7 +75,7 @@ func main() {
 	yvrScraper := aviation.NewYVRScraper()
 	navCanadaClient := aviation.NewNavCanadaClient()
 
-	var generator *ollama.AlertCopyGenerator
+	var generator *alert.AlertCopyGenerator
 	if cfg.OllamaEnabled && cfg.OllamaAlertCopyEnabled {
 		ollamaClient := &ollama.OllamaClient{
 			Endpoint: cfg.OllamaEndpoint,
@@ -99,7 +99,7 @@ func main() {
 			}
 		}
 
-		generator = ollama.NewAlertCopyGenerator(ollamaClient)
+		generator = alert.NewAlertCopyGenerator(ollamaClient)
 		log.Printf("Ollama Disruption Alert Copy enabled (using %s)", ollamaClient.Model)
 	}
 

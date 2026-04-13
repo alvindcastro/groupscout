@@ -1,4 +1,4 @@
-package ollama
+package enrichment
 
 import (
 	"context"
@@ -62,7 +62,7 @@ func TestScorer_Rationale(t *testing.T) {
 					return tt.mockResponse, nil
 				},
 			}
-			s := NewScorer(mock)
+			s := NewOllamaScorer(mock)
 			got, err := s.Rationale(context.Background(), tt.lead)
 
 			if tt.wantErr != nil {

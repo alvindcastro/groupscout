@@ -125,18 +125,21 @@ This document outlines potential technical enhancements and a roadmap for the fu
 - [x] Testing Documentation — Create `TESTING.md`.
 - [x] Integrated n8n for orchestration.
 
-#### Phase 8: Scaling & Intelligence (In Progress)
-- [ ] Transition to concurrent collector execution (worker pools). (Phase 9.2)
-- [ ] Implement Redis for caching enrichment results and scraper states. (Phase 9.4)
-- [ ] Enhance AI Scorer with sentiment analysis.
-- [ ] Add project "timelines" by linking related leads.
+#### Phase 8: Scaling & Intelligence ✅
+- [x] Transition to concurrent collector execution (worker pools). (Phase 9.2)
+- [x] Implement PostgreSQL + pgvector migration (Phase 15).
+- [x] Airport Disruption Alert System (`alertd`) (Phase 17).
+- [x] Ollama Prod Hardening (Phase 21).
 
-#### Phase 9: External Ecosystem
+#### Phase 9: Quality & Auditing (Current)
+- [x] Input Audit & Verification Trail (Phase 27).
+- [ ] Analytics & Source Attribution (Phase 28).
+- [ ] Prompt Engineering & Strict TDD (Phase 29).
+- [ ] Advanced Audit & Verification (Phase 30).
+
+#### Phase 10: External Ecosystem & Advanced Automation
 - [ ] Develop a minimal internal Admin UI (React/Vite).
 - [ ] Build a HubSpot/Salesforce integration module.
 - [ ] Implement "One-Click Outreach" directly from the Slack notification.
-
-#### Phase 10: Advanced Automation
 - [ ] Multi-persona outreach drafting (A/B testing for drafts).
 - [ ] "Smart Scheduling" — Scrapers run more frequently during high-activity periods.
-- [ ] Fully automated "Follow-up" reminders based on lead status.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -53,7 +54,12 @@ func (c *EventbriteCollector) Collect(ctx context.Context) ([]collector.RawProje
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
 		return nil, fmt.Errorf("parse html: %w", err)
 	}
@@ -85,6 +91,8 @@ func (c *EventbriteCollector) Collect(ctx context.Context) ([]collector.RawProje
 			Description: metadata,
 			SourceURL:   link,
 			IssuedAt:    time.Now(), // Eventbrite doesn't always have clear "published" dates in list view
+			RawData:     body,
+			RawType:     "text/html",
 		}
 
 		h := sha256.New()

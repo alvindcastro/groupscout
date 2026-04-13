@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS raw_projects (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source       TEXT NOT NULL,
     external_id  TEXT,
-    raw_data     JSONB NOT NULL,
+    raw_data     BYTEA NOT NULL,
     collected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     hash         TEXT UNIQUE NOT NULL
 );

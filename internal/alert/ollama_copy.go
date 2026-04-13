@@ -1,14 +1,16 @@
-package ollama
+package alert
 
 import (
 	"context"
 	"fmt"
 	"math"
 	"time"
+
+	"github.com/alvindcastro/groupscout/internal/ollama"
 )
 
-// DisruptionEvent matches the required fields for alert generation.
-type DisruptionEvent struct {
+// LLMAlertInput matches the required fields for alert generation.
+type LLMAlertInput struct {
 	Cause            string    `json:"cause"`
 	SPS              float64   `json:"sps"`
 	AlertState       string    `json:"alert_state"` // "watch" | "soft_alert" | "hard_alert" | "resolve"
@@ -21,17 +23,17 @@ type DisruptionEvent struct {
 
 // AlertCopyGenerator uses an LLM to generate actionable disruption alert copy.
 type AlertCopyGenerator struct {
-	client LLMClient
+	client ollama.LLMClient
 }
 
 // NewAlertCopyGenerator returns a new AlertCopyGenerator.
-func NewAlertCopyGenerator(client LLMClient) *AlertCopyGenerator {
+func NewAlertCopyGenerator(client ollama.LLMClient) *AlertCopyGenerator {
 	return &AlertCopyGenerator{client: client}
 }
 
 // Generate builds a prompt and calls the LLM to create alert copy.
-func (g *AlertCopyGenerator) Generate(ctx context.Context, event DisruptionEvent) (string, error) {
-	ctx = WithUseCase(ctx, "alert_copy")
+func (g *AlertCopyGenerator) Generate(ctx context.Context, event LLMAlertInput) (string, error) {
+	ctx = ollama.WithUseCase(ctx, "alert_copy")
 	systemPrompt := `
 You are a hotel operations assistant at a Vancouver-area airport hotel (near YVR).
 You receive real-time flight disruption data and write 2–3 actionable bullet points
@@ -57,7 +59,7 @@ Rules:
 	return resp, nil
 }
 
-func (g *AlertCopyGenerator) buildUserPrompt(event DisruptionEvent) string {
+func (g *AlertCopyGenerator) buildUserPrompt(event LLMAlertInput) string {
 	duration := time.Since(event.StartedAt).Round(15 * time.Minute)
 	if event.StartedAt.IsZero() {
 		duration = 0

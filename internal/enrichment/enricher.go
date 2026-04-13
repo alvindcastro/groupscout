@@ -6,7 +6,6 @@ import (
 
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
-	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
 	"github.com/getsentry/sentry-go"
 )
@@ -23,11 +22,12 @@ type EnricherAI interface {
 type Enricher struct {
 	collectors              []collector.Collector
 	rawStore                storage.RawProjectStore
+	auditStore              storage.AuditStore
 	leadStore               storage.LeadStore
 	ai                      EnricherAI
 	scorer                  *Scorer
-	ollamaExtractor         *ollama.Extractor
-	ollamaScorer            *ollama.Scorer
+	ollamaExtractor         *Extractor
+	ollamaScorer            *OllamaScorer
 	ollamaExtractionEnabled bool
 	ollamaScoringEnabled    bool
 	PriorityAlertThreshold  int
@@ -38,18 +38,20 @@ type Enricher struct {
 func NewEnricher(
 	collectors []collector.Collector,
 	rawStore storage.RawProjectStore,
+	auditStore storage.AuditStore,
 	leadStore storage.LeadStore,
 	ai EnricherAI,
 	scorer *Scorer,
 	priorityAlertThreshold int,
-	ollamaExtractor *ollama.Extractor,
-	ollamaScorer *ollama.Scorer,
+	ollamaExtractor *Extractor,
+	ollamaScorer *OllamaScorer,
 	ollamaExtractionEnabled bool,
 	ollamaScoringEnabled bool,
 ) *Enricher {
 	return &Enricher{
 		collectors:              collectors,
 		rawStore:                rawStore,
+		auditStore:              auditStore,
 		leadStore:               leadStore,
 		ai:                      ai,
 		scorer:                  scorer,
@@ -132,9 +134,24 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		return false, nil
 	}
 
-	// Persist the raw record before enrichment so it's never lost
+	// Calculate payload hash for audit trail deduplication
+	payloadHash := storage.HashPayload(p.RawData)
+
+	// Store raw input for audit trail before enrichment so it's never lost
+	rawInputID, err := e.auditStore.Store(ctx, storage.RawInput{
+		Hash:          payloadHash,
+		PayloadType:   p.RawType,
+		Payload:       p.RawData,
+		SourceURL:     p.SourceURL,
+		CollectorName: p.Source,
+	})
+	if err != nil {
+		return false, fmt.Errorf("store audit trail: %w", err)
+	}
+
+	// Also persist to legacy rawStore for backward compatibility (optional, but keeping it for now if needed)
 	if err := e.rawStore.Insert(ctx, &p); err != nil {
-		return false, fmt.Errorf("insert raw project: %w", err)
+		l.Warn("failed to insert legacy raw project", "error", err)
 	}
 
 	// 1. Ollama Extraction (Phase 2)
@@ -151,11 +168,11 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 			if p.Location == "" && signal.Location != "" {
 				p.Location = signal.Location
 			}
-			// Store signal in RawData for downstream use
-			if p.RawData == nil {
-				p.RawData = make(map[string]any)
+			// Store signal in Metadata for downstream use
+			if p.Metadata == nil {
+				p.Metadata = make(map[string]any)
 			}
-			p.RawData["ollama_signal"] = signal
+			p.Metadata["ollama_signal"] = signal
 		} else {
 			l.Warn("ollama extraction failed; continuing with original data", "error", err)
 		}
@@ -169,6 +186,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		}
 		// Create a "skipped" lead record
 		lead := storage.Lead{
+			RawInputID:     rawInputID.String(),
 			Source:         p.Source,
 			Title:          p.Title,
 			Location:       p.Location,
@@ -193,7 +211,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	}
 
 	// Persist the lead
-	lead := toLeadRecord(p, enriched)
+	lead := toLeadRecord(p, enriched, rawInputID.String())
 
 	// 3. Ollama Rationale (Phase 3)
 	if e.ollamaScoringEnabled && e.ollamaScorer != nil {
@@ -232,10 +250,11 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 // toLeadRecord maps a RawProject + EnrichedLead into a storage.Lead.
 // Applicant and Contractor are taken directly from the raw permit data so that
 // phone numbers and contact details from the PDF are preserved as-is.
-func toLeadRecord(p collector.RawProject, e *EnrichedLead) storage.Lead {
-	applicant, _ := p.RawData["applicant"].(string)
-	contractor, _ := p.RawData["contractor"].(string)
+func toLeadRecord(p collector.RawProject, e *EnrichedLead, rawInputID string) storage.Lead {
+	applicant, _ := p.Metadata["applicant"].(string)
+	contractor, _ := p.Metadata["contractor"].(string)
 	return storage.Lead{
+		RawInputID:              rawInputID,
 		Source:                  p.Source,
 		Title:                   p.Title,
 		Location:                p.Location,

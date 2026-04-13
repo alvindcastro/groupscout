@@ -111,6 +111,92 @@ When adding a new collector, follow the pattern used in `internal/collector/rich
 - **Deduplication**: Tests in `leads_test.go` (if implemented) or during integration ensure that the same lead is not processed multiple times.
 - **Error Handling**: The Sentry integration (Phase 8.2) captures runtime exceptions, ensuring that transient failures in collectors are visible in the observability dashboard.
 
-### 7. Future Testing Goals
-- **Mocking External APIs**: Implementing more robust mocking for Slack and Claude APIs to reduce dependency on network calls during CI.
-- **Load Testing**: Verifying the performance of the collector registry and worker pools under high concurrency (Phase 9).
+### 7. API Testing
+
+For detailed instructions on testing API endpoints via `curl`, Bruno, or Swagger, see the [API Testing section](#8-api-testing-details) below.
+
+### 8. API Testing Details
+
+#### 8.1 Prerequisite: API Token
+Most POST endpoints require a Bearer Token for authentication. This token is defined by the `API_TOKEN` environment variable in your `.env` file. If `API_TOKEN` is not set, the server will allow all requests (insecure mode, intended for local development only).
+
+#### 8.2 Testing with `curl`
+
+**Health Check (Port 8080)**
+```bash
+curl -i http://localhost:8080/health
+```
+
+**Manual Pipeline Run**
+```bash
+curl -i -X POST \
+  -H "Authorization: Bearer your_api_token" \
+  -H "Content-Type: application/json" \
+  -d '{"bcbid_raw_input": ""}' \
+  http://localhost:8080/run
+```
+
+**Trigger Weekly Digest**
+```bash
+curl -i -X POST \
+  -H "Authorization: Bearer your_api_token" \
+  "http://localhost:8080/digest?to=alvin@groupscout.ai"
+```
+
+**n8n Webhook Simulation**
+```bash
+curl -i -X POST \
+  -H "Authorization: Bearer your_api_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Source": "curl_test",
+    "Title": "Simulated Lead",
+    "Location": "Vancouver, BC",
+    "ProjectValue": 500000
+  }' \
+  http://localhost:8080/n8n/webhook
+```
+
+**Slack Inventory Update (Port 8081)**
+```bash
+curl -i -X POST \
+  -d "text=50" \
+  http://localhost:8081/slack/inventory
+```
+
+#### 8.3 Testing with Bruno (Recommended)
+[Bruno](https://www.usebruno.com/) is a fast, open-source API client. A collection for GroupScout is included in the repository.
+
+1. **Open Bruno**.
+2. **Open Collection**: Point it to the `api/bruno` folder in this repository.
+3. **Select Environment**: Click the top-right environment selector and choose **Local**.
+4. **Configure Token**: Edit the **Local** environment variables to match your `API_TOKEN`.
+5. **Run Requests**: You can now run all pre-configured requests.
+
+#### 8.4 Testing with OpenAPI / Swagger
+An OpenAPI 3.0 specification is available at `api/swagger.yaml`.
+- **Visualizing**: You can paste the content of `api/swagger.yaml` into the [Swagger Editor](https://editor.swagger.io/) or use a local Swagger UI instance.
+- **Servers**: The spec defines two servers:
+    - `http://localhost:8080` (Lead Generation)
+    - `http://localhost:8081` (Alerting Service)
+
+### 10. Audit Trail & Retention Testing
+
+The audit trail includes privacy and retention features that should be verified regularly.
+
+#### Test PII Redaction
+Verify that emails and phone numbers are redacted when `PII_STRIP=true` is enabled:
+```bash
+# This test specifically covers PII stripping logic
+go test -v ./internal/storage -run TestAuditStore_StripPII
+```
+
+#### Test Retention Purge
+Verify that old records are deleted, but referenced ones are kept:
+```bash
+# This test verifies that PurgeOlderThan ignores referenced records
+go test -v ./internal/storage -run TestAuditStore_PurgeOlderThan
+```
+
+#### Manual Verification via SQL
+You can verify the state of your live database (Postgres) using the queries provided in [POSTGRES_QUERIES.md](./POSTGRES_QUERIES.md#audit-trail-raw-inputs).

@@ -607,20 +607,6 @@
 
 ---
 
-## Phase 27 — Analytics & Source Attribution 📋
-**Goal:** Weekly digest that shows which signal sources are generating closed business, enabling the sales team to prioritize outreach.
-
-> **TDD rule for this phase:** T tasks first. Aggregate queries tested against in-memory SQLite fixture data.
-
-- [ ] **27-T** `internal/storage/analytics_test.go` — seed test DB; `TestSourceAttribution` asserts correct grouped counts + hit rate %; `TestDemandDensityByWeek` asserts bucketing by arrival week; all fail first
-- [ ] **27.1** `internal/storage/leads.go` — aggregate query: leads grouped by source + outcome for a configurable time window
-- [ ] **27.2-T** `internal/notify/slack_test.go` — assert analytics Block Kit section: Source / Leads / Claimed / Won / Hit Rate columns; fail first
-- [ ] **27.2** `internal/notify/slack.go` — analytics summary Block Kit section: Source → Leads → Claimed → Won → Hit Rate %
-- [ ] **27.3** `cmd/server/main.go` — wire analytics summary into existing `/digest` endpoint (appended section, not a new endpoint)
-- [ ] **27.4** Market demand view: upcoming leads bucketed by expected arrival week, grouped by source type — gives managers a forward demand density view
-
----
-
 ### Phase 14 — Infrastructure & Self-Hosting 🔄
 **Goal:** Deploy and manage a self-hosted ecosystem for automation and observability.
 
@@ -808,6 +794,8 @@
 - [x] **20.5** `.env.example` — Verified all essential variables are present and documented.
 - [x] **20.6** `README.md` — Documentation links and setup steps verified for accuracy.
 - [x] **20.7** `scripts/doctor.sh` — Environment health check script for new devs.
+- [x] **20.8** Subagent toolset reliability fix — Added `update_status` and `AskUserQuestion` to specialized agent allowlists.
+- [x] **20.9** Repository Housekeeping — Moved tools to `cmd/tools/`, refactored internal domain packages (`alert`, `enrichment`, `leadnotify`), and consolidated documentation.
 
 ---
 
@@ -819,3 +807,88 @@
 - [x] **21.3** `scripts/backup-volumes.sh` — Created automated backup script for all Docker volumes including `ollama_data`.
 - [x] **21.4** `docs/guides/DOCKER.md` — Updated with model management, backup, and monitoring instructions.
 - [x] **21.5** `docs/guides/OLLAMA_SETUP.md` — Phase 7 tasks marked as completed.
+
+---
+
+## Phase 27 — Input Audit & Verification Trail ✅
+**Goal:** Implement a system to store and track all raw inputs (PDFs, API responses, etc.) to allow for verification of the lead enrichment and scoring process.
+
+> **TDD rule:** Raw storage interfaces and retrieval logic tested with failing tests first. Collector integration verified by checking `raw_inputs` table after a run.
+
+### Part A — Storage Architecture
+- [x] **27.1** Brainstorming and Prompt Engineering: Detailed plan in `docs/planning/AUDIT_TRAIL.md` and `docs/prompts/PROMPTS_PHASE27.md`.
+- [x] **27.2** `migrations/006_audit_trail.up.sql` — `CREATE TABLE raw_inputs` (id, hash, payload, payload_type, source_url, collector_name, created_at)
+- [x] **27.3** `internal/storage/audit.go` — `AuditStore` interface + `SaveRawInput(ctx, input RawInput) (uuid.UUID, error)` + `GetByHash` for dedup.
+- [x] **27.4** `internal/storage/leads.go` — add `raw_input_id` column to `leads` table via migration.
+
+### Part B — Collector & Enricher Integration
+- [x] **27.5** `internal/collector/collector.go` — update `RawProject` to include `RawData []byte` and `RawType string`.
+- [x] **27.6** Update Richmond and Delta collectors to return raw PDF content.
+- [x] **27.7** Update News/Creative BC/VCC collectors to return raw API/RSS responses.
+- [x] **27.8** `internal/enrichment/enricher.go` — store raw input in `AuditStore` and link to `Lead` before LLM call.
+- [x] **27.12** RawProject Metadata — Added `Metadata map[string]any` to `collector.RawProject` for structured pipeline data and fixed enrichment pipeline.
+
+### Part C — Verification & Access ✅
+- [x] **27.9** `cmd/server/main.go` — `GET /leads/{id}/raw` endpoint to retrieve the original input data with correct Content-Type.
+- [x] **27.10** CLI Tool: `groupscout audit <lead_id>` — dumps metadata and provides `--save` flag for raw payload.
+
+### Part D — Retention & Privacy
+- [ ] **27.11** Implement cleanup worker for old raw inputs and hashing logic for de-duplication.
+
+---
+
+## Phase 28 — Analytics & Source Attribution 📋
+**Goal:** Weekly digest that shows which signal sources are generating closed business, enabling the sales team to prioritize outreach.
+
+> **TDD rule for this phase:** T tasks first. Aggregate queries tested against in-memory SQLite fixture data.
+
+- [ ] **28-T** `internal/storage/analytics_test.go` — seed test DB; `TestSourceAttribution` asserts correct grouped counts + hit rate %; `TestDemandDensityByWeek` asserts bucketing by arrival week; all fail first
+- [ ] **28.1** `internal/storage/leads.go` — aggregate query: leads grouped by source + outcome for a configurable time window
+- [ ] **28.2-T** `internal/notify/slack_test.go` — assert analytics Block Kit section: Source / Leads / Claimed / Won / Hit Rate columns; fail first
+- [ ] **28.2** `internal/notify/slack.go` — analytics summary Block Kit section: Source → Leads → Claimed → Won → Hit Rate %
+- [ ] **28.3** `cmd/server/main.go` — wire analytics summary into existing `/digest` endpoint (appended section, not a new endpoint)
+- [ ] **28.4** Market demand view: upcoming leads bucketed by expected arrival week, grouped by source type — gives managers a forward demand density view
+
+---
+
+## Phase 29 — Prompt Engineering & Strict TDD 📋
+**Goal:** Transition prompts into a formal library with evaluation metrics and strict Test-Driven Development.
+
+> **TDD rule:** All prompt changes must be preceded by an "Expected AI Score" test case. No prompt modification without a passing regression suite.
+
+### Part A — Infrastructure
+- [ ] **29.1** `internal/enrichment/prompts_test.go` — Create gold standard fixtures for all source types.
+- [ ] **29.2** `assets/prompts/*.tmpl` — Extract hardcoded strings from `claude.go` into template files.
+- [ ] **29.3** `internal/enrichment/prompts.go` — Implement prompt loader and template renderer.
+
+### Part B — Refinement & Few-Shot
+- [ ] **29.4** Add "Few-Shot" examples to `permitPrompt` to handle borderline industrial/residential cases.
+- [ ] **29.5** Implement `TestPromptConsistency` to ensure the same input yields identical results (within temperature=0 variance).
+
+### Part C — Observability
+- [ ] **29.6** Link specific prompt versions to `enriched_leads` in the database for A/B testing analysis.
+
+---
+
+## Phase 30 — Advanced Audit & Verification 📋
+**Goal:** Transform the raw audit trail into a proactive verification and quality assurance system.
+
+> **TDD rule for this phase:** Verification logic tested by mocking misaligned lead/raw data and asserting AI flags.
+
+### Part A — Verification Workflow
+- [ ] **30.1** `migrations/007_verification.up.sql` — Add `verification_status`, `verification_notes`, and `corrections` (JSONB) to `leads` table.
+- [ ] **30.2** `internal/storage/leads.go` — Update `LeadStore` to support updating verification fields and applying corrections.
+- [ ] **30.3** `cmd/server/main.go` — Implement `POST /leads/{id}/verify` endpoint with validation.
+- [ ] **30.4** `cmd/server/main.go` — Implement `PATCH /leads/{id}/corrections` to apply manual user fixes.
+
+### Part B — AI Verification Agent
+- [ ] **30.5-T** `internal/enrichment/verifier_test.go` — Mock Lead + RawInput with deliberate discrepancy; assert `Verifier` returns high-severity discrepancy.
+- [ ] **30.5** `internal/enrichment/verifier.go` — Implement `Verifier` struct using `verification_prompt` from `docs/prompts/PROMPTS_PHASE30.md`.
+- [ ] **30.6** `internal/enrichment/enricher.go` — Integrate `Verifier` as an optional post-enrichment step (gated by `ENABLE_AUTO_VERIFY` env var).
+- [ ] **30.7** `cmd/server/main.go` — Implement `GET /leads/{id}/verification-report` to trigger on-demand AI audit.
+
+### Part C — Health & Analytics
+- [ ] **30.8** `internal/storage/stats.go` — Implement extraction accuracy aggregator (group by collector, count verified vs flagged).
+- [ ] **30.9** `cmd/server/main.go` — Implement `GET /stats/extraction-accuracy`.
+- [ ] **30.10** `internal/enrichment/drift.go` — Implement structural drift detection using layout snapshots.
+- [ ] **30.11** `groupscout audit-report` — CLI command to generate a project-wide quality summary.

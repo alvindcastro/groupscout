@@ -25,6 +25,7 @@ func newTestDB(t *testing.T) (*sql.DB, string) {
 	t.Cleanup(func() {
 		db.Exec("DELETE FROM leads")
 		db.Exec("DELETE FROM raw_projects")
+		db.Exec("DELETE FROM raw_inputs")
 		db.Close()
 	})
 	return db, dsn
@@ -77,6 +78,51 @@ func TestLeadStore_Insert_and_ListNew(t *testing.T) {
 	}
 }
 
+func TestLeadStore_WithRawInputID(t *testing.T) {
+	db, dsn := newTestDB(t)
+	store := NewLeadStoreWithDSN(db, dsn)
+	auditStore := NewAuditStoreWithDSN(db, dsn)
+	ctx := context.Background()
+
+	rawID, err := auditStore.Store(ctx, RawInput{
+		Hash:    "test-hash-2",
+		Payload: []byte("test payload"),
+	})
+	if err != nil {
+		t.Fatalf("Store raw input: %v", err)
+	}
+
+	lead := &Lead{
+		Source:     "test",
+		Title:      "Lead with Audit",
+		RawInputID: rawID.String(),
+		Status:     "new",
+	}
+
+	if err := store.Insert(ctx, lead); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	leads, err := store.ListNew(ctx)
+	if err != nil {
+		t.Fatalf("ListNew: %v", err)
+	}
+
+	var got *Lead
+	for _, l := range leads {
+		if l.ID == lead.ID {
+			got = &l
+			break
+		}
+	}
+	if got == nil {
+		t.Fatal("lead not found")
+	}
+	if got.RawInputID != rawID.String() {
+		t.Errorf("RawInputID = %q, want %q", got.RawInputID, rawID.String())
+	}
+}
+
 func TestLeadStore_bool_false_roundtrip(t *testing.T) {
 	db, dsn := newTestDB(t)
 	store := NewLeadStoreWithDSN(db, dsn)
@@ -115,5 +161,36 @@ func TestLeadStore_UpdateStatus(t *testing.T) {
 		if l.ID == lead.ID {
 			t.Errorf("lead %s should not be 'new' anymore", lead.ID)
 		}
+	}
+}
+
+func TestLeadStore_GetByID(t *testing.T) {
+	db, dsn := newTestDB(t)
+	store := NewLeadStoreWithDSN(db, dsn)
+	ctx := context.Background()
+
+	lead := &Lead{Source: "test", Title: "GetByID test", Status: "new"}
+	if err := store.Insert(ctx, lead); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	got, err := store.GetByID(ctx, lead.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected lead, got nil")
+	}
+	if got.Title != "GetByID test" {
+		t.Errorf("Title = %q, want %q", got.Title, "GetByID test")
+	}
+
+	// Test non-existent
+	got, err = store.GetByID(ctx, "non-existent")
+	if err != nil {
+		t.Fatalf("GetByID (non-existent): %v", err)
+	}
+	if got != nil {
+		t.Fatal("expected nil for non-existent lead")
 	}
 }

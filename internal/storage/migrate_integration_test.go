@@ -21,7 +21,7 @@ func TestMigrate_postgres_tables_exist(t *testing.T) {
 		t.Fatalf("Migrate: %v", err)
 	}
 
-	tables := []string{"raw_projects", "leads", "outreach_log"}
+	tables := []string{"raw_projects", "leads", "outreach_log", "raw_inputs"}
 	for _, table := range tables {
 		var count int
 		err := db.QueryRow(
@@ -52,10 +52,13 @@ func TestMigrate_postgres_column_types(t *testing.T) {
 		table, column, wantType string
 	}{
 		{"leads", "id", "uuid"},
+		{"leads", "raw_input_id", "uuid"},
 		{"leads", "out_of_town_crew_likely", "boolean"},
 		{"leads", "created_at", "timestamp with time zone"},
 		{"leads", "project_value", "bigint"},
 		{"raw_projects", "raw_data", "jsonb"},
+		{"raw_projects", "raw_type", "text"},
+		{"raw_inputs", "payload", "bytea"},
 	}
 	for _, tt := range tests {
 		var dataType string

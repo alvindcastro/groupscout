@@ -29,16 +29,22 @@
 - [x] **Phase 17** — Airport Disruption Alert System (`alertd`): YVR real-time monitoring ✅
 - [ ] **Phase 18** — Contact Enrichment: Hunter.io integration & budget tiers 📋
 - [ ] **Phase 19** — Slack Actions & Lead Feedback: claim/dismiss/snooze buttons 📋
-- [ ] **Phase 20** — Analytics & Source Attribution: weekly performance summary 📋
-- [ ] **Phase 21** — Multi-Property Support: portfolio routing & YAML config 📋
-- [ ] **Phase 22** — Signal Quality & Repeat Org Detection 📋
-- [ ] **Phase 23** — Agentic Reasoning & Tool-Calling: ReAct loop + BC Registry / LinkedIn tools 📋
-- [ ] **Phase 24** — AI Observability & Quality: Langfuse + AI-Ready SQL + eval harness 📋
-- [ ] **Phase 25** — Production Deployment: Hetzner + Coolify (primary), Railway (managed alt), event-driven `/ingest` endpoint 📋
+- [x] **Phase 20** — Housekeeping & Developer Experience ✅
+- [x] **Phase 21** — Ollama Prod Hardening ✅
+- [ ] **Phase 22** — Multi-Property Support: portfolio routing & YAML config 📋
+- [ ] **Phase 23** — Advanced Intelligence: Repeat Detection & Signal Quality 📋
+- [ ] **Phase 24** — Agentic Reasoning & Tool-Calling: ReAct loop + BC Registry / LinkedIn tools 📋
+- [ ] **Phase 25** — AI Observability & Quality: Langfuse + AI-Ready SQL + eval harness 📋
+- [ ] **Phase 26** — Production Deployment: Hetzner + Coolify (primary), Railway (managed alt), event-driven `/ingest` endpoint 📋
+- [x] **Phase 27** — Input Audit & Verification Trail ✅
+- [ ] **Phase 28** — Analytics & Source Attribution 📋
+- [ ] **Phase 29** — Prompt Engineering & Strict TDD 📋
+- [ ] **Phase 30** — Advanced Audit & Verification 📋
 
 ---
 
-## Phase 4 — More Sources + Full Notifications 🔄
+
+## Phase 4 — More Sources + Full Notifications ✅
 
 ### Collectors
 - [x] Google News RSS monitor (`internal/collector/news.go`)
@@ -49,7 +55,7 @@
 
 ### Notifications
 - [x] Instant alert for priority score ≥ 9 (`internal/enrichment/enricher.go`)
-- [x] Weekly email digest via Resend (`internal/notify/email.go`)
+- [x] Weekly email digest via SendGrid (`internal/notify/email.go`)
 - [x] Claude outreach draft generation (`internal/enrichment/claude.go`)
 - [x] `/digest` HTTP endpoint for n8n triggers
 
@@ -214,154 +220,6 @@
 
 ---
 
-## Phase 16 — LLM Provider Abstraction 🔭
-
-> Remove vendor lock-in from `internal/enrichment`. All LLM calls go through a `LLMClient` interface. Provider is config-driven — switch between Claude, OpenAI, Azure OpenAI, Groq, Mistral, Ollama, or Gemini without touching pipeline code.
-
-- [ ] **Part A** — Interface Extraction: refactor `ClaudeEnricher` to `ClaudeClient` implementing `LLMClient`.
-- [ ] **Part B** — OpenAI-Compatible Client: covers OpenAI, Groq, and Mistral.
-- [ ] **Part C** — Azure OpenAI Support.
-- [ ] **Part D** — Ollama Support: local / Docker, free and private.
-- [ ] **Part E** — Fallback & Resilience: primary → secondary on error.
-- [ ] **Part F** — Gemini Provider: wire existing `gemini.go` into the factory.
-
----
-
-## Phase 17 — Airport Disruption Alert System (`alertd`) ✅
-
-> A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack with actionable revenue ops information. Distinct from the lead pipeline — different cadence, different failure modes.
-
-- [x] **Part A — Data Sources & Weather:** ECCC weather poller, YVR flight scraper, NavCanada NOTAM parser. ✅
-- [x] **Part B — Stranded Passenger Score (SPS):** Calculate disruption impact with Vancouver-specific tuning. ✅
-- [x] **Part C — Alert Lifecycle State Machine:** `Watch → Alert → Updating → Resolved` transitions; 30-min threshold; Slack `chat.update` with message persistence (TS). ✅
-- [x] **Part D — Hotel Config & Binary:** YAML config for property-specific thresholds and contacts. ✅
-- [x] **Part E — Inventory Slash Command:** Allow staff to update room counts directly from Slack. ✅
-
----
-
-## Phase 18 — Contact Enrichment 📋
-
-> Auto-surface a decision-maker contact alongside each lead — project manager, production coordinator, travel manager — using Hunter.io.
-
-- [ ] **18.1** Hunter.io API client for domain lookup and contact ranking.
-- [ ] **18.2** Attach contact info to lead during enrichment.
-- [ ] **18.3** New migration for contact fields in `leads` table.
-- [ ] **18.4** Append contact info block to Slack messages.
-- [ ] **18.5** Budget & Size Signals: use project value to estimate spend tiers.
-
----
-
-## Phase 19 — Slack Actions & Lead Feedback 📋
-
-- [ ] **19.1** Interactive Slack buttons: **Claim** / **Dismiss** / **Snooze**.
-- [ ] **19.2** `/slack/actions` endpoint with signing secret verification.
-- [ ] **19.3** Lead status transitions and `snoozed_until` persistence.
-- [ ] **19.4** Outreach Log: track Won / Lost / No Response outcomes.
-- [ ] **19.5** Resurface snoozed leads in weekly digest.
-
----
-
-## Phase 20 — Analytics & Source Attribution 📋
-
-- [ ] **20.1** Source attribution: hit rate % grouped by data source.
-- [ ] **20.2** Forward demand density view: bucket leads by arrival week.
-- [ ] **20.3** Weekly analytics summary in Slack digest.
-
----
-
-## Phase 21 — Multi-Property Support 📋
-
-- [ ] **21.1** Property routing: route leads to different Slack channels based on geography.
-- [ ] **21.2** YAML property config (hotel info, segments, thresholds).
-
----
-
-## Phase 22 — Signal Quality & Repeat Org Detection 📋
-
-- [ ] **22.1** Signal quality scoring per source.
-- [ ] **22.2** Repeat organization detection: flag companies that visited in previous years.
-
----
-
-### AI-Ready SQL + RAG (Postponed)
-
-**Phase A — AI-Ready SQL (SQLite, no new infra, do first):**
-- [ ] `migrations/003_ai_context.up.sql` — `v_lead_context` view (denormalized LLM context string)
-- [ ] `internal/storage/leads.go` — `GetContext(ctx, id) string` method
-- [ ] `internal/enrichment/claude.go` — refactor all `*Prompt()` functions to use `GetContext()` instead of hand-built strings
-
-**Phase B — Embeddings + in-memory RAG:**
-- [ ] `migrations/003_ai_context.up.sql` — `lead_embeddings` table (`lead_id`, `model`, `embedding TEXT`, `created_at`)
-- [ ] `internal/enrichment/embeddings.go` — `Embedder` interface + `VoyageEmbedder` HTTP impl (free tier)
-- [ ] `internal/storage/embeddings.go` — `EmbeddingStore` interface + SQLite impl + Go cosine similarity
-- [ ] `config/config.go` — `VoyageAPIKey`, `EmbeddingModel`, `RAGEnabled`, `RAGTopK` (default 3)
-- [ ] `internal/enrichment/enricher.go` — generate + save embedding after enrichment; retrieve top-k before Claude call
-- [ ] `internal/enrichment/claude.go` — update `permitPrompt()` to accept `[]Lead` similar leads as context param
-
-**Phase C — pgvector (Phase 6 Postgres migration):**
-- [ ] `migrations/004_pgvector.up.sql` — `vector(512)` column + ivfflat index on `lead_embeddings`
-- [ ] `internal/storage/embeddings.go` — add `PostgresEmbeddingStore` impl using `<=>` cosine operator
-- [ ] Wire via `DATABASE_URL` prefix: `postgres://` → pgvector; `*.db` → Go cosine
-
----
-
-### Near-Term AI Upgrades
-
-- [ ] **Hybrid pre-scorer** — Go rules first (free), then Claude yes/no for borderline 4–6 scores
-  - Model: Haiku | Cost: ~10 tokens/call | Catches edge cases rules miss
-- [ ] **GC contact enrichment** — for leads with score ≥ 8, Claude + web search tool finds office phone, PM name, LinkedIn page
-  - Model: Sonnet + tools | Cost: ~$0.01–0.05/search | Only for high-priority leads
-- [ ] **Cross-source deduplication** — Claude semantic check: "Is this the same project as any of these 5 recent leads?"
-  - Handles cases where Richmond and Delta both permit the same large project
-  - Upgrade path: embedding similarity when lead volume justifies it
-
-### Medium-Term AI Upgrades
-
-- [ ] **News article summarization** — Claude converts raw RSS snippets to leads
-  - Flow: headline + 500 chars → yes/no project signal → extract structured fields
-- [ ] **Announcement summarizer** — Claude reads BCIB/TransLink/YVR prose press releases
-  - Flow: scrape → extract text → Claude 2-sentence summary + value estimate
-- [ ] **Multimodal PDF parsing** — pass PDFs directly to Claude (vision) instead of `pdftotext`
-  - Benefit: handles any PDF format, no custom parser per city
-  - Defer until adding 5+ new cities (currently ~10–50x more expensive)
-- [ ] **Lead history & timeline** — link related leads across sources (announcement → permit → award)
-  - Tracks project evolution over time; AI or fuzzy match for entity resolution
-- [ ] **Sentiment analysis on news** — NLP to flag delays/cancellations and adjust scoring
-- [ ] **AI observability** — RAGAS or Vertex Eval to monitor hallucinations + track enrichment quality
-
-### Longer-Term AI Upgrades
-
-- [ ] **Conversational lead query CLI** — `groupscout ask "show all industrial leads last 30 days over $1M"`
-  - Claude + function calling; translates NL to DB query + plain-English summary
-  - Model: Haiku | Low stakes
-- [ ] **Extended thinking for ambiguous scoring** — Sonnet with extended thinking for permits where score is 5–7 AND value > $2M
-  - Thinking budget: 2000 tokens | Cost: ~$0.02/call | Only for genuinely unclear cases
-- [ ] **Digest personalization** — Claude writes a narrative digest based on current leads + past outreach log
-  - Input: leads + outreach history | Output: "3 leads this week. GC from Alberta → prioritize."
-- [ ] **Multi-agent pipeline** — one agent per source (parallel), coordinator agent merges + deduplicates + ranks
-  - Claude Agent SDK for orchestration | Justified when sources exceed 8–10
-
-### Model Selection Reference
-
-| Use case | Model | Approx. cost/call |
-|---|---|---|
-| Permit enrichment (bulk) | Haiku | ~$0.001 |
-| Ambiguous scoring | Sonnet | ~$0.01 |
-| Email drafting | Sonnet | ~$0.01 |
-| Complex scoring (extended thinking) | Sonnet + thinking | ~$0.02 |
-| Web search enrichment | Sonnet + tools | ~$0.01–0.05 |
-| Conversational query | Haiku | ~$0.001 |
-| Multimodal PDF parsing | Sonnet (vision) | ~$0.01–0.05 |
-
-### Weekly Cost Estimate (20 permits/week, 5 pass filter)
-
-| Integration | Cost/week |
-|---|---|
-| Current enrichment (Haiku × 5) | ~$0.005 |
-| + Email drafts (Sonnet × 5) | ~$0.05 |
-| + Web search for score ≥ 8 leads (×2) | ~$0.10 |
-| + News summarization (×20 articles) | ~$0.02 |
-| **Total** | **~$0.18/week → ~$9/year** |
 
 ---
 
@@ -403,6 +261,18 @@
 
 ---
 
+## Phase 16 — LLM Provider Abstraction 🔭
+
+> Remove vendor lock-in from `internal/enrichment`. All LLM calls go through a `LLMClient` interface. Provider is config-driven — switch between Claude, OpenAI, Azure OpenAI, Groq, Mistral, Ollama, or Gemini without touching pipeline code.
+
+- [ ] **Part A** — Interface Extraction: refactor `ClaudeEnricher` to `ClaudeClient` implementing `LLMClient`.
+- [ ] **Part B** — OpenAI-Compatible Client: covers OpenAI, Groq, and Mistral.
+- [ ] **Part C** — Azure OpenAI Support.
+- [ ] **Part D** — Ollama Support: local / Docker, free and private.
+- [ ] **Part E** — Fallback & Resilience: primary → secondary on error.
+
+---
+
 ## Phase 17 — Airport Disruption Alert System (`alertd`) ✅
 
 **Goal:** A separate real-time binary (`cmd/alertd/`) that monitors YVR flight disruptions and alerts the hotel team via Slack.
@@ -438,23 +308,54 @@
 
 ---
 
-## Phase 20 — Analytics & Source Attribution 📋
 
 ---
 
-## Phase 21 — Multi-Property Support 📋
+## Phase 20 — Housekeeping & Developer Experience ✅
+
+**Goal:** Improve local development workflow and project documentation.
+
+- [x] **20.1** `Makefile` — Central hub for build, test, lint, and Docker tasks.
+- [x] **20.2** `scripts/test-ollama.sh` — Automated verification of local Ollama setup.
+- [x] **20.3** `docs/guides/TESTING.md` — Comprehensive testing guide.
+- [x] **20.4** `DEVELOPER.md` — Refactored Makefile-driven workflow.
+- [x] **20.5** `.env.example` — Verified essential variables.
 
 ---
 
-## Phase 22 — Advanced Intelligence 📋
+## Phase 21 — Ollama Prod Hardening ✅
+
+**Goal:** Secure and observe the local LLM infrastructure in production.
+
+- [x] **21.1** `docker-compose.yml` — Added `promtail` for log aggregation.
+- [x] **21.2** `config/promtail.yaml` — Configured container log scraping for Loki.
+- [x] **21.3** `scripts/backup-volumes.sh` — Automated backup script for all Docker volumes.
+- [x] **21.4** `docs/guides/DOCKER.md` — Model management, backup, and monitoring instructions.
 
 ---
 
+## Phase 22 — Multi-Property Support 📋
+
+> Configure and run GroupScout for multiple hotel properties with different geographies, segments, and thresholds. No changes to the collector/enrichment core — all config-driven. See `PHASES.md` Phase 22 for atomic tasks.
+
+- [ ] **Part A** — Property Config Model: name, location (lat/lng), segments, Slack webhook.
+- [ ] **Part B** — Property-Scoped Pipeline: geo-match raw projects against property radius.
+- [ ] **Part C** — Alertd Multi-Hotel Config: unify airport alertd and lead property config.
+
 ---
 
-## Phase 23 — Agentic Reasoning & Tool-Calling 📋
+## Phase 23 — Advanced Intelligence: Repeat Detection & Signal Quality 📋
 
-> Upgrade enrichment from single-call LLM to multi-step reasoning for borderline permits (score 5–7, value > $2M). Claude tool-use for BC Registry lookup + LinkedIn URL generation. See `PHASES.md` Phase 23 for atomic tasks.
+> Detect organizations that have brought groups to the market before. Surface signal quality metrics that help the team focus on leads most likely to convert. See `PHASES.md` Phase 23 for atomic tasks.
+
+- [ ] **Part A** — Repeat Pattern Detection: fuzzy-match incoming GCs against historical outreach log wins.
+- [ ] **Part B** — Signal Quality Metrics: rate each source by conversion rate (claimed leads / total leads).
+
+---
+
+## Phase 24 — Agentic Reasoning & Tool-Calling 📋
+
+> Upgrade enrichment from single-call LLM to multi-step reasoning for borderline permits (score 5–7, value > $2M). Claude tool-use for BC Registry lookup + LinkedIn URL generation. See `PHASES.md` Phase 24 for atomic tasks.
 
 - [ ] **Part A** — ReAct loop: second LLM call with tool results injected; activated by `REACT_ENABLED=true`
 - [ ] **Part B** — Tool implementations: `internal/tools/bc_registry.go` (OrgBook API, no key) + `internal/tools/linkedin.go` (URL builder, no API)
@@ -462,9 +363,9 @@
 
 ---
 
-## Phase 24 — AI Observability & Quality 📋
+## Phase 25 — AI Observability & Quality 📋
 
-> Track LLM call quality, token costs, and prompt versions. Add AI-Ready SQL view to simplify prompt construction. Structural eval harness to catch bad enrichment outputs before they hit Slack. See `PHASES.md` Phase 24.
+> Track LLM call quality, token costs, and prompt versions. Add AI-Ready SQL view to simplify prompt construction. Structural eval harness to catch bad enrichment outputs before they hit Slack. See `PHASES.md` Phase 25 for atomic tasks.
 
 - [ ] **Part A** — AI-Ready SQL: `v_lead_context` view + `GetContext()` method; refactor prompt builders
 - [ ] **Part B** — Langfuse integration: trace per LLM call (model, tokens, latency, score); noop client when key absent
@@ -472,16 +373,57 @@
 
 ---
 
-## Phase 25 — Production Deployment & Event-Driven Ingestion 📋
+## Phase 26 — Production Deployment & Event-Driven Ingestion 📋
 
 > Deploy the full stack to production. **Hetzner CX32 + Coolify (~$10/month) is the primary recommendation** — it runs both binaries as persistent containers, deploys your existing `docker-compose.yml` directly, and includes n8n/Prometheus/Loki at no extra cost. Railway is the managed-PaaS alternative (~$10–18/month). GCP Cloud Run is **incompatible with `alertd`** (scales to zero; daemon needs persistent compute). See `docs/planning/DEPLOYMENT_OPTIONS.md` for the full analysis.
 >
-> See `PHASES.md` Phase 25 for atomic tasks.
+> See `PHASES.md` Phase 26 for atomic tasks.
 
 - [ ] **Part A** — Home server: No-IP/DuckDNS DDNS + port forwarding → Traefik + Let's Encrypt → optional Cloudflare Tunnel; `docs/guides/HOME_DEPLOY.md`
 - [ ] **Part B** — Hetzner + Coolify cloud deploy (if uptime SLA matters): VPS provision, Coolify setup, backup config, `docs/guides/COOLIFY.md`
 - [ ] **Part C** — Event-driven ingestion: `POST /ingest` + `EnrichOne()` (platform-agnostic)
 - [ ] **Part D** — Terraform IaC for GCP (optional; alertd needs Compute Engine VM — Cloud Run won't work)
+
+---
+
+## Phase 27 — Input Audit & Verification Trail ✅
+
+**Goal:** Implement a system to store and track all raw inputs (PDFs, API responses, etc.) to allow for verification of the lead enrichment and scoring process.
+
+- [x] **Part A** — Storage Architecture: `raw_inputs` table + `AuditStore` interface
+- [x] **Part B** — Collector Integration: save raw PDF/API content before parsing
+- [x] **Part C** — Verification Tools: `GET /leads/{id}/raw` + CLI audit tool
+- [x] **Part D** — Retention & Privacy: Purge old records, PII redaction
+
+---
+
+## Phase 28 — Analytics & Source Attribution 📋
+
+**Goal:** Weekly digest that shows which signal sources are generating closed business, enabling the sales team to prioritize outreach.
+
+- [ ] **Part A** — Source Attribution: Aggregate leads by source + outcome
+- [ ] **Part B** — Slack Analytics: Hit Rate % columns in digest
+- [ ] **Part C** — Market Demand: Forward demand density view
+
+---
+
+## Phase 29 — Prompt Engineering & Strict TDD 📋
+
+**Goal:** Transition prompts into a formal library with evaluation metrics and strict Test-Driven Development.
+
+- [ ] **Part A — Infrastructure:** Extract hardcoded strings to `assets/prompts/*.tmpl`; implement template loader in `internal/enrichment`.
+- [ ] **Part B — Strict TDD:** Create `internal/enrichment/prompts_test.go` with gold standard fixtures.
+- [ ] **Part C — Refinement:** Add "Few-Shot" examples for high-priority/complex lead types.
+
+---
+
+## Phase 30 — Advanced Audit & Verification 📋
+
+**Goal:** Transform the raw audit trail into a proactive verification and quality assurance system.
+
+- [ ] **Part A — Verification Workflow:** `POST /leads/{id}/verify` + corrections (JSONB)
+- [ ] **Part B — AI Verification Agent:** `Verifier` struct + verification prompt
+- [ ] **Part C — Health & Analytics:** Extraction accuracy aggregator + drift detection
 
 ---
 

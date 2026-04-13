@@ -186,7 +186,8 @@ func TestToCreativeBCRawProject_fields(t *testing.T) {
 		Address:  "3920 Norland Avenue, Burnaby, Canada, V5G 4K7",
 		Manager:  "Gabriel Zamora",
 	}
-	p := toCreativeBCRawProject(rec)
+	rawData := []byte("fake html content")
+	p := toCreativeBCRawProject(rec, rawData)
 
 	if p.Source != "creativebc" {
 		t.Errorf("Source: got %q, want %q", p.Source, "creativebc")
@@ -200,9 +201,11 @@ func TestToCreativeBCRawProject_fields(t *testing.T) {
 	if p.IssuedAt.IsZero() {
 		t.Error("IssuedAt should be parsed from schedule start date")
 	}
-	applicant, _ := p.RawData["applicant"].(string)
-	if applicant != "ABG Productions BC Inc" {
-		t.Errorf("RawData[applicant]: got %q, want %q", applicant, "ABG Productions BC Inc")
+	if string(p.RawData) != "fake html content" {
+		t.Errorf("RawData mismatch")
+	}
+	if p.RawType != "text/html" {
+		t.Errorf("RawType mismatch: got %q, want %q", p.RawType, "text/html")
 	}
 }
 
