@@ -260,9 +260,9 @@ Respond with ONLY a valid JSON object. No markdown, no explanation, no code fenc
 // It instructs Claude to estimate crew size and out-of-town ratio rather than permit fields.
 // Score boosters per PHASES.md: US studio → +2; "Richmond" or "Surrey" location reference → +1.
 func creativeBCPrompt(p collector.RawProject) string {
-	schedule, _ := p.RawData["schedule"].(string)
-	address, _ := p.RawData["address"].(string)
-	manager, _ := p.RawData["manager"].(string)
+	schedule, _ := p.Metadata["schedule"].(string)
+	address, _ := p.Metadata["address"].(string)
+	manager, _ := p.Metadata["manager"].(string)
 	return fmt.Sprintf(`Evaluate this film or TV production from the Creative BC in-production list.
 The Sandman Hotel Vancouver Airport (Richmond, BC) wants to reach the production's travel coordinator
 to offer room blocks and extended-stay rates for out-of-town cast and crew.

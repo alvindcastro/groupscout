@@ -150,11 +150,11 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 			if p.Location == "" && signal.Location != "" {
 				p.Location = signal.Location
 			}
-			// Store signal in RawData for downstream use
-			if p.RawData == nil {
-				p.RawData = make(map[string]any)
+			// Store signal in Metadata for downstream use
+			if p.Metadata == nil {
+				p.Metadata = make(map[string]any)
 			}
-			p.RawData["ollama_signal"] = signal
+			p.Metadata["ollama_signal"] = signal
 		} else {
 			l.Warn("ollama extraction failed; continuing with original data", "error", err)
 		}
@@ -232,8 +232,8 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 // Applicant and Contractor are taken directly from the raw permit data so that
 // phone numbers and contact details from the PDF are preserved as-is.
 func toLeadRecord(p collector.RawProject, e *EnrichedLead) storage.Lead {
-	applicant, _ := p.RawData["applicant"].(string)
-	contractor, _ := p.RawData["contractor"].(string)
+	applicant, _ := p.Metadata["applicant"].(string)
+	contractor, _ := p.Metadata["contractor"].(string)
 	return storage.Lead{
 		Source:                  p.Source,
 		Title:                   p.Title,

@@ -607,6 +607,10 @@ func toRawProject(rec permitRecord, rawData []byte) collector.RawProject {
 		IssuedAt: rec.IssueDate,
 		RawData:  rawData,
 		RawType:  "application/pdf",
+		Metadata: map[string]any{
+			"applicant":  rec.Applicant,
+			"contractor": rec.Contractor,
+		},
 	}
 }
 

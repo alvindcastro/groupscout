@@ -23,7 +23,7 @@ var (
 		Source:      "creativebc",
 		Title:       "Project Bluebook",
 		Description: "Major Sci-Fi Feature Film",
-		RawData: map[string]any{
+		Metadata: map[string]any{
 			"schedule": "July 2026 - October 2026",
 			"address":  "Richmond, BC",
 			"manager":  "John Doe",
@@ -42,10 +42,16 @@ func TestPrompts_JSONStructure(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// In a real TDD scenario, we would call the LLM here or use a mock.
-			// For this structural test, we just verify the prompt contains the expected JSON schema instructions.
 			if tt.prompt == "" {
 				t.Errorf("%s: prompt is empty", tt.name)
+			}
+			// Strict TDD: Verify Metadata fields are injected into the prompt
+			if tt.name == "CreativeBCPrompt" {
+				for _, field := range []string{"July 2026", "Richmond, BC", "John Doe"} {
+					if !strings.Contains(tt.prompt, field) {
+						t.Errorf("%s: missing expected metadata field %q", tt.name, field)
+					}
+				}
 			}
 		})
 	}

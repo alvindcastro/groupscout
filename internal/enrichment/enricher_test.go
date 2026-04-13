@@ -17,7 +17,7 @@ func TestToLeadRecord_fieldMapping(t *testing.T) {
 		Location: "8640 Alexandra Road",
 		Value:    300_000,
 		IssuedAt: issued,
-		RawData: map[string]any{
+		Metadata: map[string]any{
 			"applicant":  "Studio Senbel Architecture Inc (604)605-6995",
 			"contractor": "Safara Cladding Inc (416)875-1770",
 		},
@@ -50,7 +50,7 @@ func TestToLeadRecord_fieldMapping(t *testing.T) {
 		t.Errorf("ProjectValue = %d, want %d", lead.ProjectValue, p.Value)
 	}
 
-	// Raw applicant/contractor from RawData (phone numbers preserved)
+	// Raw applicant/contractor from Metadata (phone numbers preserved)
 	if lead.Applicant != "Studio Senbel Architecture Inc (604)605-6995" {
 		t.Errorf("Applicant = %q, want phone number in string", lead.Applicant)
 	}
@@ -70,10 +70,10 @@ func TestToLeadRecord_fieldMapping(t *testing.T) {
 	}
 }
 
-func TestToLeadRecord_missingRawDataKeys(t *testing.T) {
+func TestToLeadRecord_missingMetadataKeys(t *testing.T) {
 	p := collector.RawProject{
-		Source:  "richmond_permits",
-		RawData: map[string]any{}, // no applicant or contractor keys
+		Source:   "richmond_permits",
+		Metadata: map[string]any{}, // no applicant or contractor keys
 	}
 	lead := toLeadRecord(p, &EnrichedLead{})
 	if lead.Applicant != "" {
@@ -84,15 +84,15 @@ func TestToLeadRecord_missingRawDataKeys(t *testing.T) {
 	}
 }
 
-func TestToLeadRecord_nilRawData(t *testing.T) {
+func TestToLeadRecord_nilMetadata(t *testing.T) {
 	p := collector.RawProject{
-		Source:  "richmond_permits",
-		RawData: nil,
+		Source:   "richmond_permits",
+		Metadata: nil,
 	}
-	// Should not panic when RawData is nil
+	// Should not panic when Metadata is nil
 	lead := toLeadRecord(p, &EnrichedLead{})
 	if lead.Applicant != "" || lead.Contractor != "" {
-		t.Errorf("expected empty strings for nil RawData, got applicant=%q contractor=%q",
+		t.Errorf("expected empty strings for nil Metadata, got applicant=%q contractor=%q",
 			lead.Applicant, lead.Contractor)
 	}
 }

@@ -357,6 +357,11 @@ func toCreativeBCRawProject(rec creativeBCRecord, rawData []byte) collector.RawP
 		IssuedAt:    parseScheduleStart(rec.Schedule),
 		RawData:     rawData,
 		RawType:     "text/html",
+		Metadata: map[string]any{
+			"schedule": rec.Schedule,
+			"address":  rec.Address,
+			"manager":  rec.Manager,
+		},
 	}
 }
 

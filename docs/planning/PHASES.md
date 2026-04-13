@@ -795,6 +795,7 @@
 - [x] **20.6** `README.md` — Documentation links and setup steps verified for accuracy.
 - [x] **20.7** `scripts/doctor.sh` — Environment health check script for new devs.
 - [x] **20.8** Subagent toolset reliability fix — Added `update_status` and `AskUserQuestion` to specialized agent allowlists.
+- [x] **20.9** Repository Housekeeping — Moved tools to `cmd/tools/`, refactored internal domain packages (`alert`, `enrichment`, `leadnotify`), and consolidated documentation.
 
 ---
 
@@ -816,15 +817,16 @@
 
 ### Part A — Storage Architecture
 - [x] **27.1** Brainstorming and Prompt Engineering: Detailed plan in `docs/planning/AUDIT_TRAIL.md` and `docs/prompts/PROMPTS_PHASE27.md`.
-- [ ] **27.2** `migrations/006_audit_trail.up.sql` — `CREATE TABLE raw_inputs` (id, hash, payload, payload_type, source_url, collector_name, created_at)
-- [ ] **27.3** `internal/storage/audit.go` — `AuditStore` interface + `SaveRawInput(ctx, input RawInput) (uuid.UUID, error)` + `GetByHash` for dedup.
-- [ ] **27.4** `internal/storage/leads.go` — add `raw_input_id` column to `leads` table via migration.
+- [x] **27.2** `migrations/006_audit_trail.up.sql` — `CREATE TABLE raw_inputs` (id, hash, payload, payload_type, source_url, collector_name, created_at)
+- [x] **27.3** `internal/storage/audit.go` — `AuditStore` interface + `SaveRawInput(ctx, input RawInput) (uuid.UUID, error)` + `GetByHash` for dedup.
+- [x] **27.4** `internal/storage/leads.go` — add `raw_input_id` column to `leads` table via migration.
 
 ### Part B — Collector & Enricher Integration
-- [ ] **27.5** `internal/collector/collector.go` — update `RawProject` to include `RawData []byte` and `RawType string`.
-- [ ] **27.6** Update Richmond and Delta collectors to return raw PDF content.
+- [x] **27.5** `internal/collector/collector.go` — update `RawProject` to include `RawData []byte` and `RawType string`.
+- [x] **27.6** Update Richmond and Delta collectors to return raw PDF content.
 - [ ] **27.7** Update News/Creative BC/VCC collectors to return raw API/RSS responses.
 - [ ] **27.8** `internal/enrichment/enricher.go` — store raw input in `AuditStore` and link to `Lead` before LLM call.
+- [x] **27.12** RawProject Metadata — Added `Metadata map[string]any` to `collector.RawProject` for structured pipeline data and fixed enrichment pipeline.
 
 ### Part C — Verification & Access
 - [ ] **27.9** `cmd/server/main.go` — `GET /leads/{id}/raw` endpoint to retrieve the original input data with correct Content-Type.
