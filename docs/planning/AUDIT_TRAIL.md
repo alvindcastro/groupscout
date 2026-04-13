@@ -54,6 +54,20 @@
 - [x] Add `PII_STRIP` option to remove sensitive info before storage if required.
 - [x] Implement hashing logic to ensure we don't store identical payloads multiple times.
 
+## Operations & Maintenance
+
+### PII Redaction
+By enabling `PII_STRIP=true`, the `AuditStore` will automatically redact emails and phone numbers from raw payloads before storage. 
+-   **Regex matching**: Uses predefined patterns to identify and replace sensitive strings.
+-   **No impact on leads**: Redaction only affects the `raw_inputs` table, not the leads extracted from them (which are typically public anyway).
+
+### Data Retention (Purging)
+Use the `PurgeOlderThan(ctx, time)` method in the storage layer to clean up old audit records.
+-   **Safety Guarantee**: Records referenced by a lead in the `leads.raw_input_id` column are NEVER purged.
+-   **Recommended usage**: Run a weekly cron job to purge records older than 30 or 60 days.
+
+---
+
 ## Implementation Strategy — Agent Choreography
 
 For a multi-agent execution of this phase, refer to [AGENT_CHOREOGRAPHY_PHASE27.md](./AGENT_CHOREOGRAPHY_PHASE27.md).

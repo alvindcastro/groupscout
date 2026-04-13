@@ -180,6 +180,23 @@ An OpenAPI 3.0 specification is available at `api/swagger.yaml`.
     - `http://localhost:8080` (Lead Generation)
     - `http://localhost:8081` (Alerting Service)
 
-### 9. Future Testing Goals
-- **Mocking External APIs**: Implementing more robust mocking for Slack and Claude APIs to reduce dependency on network calls during CI.
-- **Load Testing**: Verifying the performance of the collector registry and worker pools under high concurrency (Phase 9).
+### 10. Audit Trail & Retention Testing
+
+The audit trail includes privacy and retention features that should be verified regularly.
+
+#### Test PII Redaction
+Verify that emails and phone numbers are redacted when `PII_STRIP=true` is enabled:
+```bash
+# This test specifically covers PII stripping logic
+go test -v ./internal/storage -run TestAuditStore_StripPII
+```
+
+#### Test Retention Purge
+Verify that old records are deleted, but referenced ones are kept:
+```bash
+# This test verifies that PurgeOlderThan ignores referenced records
+go test -v ./internal/storage -run TestAuditStore_PurgeOlderThan
+```
+
+#### Manual Verification via SQL
+You can verify the state of your live database (Postgres) using the queries provided in [POSTGRES_QUERIES.md](./POSTGRES_QUERIES.md#audit-trail-raw-inputs).

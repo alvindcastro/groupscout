@@ -29,6 +29,9 @@ CLAUDE_API_KEY=sk-ant-...
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
 API_TOKEN=your_secure_token_here
 DATABASE_URL=groupscout.db # Or postgres://user:pass@localhost:5432/db
+
+# Privacy (Optional)
+PII_STRIP=true             # Set to true to redact emails and phone numbers from raw audit trail
 ```
 
 Generate a secure `API_TOKEN`:
@@ -47,6 +50,20 @@ openssl rand -hex 32
 
 ## SQLite (local dev only)
 DATABASE_URL=groupscout.db — no Docker required.
+
+---
+
+## Data Retention & Privacy
+
+GroupScout keeps a `raw_inputs` audit trail to ensure traceability of leads.
+
+### 1. Retention Policy
+To prevent infinite database growth, raw inputs that are NOT referenced by any active leads can be purged.
+- **Auto-purge**: (Optional) Configure a cron job to call the purge method via the internal API (if exposed) or manually via SQL.
+- **Safety**: The purge logic uses a `NOT EXISTS` check on the `leads` table to ensure that any raw data linked to an actual lead is NEVER deleted.
+
+### 2. PII Stripping
+Enable `PII_STRIP=true` in your `.env` to redact sensitive information (emails, phone numbers) from raw payloads before they are stored in the database. This is recommended for compliance with local data privacy laws.
 
 ---
 
