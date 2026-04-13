@@ -36,23 +36,13 @@
 - [ ] **Phase 24** — Agentic Reasoning & Tool-Calling: ReAct loop + BC Registry / LinkedIn tools 📋
 - [ ] **Phase 25** — AI Observability & Quality: Langfuse + AI-Ready SQL + eval harness 📋
 - [ ] **Phase 26** — Production Deployment: Hetzner + Coolify (primary), Railway (managed alt), event-driven `/ingest` endpoint 📋
-- [ ] **Phase 27** — Input Audit & Verification Trail: store raw PDFs/API responses for verification 📋
-- [ ] **Phase 28** — Analytics & Source Attribution: weekly performance summary 📋
-- [ ] **Phase 29** — Prompt Engineering & Strict TDD: evaluation harness and Few-Shot library 📋
-- [ ] **Phase 30** — Advanced Audit & Verification: AI-driven cross-referencing and source health monitoring 📋
+- [x] **Phase 27** — Input Audit & Verification Trail ✅
+- [ ] **Phase 28** — Analytics & Source Attribution 📋
+- [ ] **Phase 29** — Prompt Engineering & Strict TDD 📋
+- [ ] **Phase 30** — Advanced Audit & Verification 📋
 
 ---
 
-## Phase 30 — Advanced Audit & Verification 📋
-**Goal:** Transform the raw audit trail into a proactive verification and quality assurance system.
-
-- [ ] AI-driven verification pass (JSON vs Raw payload)
-- [ ] Manual verification and feedback loops (POST /leads/{id}/verify)
-- [ ] Extraction accuracy analytics and source health metrics
-- [ ] PDF/HTML layout drift detection
-- [ ] Lead change detection (comparing raw snapshots over time)
-
----
 
 ## Phase 4 — More Sources + Full Notifications ✅
 
@@ -396,17 +386,24 @@
 
 ---
 
-## Phase 27 — Input Audit & Verification Trail 📋
+## Phase 27 — Input Audit & Verification Trail ✅
 
 **Goal:** Implement a system to store and track all raw inputs (PDFs, API responses, etc.) to allow for verification of the lead enrichment and scoring process.
 
-- [ ] **Part A** — Storage Architecture: `raw_inputs` table + `AuditStore` interface
-- [ ] **Part B** — Collector Integration: save raw PDF/API content before parsing
-- [ ] **Part C** — Verification Tools: `GET /leads/{id}/raw` + CLI audit tool
+- [x] **Part A** — Storage Architecture: `raw_inputs` table + `AuditStore` interface
+- [x] **Part B** — Collector Integration: save raw PDF/API content before parsing
+- [x] **Part C** — Verification Tools: `GET /leads/{id}/raw` + CLI audit tool
+- [x] **Part D** — Retention & Privacy: Purge old records, PII redaction
 
 ---
 
 ## Phase 28 — Analytics & Source Attribution 📋
+
+**Goal:** Weekly digest that shows which signal sources are generating closed business, enabling the sales team to prioritize outreach.
+
+- [ ] **Part A** — Source Attribution: Aggregate leads by source + outcome
+- [ ] **Part B** — Slack Analytics: Hit Rate % columns in digest
+- [ ] **Part C** — Market Demand: Forward demand density view
 
 ---
 
@@ -417,6 +414,16 @@
 - [ ] **Part A — Infrastructure:** Extract hardcoded strings to `assets/prompts/*.tmpl`; implement template loader in `internal/enrichment`.
 - [ ] **Part B — Strict TDD:** Create `internal/enrichment/prompts_test.go` with gold standard fixtures.
 - [ ] **Part C — Refinement:** Add "Few-Shot" examples for high-priority/complex lead types.
+
+---
+
+## Phase 30 — Advanced Audit & Verification 📋
+
+**Goal:** Transform the raw audit trail into a proactive verification and quality assurance system.
+
+- [ ] **Part A — Verification Workflow:** `POST /leads/{id}/verify` + corrections (JSONB)
+- [ ] **Part B — AI Verification Agent:** `Verifier` struct + verification prompt
+- [ ] **Part C — Health & Analytics:** Extraction accuracy aggregator + drift detection
 
 ---
 
