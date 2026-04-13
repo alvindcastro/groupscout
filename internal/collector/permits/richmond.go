@@ -160,8 +160,14 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]collector.RawProject
 
 	pdfURL := urls[0]
 	var projects []collector.RawProject
+	var skippedValue, skippedType int
 	for _, rec := range records {
-		if !isRelevant(rec, r.MinValue) {
+		if rec.ValueCAD <= r.MinValue {
+			skippedValue++
+			continue
+		}
+		if !commercialSubTypes[strings.ToLower(strings.TrimSpace(rec.SubType))] {
+			skippedType++
 			continue
 		}
 		p := toRawProject(rec)
@@ -171,7 +177,13 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]collector.RawProject
 	}
 
 	if r.Verbose {
-		logger.Log.Info("filtering complete", "source", "richmond", "passed", len(projects), "min_value", r.MinValue)
+		logger.Log.Info("filtering complete",
+			"source", "richmond",
+			"passed", len(projects),
+			"skipped_low_value", skippedValue,
+			"skipped_residential", skippedType,
+			"min_value", r.MinValue,
+		)
 	}
 
 	return projects, nil

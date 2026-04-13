@@ -155,3 +155,7 @@ GroupScout requires the `pdftotext` utility for scraping certain PDF sources. Th
 ### 6. Database Connection Issues
 - **Symptom:** `app` container fails to start because it can't reach Postgres.
 - **Fix:** The `app` service is configured to depend on `postgres` being healthy. Check `docker compose logs postgres` to ensure the database initialized correctly.
+
+### 7. Missing or Low Lead Count
+- **Symptom:** Pipeline runs successfully but returns fewer leads than expected.
+- **Fix:** See the [Troubleshooting Guide](./TROUBLESHOOTING.md) for details on adjusting thresholds (`MIN_PERMIT_VALUE_CAD`, `ENRICHMENT_THRESHOLD`) and checking the database for skipped or duplicate records.

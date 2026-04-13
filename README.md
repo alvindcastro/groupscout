@@ -14,7 +14,7 @@
 *   **Intelligent Pre-Scoring:** A rules-based Go engine filters out low-value leads (residential renovations, small repairs) to save on API costs.
 *   **AI Enrichment:** High-potential leads are enriched via the **Anthropic Claude API** to estimate room night potential, project duration, and lodging requirements.
 *   **Automated Outreach:** Generates personalized cold email drafts for each lead using AI.
-*   **Airport Disruption Alert System (`alertd`):** A separate real-time binary that monitors YVR flight disruptions, weather alerts (ECCC), and NOTAMs (NavCanada) to compute a **Stranded Passenger Score (SPS)** and alert hotel teams via Slack before passengers arrive. (Phase 17)
+*   **Airport Disruption Alert System (`alertd`):** A real-time binary that monitors YVR flight disruptions, weather alerts (ECCC), and NOTAMs (NavCanada) to compute a **Stranded Passenger Score (SPS)** and alert hotel teams via Slack.
 *   **Real-time Notifications:** Delivers formatted Block Kit messages directly to **Slack**.
 *   **Weekly Digest:** Sends a formatted HTML email digest of the week's best leads via **SendGrid**.
 *   **Secure API Trigger:** Can be integrated with automation tools like **n8n** via a protected HTTP endpoint.
@@ -136,26 +136,32 @@ go run cmd/server/main.go
 ```
 *   **Trigger via API:** Send a `POST` request to `http://localhost:8080/run` with `Authorization: Bearer YOUR_API_TOKEN`.
 
-#### 3. Docker Mode
-Run the entire stack (app, database, monitoring) using Docker Compose:
-```bash
-docker compose up -d
-```
-
 #### 2. CLI Mode (Run Once)
 Executes the full pipeline once and exits immediately.
 ```bash
 go run cmd/server/main.go --run-once
 ```
 
+#### 3. Docker Mode
+Run the entire stack (app, database, monitoring) using Docker Compose:
+```bash
+docker compose up -d
+```
+
 ### 📄 Documentation
- 
+
 *   [DEVELOPER.md](./DEVELOPER.md) - Developer's guide for running and testing the system.
-*   [TESTING.md](./docs/guides/TESTING.md) - Comprehensive testing guide (unit, integration, Ollama).
-*   [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
-*   [ROADMAP.md](./docs/planning/ROADMAP.md) - Project roadmap and development progress.
+*   [PHASES.md](./docs/planning/PHASES.md) - Living task tracker and build progress.
+*   [CHANGELOG.md](./docs/CHANGELOG.md) - Plain-English record of all changes.
 *   [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
 *   [SETUP.md](./docs/guides/SETUP.md) - Installation and configuration guide.
-*   [OLLAMA_INTEGRATION.md](./docs/planning/OLLAMA_INTEGRATION.md) - Local LLM integration plan and phases.
-*   [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Docker and native setup guide for Ollama.
-*   [groupscout-build-log.md](./docs/prompts/groupscout-build-log.md) - Developer's narrative and blog-style build notes.
+*   [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
+*   [TESTING.md](./docs/guides/TESTING.md) - Comprehensive testing guide (unit, integration, Ollama).
+*   [N8N_GUIDE.md](./docs/guides/N8N_GUIDE.md) - Workflow automation and scheduling.
+*   [HOME_DEPLOY.md](./docs/guides/HOME_DEPLOY.md) - Self-hosting and deployment guide.
+*   [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Local LLM setup guide.
+*   [ALERTD_SETUP.md](./docs/guides/ALERTD_SETUP.md) - Airport disruption system configuration.
+*   [TROUBLESHOOTING.md](./docs/guides/TROUBLESHOOTING.md) - Pipeline and missing lead troubleshooting.
+*   [API_CONFIG.md](./docs/API_CONFIG.md) - Endpoint reference and configuration.
+*   [API_TESTING.md](./docs/API_TESTING.md) - How to test the APIs.
+*   [ROADMAP.md](./docs/planning/ROADMAP.md) - Long-term project roadmap.

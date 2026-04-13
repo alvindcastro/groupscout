@@ -27,9 +27,20 @@ CREATE TABLE IF NOT EXISTS raw_projects (
     hash         TEXT UNIQUE NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS raw_inputs (
+    id             TEXT PRIMARY KEY,
+    hash           TEXT UNIQUE NOT NULL,
+    payload_type   TEXT,
+    payload        BLOB,
+    source_url     TEXT,
+    collector_name TEXT,
+    created_at     DATETIME NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS leads (
     id                        TEXT PRIMARY KEY,
     raw_project_id            TEXT REFERENCES raw_projects(id),
+    raw_input_id              TEXT REFERENCES raw_inputs(id),
     source                    TEXT,
     title                     TEXT,
     location                  TEXT,
@@ -122,6 +133,7 @@ func Migrate(db *sql.DB, dsn string) error {
 		`ALTER TABLE leads ADD COLUMN contractor TEXT`,
 		`ALTER TABLE leads ADD COLUMN source_url TEXT`,
 		`ALTER TABLE leads ADD COLUMN rationale TEXT`,
+		`ALTER TABLE leads ADD COLUMN raw_input_id TEXT`,
 	} {
 		if _, err := db.Exec(stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 			return err

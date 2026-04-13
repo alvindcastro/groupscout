@@ -121,8 +121,14 @@ func (d *DeltaCollector) Collect(ctx context.Context) ([]collector.RawProject, e
 	}
 
 	var projects []collector.RawProject
+	var skippedValue, skippedType int
 	for _, rec := range records {
-		if !isDeltaRelevant(rec, d.MinValue) {
+		if rec.ValueCAD <= d.MinValue {
+			skippedValue++
+			continue
+		}
+		if !deltaRelevantTypes[strings.ToLower(rec.TypePrefix)] {
+			skippedType++
 			continue
 		}
 		p := toDeltaRawProject(rec)
@@ -132,7 +138,13 @@ func (d *DeltaCollector) Collect(ctx context.Context) ([]collector.RawProject, e
 	}
 
 	if d.Verbose {
-		logger.Log.Info("filtering complete", "source", "delta", "passed", len(projects), "min_value", d.MinValue)
+		logger.Log.Info("filtering complete",
+			"source", "delta",
+			"passed", len(projects),
+			"skipped_low_value", skippedValue,
+			"skipped_residential", skippedType,
+			"min_value", d.MinValue,
+		)
 	}
 
 	return projects, nil

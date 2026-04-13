@@ -25,6 +25,7 @@ func newTestDB(t *testing.T) (*sql.DB, string) {
 	t.Cleanup(func() {
 		db.Exec("DELETE FROM leads")
 		db.Exec("DELETE FROM raw_projects")
+		db.Exec("DELETE FROM raw_inputs")
 		db.Close()
 	})
 	return db, dsn
@@ -74,6 +75,51 @@ func TestLeadStore_Insert_and_ListNew(t *testing.T) {
 	}
 	if got.PriorityScore != 9 {
 		t.Errorf("PriorityScore = %d, want 9", got.PriorityScore)
+	}
+}
+
+func TestLeadStore_WithRawInputID(t *testing.T) {
+	db, dsn := newTestDB(t)
+	store := NewLeadStoreWithDSN(db, dsn)
+	auditStore := NewAuditStoreWithDSN(db, dsn)
+	ctx := context.Background()
+
+	rawID, err := auditStore.Store(ctx, RawInput{
+		Hash:    "test-hash-2",
+		Payload: []byte("test payload"),
+	})
+	if err != nil {
+		t.Fatalf("Store raw input: %v", err)
+	}
+
+	lead := &Lead{
+		Source:     "test",
+		Title:      "Lead with Audit",
+		RawInputID: rawID.String(),
+		Status:     "new",
+	}
+
+	if err := store.Insert(ctx, lead); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	leads, err := store.ListNew(ctx)
+	if err != nil {
+		t.Fatalf("ListNew: %v", err)
+	}
+
+	var got *Lead
+	for _, l := range leads {
+		if l.ID == lead.ID {
+			got = &l
+			break
+		}
+	}
+	if got == nil {
+		t.Fatal("lead not found")
+	}
+	if got.RawInputID != rawID.String() {
+		t.Errorf("RawInputID = %q, want %q", got.RawInputID, rawID.String())
 	}
 }
 

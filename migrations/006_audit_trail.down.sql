@@ -1,0 +1,2 @@
+ALTER TABLE leads DROP COLUMN IF EXISTS raw_input_id;
+DROP TABLE IF EXISTS raw_inputs;

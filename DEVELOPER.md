@@ -120,17 +120,34 @@ See [docs/API_TESTING.md](./docs/API_TESTING.md) for examples.
 - `api/`: OpenAPI / Swagger specifications.
 - `cmd/`: Entry points for `server`, `alertd`, and dev tools.
 - `config/`: Centralized environment and YAML configuration.
+- `.junie/agents/`: Definitions for specialized Junie subagents.
 - `docs/`: In-depth guides and planning documents.
 - `internal/`: Core business logic (scrapers, scoring, state machines, storage).
 - `migrations/`: SQL migration files (for Postgres/SQLite).
 
+## 🤖 Junie Subagents
+
+This project uses specialized Junie subagents to streamline development in different domains. These agents are defined in `.junie/agents/` and can be used to handle specific tasks with tailored instructions.
+
+See [docs/guides/SUBAGENTS.md](./docs/guides/SUBAGENTS.md) for a list of available agents and how to use them.
+
 ## 📄 Related Documentation
 - [README.md](./README.md) - Project overview and user setup.
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
+- [CHANGELOG.md](./docs/CHANGELOG.md) - Plain-English record of all changes.
 - [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
+- [SUBAGENTS.md](./docs/guides/SUBAGENTS.md) - How to use specialized Junie agents.
+- [TROUBLESHOOTING.md](./docs/guides/TROUBLESHOOTING.md) - Pipeline and missing lead troubleshooting.
 - [SETUP.md](./docs/guides/SETUP.md) - Detailed environment and dependency setup.
+- [TESTING.md](./docs/guides/TESTING.md) - Comprehensive testing guide.
+- [N8N_GUIDE.md](./docs/guides/N8N_GUIDE.md) - Workflow automation and scheduling.
+- [HOME_DEPLOY.md](./docs/guides/HOME_DEPLOY.md) - Self-hosting and deployment guide.
 - [API_CONFIG.md](./docs/API_CONFIG.md) - Detailed API and endpoint configuration.
 - [API_TESTING.md](./docs/API_TESTING.md) - Guide on how to test the APIs.
 - [ALERTD_SETUP.md](./docs/guides/ALERTD_SETUP.md) - Specific configuration for the alert system.
 - [OLLAMA_INTEGRATION.md](./docs/planning/OLLAMA_INTEGRATION.md) - Local LLM integration plan and phases.
 - [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Docker and native setup guide for Ollama.
 - [PHASES.md](./docs/planning/PHASES.md) - Build tracker and phase history.
+- [ROADMAP.md](./docs/planning/ROADMAP.md) - Long-term project roadmap.
+- [AUDIT_TRAIL.md](./docs/planning/AUDIT_TRAIL.md) - Input storage and verification plan.
+- [PROMPTS.md](./docs/planning/PROMPTS.md) - Prompt library and Strict TDD guide.
