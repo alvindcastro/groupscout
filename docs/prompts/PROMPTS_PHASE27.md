@@ -154,16 +154,23 @@ Verify D:
 
 ---
 
-## Part E — Cleanup & Optimization
+## Part E — Cleanup & Optimization ✅ COMPLETE
 
 ```
 Context:
-- Raw inputs can grow large. We need retention policies.
+- Raw inputs can grow large. We need retention policies and privacy controls.
 
-Task E1 — Cleanup Worker:
-  1. Add a background worker that deletes raw_inputs older than X days (e.g., 30 days).
-  2. Ensure it doesn't break leads that still reference them (or handle orphaned references).
+Task E1 — Storage Cleanup (TDD):
+  1. Add PurgeOlderThan(ctx, olderThan time.Time) (int64, error) to AuditStore.
+  2. Implement in internal/storage/audit.go using a DELETE query with a NOT EXISTS check on leads to prevent breaking references.
+  3. Verify with TestAuditStore_PurgeOlderThan in internal/storage/audit_test.go.
 
-Verify E1:
-  Manual test: insert old record, run cleanup, assert it's gone.
+Task E2 — PII Stripping (TDD):
+  1. Implement StripPII logic to redact emails and phone numbers from raw payloads.
+  2. Add PII_STRIP environment variable support to AuditStore.
+  3. Verify with TestAuditStore_StripPII in internal/storage/audit_test.go.
+
+Verify E:
+  go test -v ./internal/storage -run TestAuditStore_Purge
+  go test -v ./internal/storage -run TestAuditStore_Strip
 ```

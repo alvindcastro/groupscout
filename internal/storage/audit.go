@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,21 +28,30 @@ type AuditStore interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*RawInput, error)
 	GetByHash(ctx context.Context, hash string) (*RawInput, error)
 	ExistsByHash(ctx context.Context, hash string) (bool, error)
+	PurgeOlderThan(ctx context.Context, olderThan time.Time) (int64, error)
 }
 
 type sqlAuditStore struct {
-	db  *sql.DB
-	dsn string
+	db       *sql.DB
+	dsn      string
+	piiStrip bool
 }
 
 // NewAuditStore returns a new instance of AuditStore.
 func NewAuditStore(db *sql.DB) AuditStore {
-	return &sqlAuditStore{db: db}
+	return &sqlAuditStore{
+		db:       db,
+		piiStrip: os.Getenv("PII_STRIP") == "true",
+	}
 }
 
 // NewAuditStoreWithDSN returns a new instance of AuditStore with DSN for rebind.
 func NewAuditStoreWithDSN(db *sql.DB, dsn string) AuditStore {
-	return &sqlAuditStore{db: db, dsn: dsn}
+	return &sqlAuditStore{
+		db:       db,
+		dsn:      dsn,
+		piiStrip: os.Getenv("PII_STRIP") == "true",
+	}
 }
 
 func (s *sqlAuditStore) Store(ctx context.Context, raw RawInput) (uuid.UUID, error) {
@@ -49,6 +60,10 @@ func (s *sqlAuditStore) Store(ctx context.Context, raw RawInput) (uuid.UUID, err
 	}
 	if raw.CreatedAt.IsZero() {
 		raw.CreatedAt = time.Now().UTC()
+	}
+
+	if s.piiStrip {
+		raw.Payload = StripPII(raw.Payload)
 	}
 
 	query := `
@@ -109,4 +124,31 @@ func (s *sqlAuditStore) ExistsByHash(ctx context.Context, hash string) (bool, er
 		return false, fmt.Errorf("exists by hash: %w", err)
 	}
 	return exists, nil
+}
+
+func (s *sqlAuditStore) PurgeOlderThan(ctx context.Context, olderThan time.Time) (int64, error) {
+	// Only delete raw inputs that are NOT referenced by any lead to avoid broken references.
+	query := `
+		DELETE FROM raw_inputs 
+		WHERE created_at < ? 
+		AND NOT EXISTS (SELECT 1 FROM leads WHERE leads.raw_input_id = raw_inputs.id)
+	`
+	res, err := s.db.ExecContext(ctx, Rebind(s.dsn, query), olderThan)
+	if err != nil {
+		return 0, fmt.Errorf("purge raw_inputs: %w", err)
+	}
+	return res.RowsAffected()
+}
+
+var (
+	emailRegex = regexp.MustCompile(`(?i)[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}`)
+	phoneRegex = regexp.MustCompile(`(\+?\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}`)
+)
+
+// StripPII removes emails and phone numbers from a byte payload.
+func StripPII(payload []byte) []byte {
+	s := string(payload)
+	s = emailRegex.ReplaceAllString(s, "[REDACTED EMAIL]")
+	s = phoneRegex.ReplaceAllString(s, "[REDACTED PHONE]")
+	return []byte(s)
 }

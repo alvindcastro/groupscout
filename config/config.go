@@ -53,6 +53,7 @@ type Config struct {
 	OllamaExtractTimeoutS   int
 	OllamaScoreTimeoutS     int
 	OllamaAlertCopyTimeoutS int
+	PIIStripEnabled         bool
 }
 
 // Load reads config from environment variables, falling back to sensible defaults.
@@ -106,6 +107,7 @@ func Load() (*Config, error) {
 		OllamaExtractTimeoutS:   getEnvInt("OLLAMA_EXTRACT_TIMEOUT_S", 30),
 		OllamaScoreTimeoutS:     getEnvInt("OLLAMA_SCORE_TIMEOUT_S", 20),
 		OllamaAlertCopyTimeoutS: getEnvInt("OLLAMA_ALERT_COPY_TIMEOUT_S", 15),
+		PIIStripEnabled:         os.Getenv("PII_STRIP") == "true",
 	}, nil
 }
 

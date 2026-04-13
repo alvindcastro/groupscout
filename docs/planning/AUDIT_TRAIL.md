@@ -49,10 +49,10 @@
     - [x] Flag `--meta` to show source URL, collector, and fetch time.
 - [x] Update Slack notifications to include a link to the raw data (if exposed via internal reference).
 
-### Part E — Retention & Privacy
-- [ ] Implement a cleanup worker to purge raw inputs older than X days.
-- [ ] Add `PII_STRIP` option to remove sensitive info before storage if required.
-- [ ] Implement hashing logic to ensure we don't store identical payloads multiple times.
+### Part E — Retention & Privacy ✅ COMPLETE
+- [x] Implement a cleanup worker logic (`PurgeOlderThan`) to purge raw inputs older than X days.
+- [x] Add `PII_STRIP` option to remove sensitive info before storage if required.
+- [x] Implement hashing logic to ensure we don't store identical payloads multiple times.
 
 ## Implementation Strategy — Agent Choreography
 
