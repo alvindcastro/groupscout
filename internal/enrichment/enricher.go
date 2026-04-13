@@ -123,7 +123,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	l := logger.Log.With("project", p.ExternalID, "source", p.Source)
 
 	// Dedup check — skip if we've seen this permit before
-	exists, err := e.auditStore.ExistsByHash(ctx, p.Hash)
+	exists, err := e.rawStore.ExistsByHash(ctx, p.Hash)
 	if err != nil {
 		return false, fmt.Errorf("check hash: %w", err)
 	}
@@ -134,9 +134,12 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 		return false, nil
 	}
 
+	// Calculate payload hash for audit trail deduplication
+	payloadHash := storage.HashPayload(p.RawData)
+
 	// Store raw input for audit trail before enrichment so it's never lost
 	rawInputID, err := e.auditStore.Store(ctx, storage.RawInput{
-		Hash:          p.Hash,
+		Hash:          payloadHash,
 		PayloadType:   p.RawType,
 		Payload:       p.RawData,
 		SourceURL:     p.SourceURL,

@@ -59,6 +59,12 @@ func HashProject(source, externalID, title string, issuedAt time.Time) string {
 	return fmt.Sprintf("%x", h)
 }
 
+// HashPayload returns the sha256 hash of a byte slice for audit trail deduplication.
+func HashPayload(payload []byte) string {
+	h := sha256.Sum256(payload)
+	return fmt.Sprintf("%x", h)
+}
+
 // NewUUID generates a random UUID v4.
 func NewUUID() string {
 	b := make([]byte, 16)

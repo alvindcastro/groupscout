@@ -127,7 +127,12 @@ func (m *mockAuditStore) Store(ctx context.Context, raw storage.RawInput) (uuid.
 
 type mockRawStore struct {
 	storage.RawProjectStore
-	insert func(p *collector.RawProject) error
+	existsByHash func(hash string) (bool, error)
+	insert       func(p *collector.RawProject) error
+}
+
+func (m *mockRawStore) ExistsByHash(ctx context.Context, hash string) (bool, error) {
+	return m.existsByHash(hash)
 }
 
 func (m *mockRawStore) Insert(ctx context.Context, p *collector.RawProject) error {
@@ -162,7 +167,8 @@ func TestEnricher_processProject_storesAllAuditFields(t *testing.T) {
 		},
 	}
 	raw := &mockRawStore{
-		insert: func(p *collector.RawProject) error { return nil },
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		insert:       func(p *collector.RawProject) error { return nil },
 	}
 	leads := &mockLeadStore{
 		insert: func(l *storage.Lead) error { return nil },
@@ -175,11 +181,14 @@ func TestEnricher_processProject_storesAllAuditFields(t *testing.T) {
 
 	e := NewEnricher(nil, raw, audit, leads, ai, NewScorer(5), 0, nil, nil, false, false)
 
+	payload := []byte("%PDF-1.4 test")
+	expectedHash := storage.HashPayload(payload)
+
 	p := collector.RawProject{
 		Hash:      "test-hash",
 		Source:    "richmond_permits",
 		RawType:   "application/pdf",
-		RawData:   []byte("%PDF-1.4 test"),
+		RawData:   payload,
 		SourceURL: "https://richmond.ca/permits/test.pdf",
 	}
 
@@ -187,8 +196,8 @@ func TestEnricher_processProject_storesAllAuditFields(t *testing.T) {
 		t.Fatalf("processProject: %v", err)
 	}
 
-	if capturedRaw.Hash != "test-hash" {
-		t.Errorf("Hash = %q, want %q", capturedRaw.Hash, "test-hash")
+	if capturedRaw.Hash != expectedHash {
+		t.Errorf("Hash = %q, want %q", capturedRaw.Hash, expectedHash)
 	}
 	if capturedRaw.PayloadType != "application/pdf" {
 		t.Errorf("PayloadType = %q, want %q", capturedRaw.PayloadType, "application/pdf")
@@ -205,7 +214,7 @@ func TestEnricher_processProject_storesAllAuditFields(t *testing.T) {
 }
 
 func TestEnricher_processProject_dedupCheck(t *testing.T) {
-	audit := &mockAuditStore{
+	raw := &mockRawStore{
 		existsByHash: func(hash string) (bool, error) {
 			if hash == "seen-hash" {
 				return true, nil
@@ -214,8 +223,8 @@ func TestEnricher_processProject_dedupCheck(t *testing.T) {
 		},
 	}
 	e := &Enricher{
-		auditStore: audit,
-		Verbose:    true,
+		rawStore: raw,
+		Verbose:  true,
 	}
 
 	p := collector.RawProject{Hash: "seen-hash"}
@@ -231,17 +240,20 @@ func TestEnricher_processProject_dedupCheck(t *testing.T) {
 
 func TestEnricher_processProject_callsStoreAndLinksID(t *testing.T) {
 	rawID := uuid.New()
+	payload := []byte("test payload")
+	expectedHash := storage.HashPayload(payload)
+
 	audit := &mockAuditStore{
-		existsByHash: func(hash string) (bool, error) { return false, nil },
 		store: func(raw storage.RawInput) (uuid.UUID, error) {
-			if raw.Hash != "new-hash" {
-				t.Errorf("expected hash %q, got %q", "new-hash", raw.Hash)
+			if raw.Hash != expectedHash {
+				t.Errorf("expected hash %q, got %q", expectedHash, raw.Hash)
 			}
 			return rawID, nil
 		},
 	}
 	raw := &mockRawStore{
-		insert: func(p *collector.RawProject) error { return nil },
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		insert:       func(p *collector.RawProject) error { return nil },
 	}
 
 	var insertedLead *storage.Lead
@@ -265,6 +277,7 @@ func TestEnricher_processProject_callsStoreAndLinksID(t *testing.T) {
 		ExternalID: "EXT-123",
 		Source:     "test-source",
 		Title:      "Test Project",
+		RawData:    []byte("test payload"),
 	}
 
 	inserted, err := e.processProject(context.Background(), p)
@@ -287,11 +300,11 @@ func TestEnricher_processProject_callsStoreAndLinksID(t *testing.T) {
 func TestEnricher_processProject_linksIDToSkippedLead(t *testing.T) {
 	rawID := uuid.New()
 	audit := &mockAuditStore{
-		existsByHash: func(hash string) (bool, error) { return false, nil },
-		store:        func(raw storage.RawInput) (uuid.UUID, error) { return rawID, nil },
+		store: func(raw storage.RawInput) (uuid.UUID, error) { return rawID, nil },
 	}
 	raw := &mockRawStore{
-		insert: func(p *collector.RawProject) error { return nil },
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		insert:       func(p *collector.RawProject) error { return nil },
 	}
 
 	var insertedLead *storage.Lead
