@@ -34,6 +34,7 @@ type Config struct {
 	MinPermitValueCAD       int64
 	Port                    int
 	APIToken                string
+	BaseURL                 string
 	DigestDay               string
 	DigestHour              int
 	JSONLog                 bool
@@ -86,6 +87,7 @@ func Load() (*Config, error) {
 		MinPermitValueCAD:       int64(getEnvInt("MIN_PERMIT_VALUE_CAD", 500_000)),
 		Port:                    getEnvInt("PORT", 8080),
 		APIToken:                os.Getenv("API_TOKEN"),
+		BaseURL:                 getEnv("BASE_URL", ""),
 		DigestDay:               getEnv("DIGEST_DAY", "monday"),
 		DigestHour:              getEnvInt("DIGEST_HOUR", 9),
 		JSONLog:                 getEnv("JSON_LOG", "false") == "true",

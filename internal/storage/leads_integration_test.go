@@ -163,3 +163,34 @@ func TestLeadStore_UpdateStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestLeadStore_GetByID(t *testing.T) {
+	db, dsn := newTestDB(t)
+	store := NewLeadStoreWithDSN(db, dsn)
+	ctx := context.Background()
+
+	lead := &Lead{Source: "test", Title: "GetByID test", Status: "new"}
+	if err := store.Insert(ctx, lead); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	got, err := store.GetByID(ctx, lead.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected lead, got nil")
+	}
+	if got.Title != "GetByID test" {
+		t.Errorf("Title = %q, want %q", got.Title, "GetByID test")
+	}
+
+	// Test non-existent
+	got, err = store.GetByID(ctx, "non-existent")
+	if err != nil {
+		t.Fatalf("GetByID (non-existent): %v", err)
+	}
+	if got != nil {
+		t.Fatal("expected nil for non-existent lead")
+	}
+}

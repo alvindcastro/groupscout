@@ -41,13 +41,13 @@
 - [x] TDD coverage (integration — `leads_integration_test.go`):
     - `TestLeadStore_WithRawInputID` — lead + raw input FK round-trips in Postgres.
 
-### Part D — Verification & Access
-- [ ] Create `GET /leads/{id}/raw` endpoint to retrieve the raw input used for a specific lead.
-    - [ ] Should return the raw payload with the correct `Content-Type`.
-- [ ] Add a CLI command `groupscout audit <lead_id>` to dump the raw input for manual verification.
-    - [ ] Flag `--save <path>` to save payload to a file.
-    - [ ] Flag `--meta` to show source URL, collector, and fetch time.
-- [ ] Update Slack notifications to include a link to the raw data (if exposed via internal reference).
+### Part D — Verification & Access ✅ COMPLETE
+- [x] Create `GET /leads/{id}/raw` endpoint to retrieve the raw input used for a specific lead.
+    - [x] Should return the raw payload with the correct `Content-Type`.
+- [x] Add a CLI command `groupscout audit <lead_id>` to dump the raw input for manual verification.
+    - [x] Flag `--save <path>` to save payload to a file.
+    - [x] Flag `--meta` to show source URL, collector, and fetch time.
+- [x] Update Slack notifications to include a link to the raw data (if exposed via internal reference).
 
 ### Part E — Retention & Privacy
 - [ ] Implement a cleanup worker to purge raw inputs older than X days.

@@ -21,13 +21,15 @@ type Notifier interface {
 // SlackNotifier posts a digest of leads to a Slack incoming webhook.
 type SlackNotifier struct {
 	WebhookURL string
+	BaseURL    string
 	client     *http.Client
 }
 
 // NewSlackNotifier returns a SlackNotifier with a 10-second HTTP timeout.
-func NewSlackNotifier(webhookURL string) *SlackNotifier {
+func NewSlackNotifier(webhookURL, baseURL string) *SlackNotifier {
 	return &SlackNotifier{
 		WebhookURL: webhookURL,
+		BaseURL:    baseURL,
 		client:     &http.Client{Timeout: 10 * time.Second},
 	}
 }
@@ -39,7 +41,7 @@ func (s *SlackNotifier) Send(ctx context.Context, leads []storage.Lead) error {
 		return nil
 	}
 
-	payload := buildMessage(leads)
+	payload := s.buildMessage(leads)
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("slack: marshal payload: %w", err)
@@ -68,14 +70,14 @@ func (s *SlackNotifier) Send(ctx context.Context, leads []storage.Lead) error {
 // buildMessage formats leads into a Slack Block Kit payload.
 // Header block shows the run date and lead count.
 // Each lead gets its own section block with key fields and a priority score emoji.
-func buildMessage(leads []storage.Lead) map[string]any {
+func (s *SlackNotifier) buildMessage(leads []storage.Lead) map[string]any {
 	blocks := []map[string]any{
 		headerBlock(len(leads)),
 		dividerBlock(),
 	}
 
 	for _, l := range leads {
-		blocks = append(blocks, leadBlock(l), dividerBlock())
+		blocks = append(blocks, s.leadBlock(l), dividerBlock())
 	}
 
 	return map[string]any{"blocks": blocks}
@@ -100,14 +102,7 @@ func dividerBlock() map[string]any {
 }
 
 // leadBlock renders one Lead as a Slack section block.
-// Format:
-//
-//	*Title*                        🔥 Score: 9/10
-//	📍 Location  |  💰 $1,200,000 CAD  |  🏢 GC: BuildRight Contracting
-//	📞 Contractor: Safara Cladding Inc (416)875-1770  |  Applicant: Studio Senbel…
-//	🕐 Outreach: Reach out now — crews mobilizing in 4–6 weeks
-//	📝 Notes: ...
-func leadBlock(l storage.Lead) map[string]any {
+func (s *SlackNotifier) leadBlock(l storage.Lead) map[string]any {
 	contactLine := ""
 	if l.Contractor != "" || l.Applicant != "" {
 		contactLine = "\n📞"
@@ -127,11 +122,17 @@ func leadBlock(l storage.Lead) map[string]any {
 		sourceLine = fmt.Sprintf("\n📄 <%s|View source document>", l.SourceURL)
 	}
 
+	auditLine := ""
+	if s.BaseURL != "" && l.RawInputID != "" {
+		auditURL := fmt.Sprintf("%s/leads/%s/raw", s.BaseURL, l.ID)
+		auditLine = fmt.Sprintf("\n🔍 <%s|View raw audit data>", auditURL)
+	}
+
 	text := fmt.Sprintf("*%s*\t\t\t%s *Score: %d/10*\n"+
 		"📍 %s  |  💰 $%s CAD  |  🏢 GC: %s%s\n"+
 		"🔌 *Source:* %s\n"+
 		"🕐 *Outreach:* %s\n"+
-		"📝 %s%s",
+		"📝 %s%s%s",
 		l.Title,
 		scoreEmoji(l.PriorityScore), l.PriorityScore,
 		l.Location,
@@ -142,6 +143,7 @@ func leadBlock(l storage.Lead) map[string]any {
 		l.SuggestedOutreachTiming,
 		l.Notes,
 		sourceLine,
+		auditLine,
 	)
 
 	fields := []map[string]any{
