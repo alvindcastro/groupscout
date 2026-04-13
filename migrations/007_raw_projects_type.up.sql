@@ -1,0 +1,1 @@
+ALTER TABLE raw_projects ADD COLUMN IF NOT EXISTS raw_type TEXT;

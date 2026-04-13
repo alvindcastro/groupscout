@@ -144,7 +144,8 @@ func TestToDeltaRawProject_fields(t *testing.T) {
 		CivicAddress: "6705 DENNETT PL",
 	}
 
-	p := toDeltaRawProject(rec)
+	rawData := []byte("fake delta pdf")
+	p := toDeltaRawProject(rec, rawData)
 
 	if p.Source != "delta_permits" {
 		t.Errorf("Source: got %q, want %q", p.Source, "delta_permits")
@@ -155,12 +156,10 @@ func TestToDeltaRawProject_fields(t *testing.T) {
 	if p.Value != 515_000 {
 		t.Errorf("Value: got %d, want 515000", p.Value)
 	}
-	applicant, _ := p.RawData["applicant"].(string)
-	if applicant != "MCRAE, ALICIA" {
-		t.Errorf("RawData[applicant]: got %q, want %q", applicant, "MCRAE, ALICIA")
+	if string(p.RawData) != "fake delta pdf" {
+		t.Errorf("RawData mismatch")
 	}
-	contractor, _ := p.RawData["contractor"].(string)
-	if contractor != "" {
-		t.Errorf("RawData[contractor]: expected empty, got %q", contractor)
+	if p.RawType != "application/pdf" {
+		t.Errorf("RawType: got %q, want %q", p.RawType, "application/pdf")
 	}
 }

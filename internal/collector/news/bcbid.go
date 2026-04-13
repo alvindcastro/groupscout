@@ -128,6 +128,7 @@ func (b *BCBidCollector) parseRSS(data []byte, sourceURL string) ([]collector.Ra
 		desc := item.Description
 		// Basic HTML tag removal if needed, but for now keep it for Enricher
 
+		itemData, _ := xml.Marshal(item)
 		projects = append(projects, collector.RawProject{
 			Source:      "bcbid",
 			ExternalID:  id,
@@ -136,10 +137,8 @@ func (b *BCBidCollector) parseRSS(data []byte, sourceURL string) ([]collector.Ra
 			IssuedAt:    b.parseDate(item.PubDate),
 			SourceURL:   item.Link,
 			Hash:        b.hashRaw(fmt.Sprintf("%s|%s|%s", id, item.Title, item.Link)),
-			RawData: map[string]any{
-				"rss_source": sourceURL,
-				"pub_date":   item.PubDate,
-			},
+			RawData:     itemData,
+			RawType:     "application/rss+xml",
 		})
 	}
 	return projects, nil
@@ -155,7 +154,8 @@ func (b *BCBidCollector) processRaw(raw string) ([]collector.RawProject, error) 
 				Title:       "BC Bid Award Notice (HTML)",
 				Description: "Raw HTML award notice from BC Bid portal.",
 				IssuedAt:    time.Now(),
-				RawData:     map[string]any{"raw_html": raw},
+				RawData:     []byte(raw),
+				RawType:     "text/html",
 				Hash:        b.hashRaw(raw),
 			},
 		}, nil
@@ -180,6 +180,9 @@ func (b *BCBidCollector) processRaw(raw string) ([]collector.RawProject, error) 
 			continue
 		}
 		p.Hash = b.hashRaw(fmt.Sprintf("%s|%s|%s", p.ExternalID, p.Title, p.SourceURL))
+		// For JSON inputs, we re-marshal the individual award record as the raw data
+		p.RawData, _ = json.Marshal(a)
+		p.RawType = "application/json"
 		projects = append(projects, p)
 	}
 
@@ -213,7 +216,6 @@ func (b *BCBidCollector) mapToRawProject(m map[string]any) collector.RawProject 
 		Description: getString("description"),
 		IssuedAt:    b.parseDate(getString("award_date")),
 		SourceURL:   getString("url"),
-		RawData:     m,
 	}
 }
 

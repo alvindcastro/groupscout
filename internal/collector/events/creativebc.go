@@ -97,7 +97,7 @@ func (c *CreativeBCCollector) Collect(ctx context.Context) ([]collector.RawProje
 		if !isCreativeBCRelevant(rec) {
 			continue
 		}
-		p := toCreativeBCRawProject(rec)
+		p := toCreativeBCRawProject(rec, body)
 		p.SourceURL = c.URL
 		p.Hash = hashCreativeBCProduction(rec.Title, rec.Type)
 		projects = append(projects, p)
@@ -336,7 +336,7 @@ func isCreativeBCRelevant(rec creativeBCRecord) bool {
 
 // toCreativeBCRawProject maps a creativeBCRecord to the normalized collector.RawProject.
 // Address and schedule are included in Description so Claude can use them for location scoring.
-func toCreativeBCRawProject(rec creativeBCRecord) collector.RawProject {
+func toCreativeBCRawProject(rec creativeBCRecord, rawData []byte) collector.RawProject {
 	desc := fmt.Sprintf("%s — %s", rec.Type, rec.Studio)
 	if rec.Schedule != "" {
 		desc += fmt.Sprintf(" | Schedule: %s", rec.Schedule)
@@ -355,16 +355,8 @@ func toCreativeBCRawProject(rec creativeBCRecord) collector.RawProject {
 		Value:       0,
 		Description: desc,
 		IssuedAt:    parseScheduleStart(rec.Schedule),
-		RawData: map[string]any{
-			"production_type": rec.Type,
-			"studio":          rec.Studio,
-			"schedule":        rec.Schedule,
-			"address":         rec.Address,
-			"manager":         rec.Manager,
-			"email":           rec.Email,
-			"applicant":       rec.Studio,
-			"contractor":      "",
-		},
+		RawData:     rawData,
+		RawType:     "text/html",
 	}
 }
 

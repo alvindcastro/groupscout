@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -76,7 +77,12 @@ func (c *AnnouncementsCollector) scrapeSource(ctx context.Context, src Announcem
 		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
 		return nil, err
 	}
@@ -84,17 +90,17 @@ func (c *AnnouncementsCollector) scrapeSource(ctx context.Context, src Announcem
 	var projects []collector.RawProject
 	switch src.Type {
 	case "bcib":
-		projects = c.parseBCIB(doc, src)
+		projects = c.parseBCIB(doc, src, body)
 	case "translink":
-		projects = c.parseTransLink(doc, src)
+		projects = c.parseTransLink(doc, src, body)
 	case "yvr":
-		projects = c.parseYVR(doc, src)
+		projects = c.parseYVR(doc, src, body)
 	}
 
 	return projects, nil
 }
 
-func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src AnnouncementSource) []collector.RawProject {
+func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src AnnouncementSource, rawData []byte) []collector.RawProject {
 	var projects []collector.RawProject
 	// BCIB uses h3 for project titles in the projects list
 	doc.Find("h3").Each(func(i int, s *goquery.Selection) {
@@ -116,6 +122,8 @@ func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src Announceme
 			Description: description,
 			SourceURL:   src.URL,
 			IssuedAt:    time.Now(),
+			RawData:     rawData,
+			RawType:     "text/html",
 		}
 		p.Hash = c.hash(p.Source, p.ExternalID)
 		projects = append(projects, p)
@@ -123,7 +131,7 @@ func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src Announceme
 	return projects
 }
 
-func (c *AnnouncementsCollector) parseTransLink(doc *goquery.Document, src AnnouncementSource) []collector.RawProject {
+func (c *AnnouncementsCollector) parseTransLink(doc *goquery.Document, src AnnouncementSource, rawData []byte) []collector.RawProject {
 	var projects []collector.RawProject
 	// TransLink uses h4 for project categories/titles
 	doc.Find("h4").Each(func(i int, s *goquery.Selection) {
@@ -141,6 +149,8 @@ func (c *AnnouncementsCollector) parseTransLink(doc *goquery.Document, src Annou
 			Description: description,
 			SourceURL:   src.URL,
 			IssuedAt:    time.Now(),
+			RawData:     rawData,
+			RawType:     "text/html",
 		}
 		p.Hash = c.hash(p.Source, p.ExternalID)
 		projects = append(projects, p)
@@ -148,7 +158,7 @@ func (c *AnnouncementsCollector) parseTransLink(doc *goquery.Document, src Annou
 	return projects
 }
 
-func (c *AnnouncementsCollector) parseYVR(doc *goquery.Document, src AnnouncementSource) []collector.RawProject {
+func (c *AnnouncementsCollector) parseYVR(doc *goquery.Document, src AnnouncementSource, rawData []byte) []collector.RawProject {
 	var projects []collector.RawProject
 	// YVR Newsroom uses h3 for major projects
 	doc.Find("h3").Each(func(i int, s *goquery.Selection) {
@@ -164,6 +174,8 @@ func (c *AnnouncementsCollector) parseYVR(doc *goquery.Document, src Announcemen
 			Description: "Major project at YVR",
 			SourceURL:   src.URL,
 			IssuedAt:    time.Now(),
+			RawData:     rawData,
+			RawType:     "text/html",
 		}
 		p.Hash = c.hash(p.Source, p.ExternalID)
 		projects = append(projects, p)

@@ -57,6 +57,7 @@ func TestMigrate_postgres_column_types(t *testing.T) {
 		{"leads", "created_at", "timestamp with time zone"},
 		{"leads", "project_value", "bigint"},
 		{"raw_projects", "raw_data", "jsonb"},
+		{"raw_projects", "raw_type", "text"},
 		{"raw_inputs", "payload", "bytea"},
 	}
 	for _, tt := range tests {

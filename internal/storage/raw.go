@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -34,17 +33,13 @@ func NewRawProjectStoreWithDSN(db *sql.DB, dsn string) RawProjectStore {
 }
 
 func (s *sqliteRawStore) Insert(ctx context.Context, p *collector.RawProject) error {
-	raw, err := json.Marshal(p.RawData)
-	if err != nil {
-		return fmt.Errorf("marshal raw_data: %w", err)
-	}
 	query := `
-		INSERT INTO raw_projects (id, source, external_id, raw_data, collected_at, hash)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO raw_projects (id, source, external_id, raw_data, raw_type, collected_at, hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(hash) DO NOTHING
 	`
-	_, err = s.db.ExecContext(ctx, Rebind(s.dsn, query),
-		NewUUID(), p.Source, p.ExternalID, string(raw), time.Now().UTC(), p.Hash)
+	_, err := s.db.ExecContext(ctx, Rebind(s.dsn, query),
+		NewUUID(), p.Source, p.ExternalID, string(p.RawData), p.RawType, time.Now().UTC(), p.Hash)
 	return err
 }
 

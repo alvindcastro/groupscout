@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS raw_projects (
     source       TEXT NOT NULL,
     external_id  TEXT,
     raw_data     TEXT NOT NULL,      -- JSON blob of the original payload
+    raw_type     TEXT,               -- mime type (e.g. "application/json")
     collected_at DATETIME NOT NULL,
     hash         TEXT UNIQUE NOT NULL
 );
@@ -134,6 +135,7 @@ func Migrate(db *sql.DB, dsn string) error {
 		`ALTER TABLE leads ADD COLUMN source_url TEXT`,
 		`ALTER TABLE leads ADD COLUMN rationale TEXT`,
 		`ALTER TABLE leads ADD COLUMN raw_input_id TEXT`,
+		`ALTER TABLE raw_projects ADD COLUMN raw_type TEXT`,
 	} {
 		if _, err := db.Exec(stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 			return err

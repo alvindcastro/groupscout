@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	"github.com/alvindcastro/groupscout/internal/collector"
@@ -51,7 +53,21 @@ func (c *NewsCollector) Collect(ctx context.Context) ([]collector.RawProject, er
 		if c.Verbose {
 			logger.Log.Info("fetching news RSS", "url", url)
 		}
-		feed, err := fp.ParseURLWithContext(url, ctx)
+
+		resp, err := http.DefaultClient.Get(url)
+		if err != nil {
+			if c.Verbose {
+				logger.Log.Error("failed to fetch news RSS feed", "url", url, "error", err)
+			}
+			continue
+		}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			continue
+		}
+
+		feed, err := fp.Parse(strings.NewReader(string(body)))
 		if err != nil {
 			if c.Verbose {
 				logger.Log.Error("failed to parse news RSS feed", "url", url, "error", err)
@@ -70,6 +86,8 @@ func (c *NewsCollector) Collect(ctx context.Context) ([]collector.RawProject, er
 				Title:       item.Title,
 				Description: item.Description,
 				SourceURL:   item.Link,
+				RawData:     body,
+				RawType:     "application/rss+xml",
 			}
 
 			if item.PublishedParsed != nil {

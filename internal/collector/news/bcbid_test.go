@@ -68,8 +68,11 @@ func TestBCBidCollector_Collect(t *testing.T) {
 		if projects[0].Title != "BC Bid Award Notice (HTML)" {
 			t.Errorf("expected HTML title, got %q", projects[0].Title)
 		}
-		if projects[0].RawData["raw_html"] != raw {
-			t.Errorf("raw_html mismatch")
+		if string(projects[0].RawData) != raw {
+			t.Errorf("raw data mismatch: got %q, want %q", string(projects[0].RawData), raw)
+		}
+		if projects[0].RawType != "text/html" {
+			t.Errorf("RawType mismatch: got %q, want %q", projects[0].RawType, "text/html")
 		}
 	})
 }

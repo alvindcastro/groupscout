@@ -16,12 +16,12 @@
     - [x] `GetByHash(ctx, hash string) (*RawInput, error)` — for de-duplication.
 
 ### Part B — Collector Integration
-- [ ] Update `Collector` interface to return raw data alongside `RawProject`.
-    - [ ] `RawProject` should have a `RawData []byte` field and a `RawType string` field.
-- [ ] Richmond: Store the raw PDF content and source URL for each run.
-- [ ] Delta: Store the raw PDF content and source URL.
-- [ ] BC Bid: Store the raw RSS XML and individual item descriptions.
-- [ ] News/Creative BC/VCC: Store the raw API/RSS responses.
+- [x] Update `Collector` interface to return raw data alongside `RawProject`.
+    - [x] `RawProject` should have a `RawData []byte` field and a `RawType string` field.
+- [x] Richmond: Store the raw PDF content and source URL for each run.
+- [x] Delta: Store the raw PDF content and source URL.
+- [x] BC Bid: Store the raw RSS XML and individual item descriptions.
+- [x] News/Creative BC/VCC: Store the raw API/RSS responses.
 
 ### Part C — Enrichment Linking
 - [x] Link `raw_input_id` to `leads` table to provide a direct link to the source data.

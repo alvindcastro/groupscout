@@ -136,7 +136,7 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]collector.RawProject
 		logger.Log.Info("processing latest report", "source", "richmond", "count", len(urls), "url", urls[0])
 	}
 
-	path, cleanup, err := r.downloadPDF(ctx, urls[0])
+	path, rawData, cleanup, err := r.downloadPDF(ctx, urls[0])
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (r *RichmondCollector) Collect(ctx context.Context) ([]collector.RawProject
 			skippedType++
 			continue
 		}
-		p := toRawProject(rec)
+		p := toRawProject(rec, rawData)
 		p.SourceURL = pdfURL
 		p.Hash = hashPermit(rec.FolderNumber, rec.Address, rec.IssueDate)
 		projects = append(projects, p)
@@ -230,37 +230,42 @@ func (r *RichmondCollector) fetchPDFURLs(ctx context.Context) ([]string, error) 
 }
 
 // downloadPDF fetches a PDF from url, writes it to a temp file, and returns
-// the file path plus a cleanup function the caller must defer.
-func (r *RichmondCollector) downloadPDF(ctx context.Context, url string) (path string, cleanup func(), err error) {
+// the file path, the raw bytes, plus a cleanup function the caller must defer.
+func (r *RichmondCollector) downloadPDF(ctx context.Context, url string) (path string, data []byte, cleanup func(), err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", nil, fmt.Errorf("richmond: build pdf request: %w", err)
+		return "", nil, nil, fmt.Errorf("richmond: build pdf request: %w", err)
 	}
 	req.Header.Set("User-Agent", "groupscout-leadgen/1.0 (hotel group sales intelligence)")
 
 	resp, err := r.client.Do(req)
 	if err != nil {
-		return "", nil, fmt.Errorf("richmond: download pdf: %w", err)
+		return "", nil, nil, fmt.Errorf("richmond: download pdf: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", nil, fmt.Errorf("richmond: pdf download returned HTTP %d", resp.StatusCode)
+		return "", nil, nil, fmt.Errorf("richmond: pdf download returned HTTP %d", resp.StatusCode)
+	}
+
+	data, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("richmond: read pdf body: %w", err)
 	}
 
 	tmp, err := os.CreateTemp("", "richmond-*.pdf")
 	if err != nil {
-		return "", nil, fmt.Errorf("richmond: create temp file: %w", err)
+		return "", nil, nil, fmt.Errorf("richmond: create temp file: %w", err)
 	}
 
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
-		return "", nil, fmt.Errorf("richmond: write pdf: %w", err)
+		return "", nil, nil, fmt.Errorf("richmond: write pdf: %w", err)
 	}
 	tmp.Close()
 
-	return tmp.Name(), func() { os.Remove(tmp.Name()) }, nil
+	return tmp.Name(), data, func() { os.Remove(tmp.Name()) }, nil
 }
 
 // parsePDF extracts all permit records from a Richmond PDF report.
@@ -588,7 +593,7 @@ func isRelevant(rec permitRecord, minValue int64) bool {
 }
 
 // toRawProject maps a permitRecord to the normalized collector.RawProject used by the pipeline.
-func toRawProject(rec permitRecord) collector.RawProject {
+func toRawProject(rec permitRecord, rawData []byte) collector.RawProject {
 	return collector.RawProject{
 		Source:     "richmond_permits",
 		ExternalID: rec.FolderNumber,
@@ -600,17 +605,8 @@ func toRawProject(rec permitRecord) collector.RawProject {
 			rec.WorkProposed, rec.Status, rec.Applicant, rec.Contractor,
 		),
 		IssuedAt: rec.IssueDate,
-		RawData: map[string]any{
-			"folder_number": rec.FolderNumber,
-			"sub_type":      rec.SubType,
-			"work_proposed": rec.WorkProposed,
-			"status":        rec.Status,
-			"issue_date":    rec.IssueDate.Format("2006-01-02"),
-			"value_cad":     rec.ValueCAD,
-			"address":       rec.Address,
-			"applicant":     rec.Applicant,
-			"contractor":    rec.Contractor,
-		},
+		RawData:  rawData,
+		RawType:  "application/pdf",
 	}
 }
 

@@ -38,7 +38,8 @@ func TestFullStack_postgres(t *testing.T) {
 	p := &collector.RawProject{
 		Source: "smoke_test", Title: "Smoke test permit",
 		ExternalID: "SMOKE-001", IssuedAt: time.Now(),
-		RawData: map[string]any{"test": true},
+		RawData: []byte(`{"test": true}`),
+		RawType: "application/json",
 	}
 	p.Hash = HashProject(p.Source, p.ExternalID, p.Title, p.IssuedAt)
 	if err := rawStore.Insert(ctx, p); err != nil {
