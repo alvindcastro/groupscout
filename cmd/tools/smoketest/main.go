@@ -132,7 +132,7 @@ func sendTestSlack(ctx context.Context) {
 		},
 	}
 
-	notifier := leadnotify.NewSlackNotifier(webhookURL)
+	notifier := leadnotify.NewSlackNotifier(webhookURL, "http://localhost:8080")
 	log.Printf("sending %d test leads to Slack...", len(leads))
 	if err := notifier.Send(ctx, leads); err != nil {
 		log.Fatalf("slack send failed: %v", err)

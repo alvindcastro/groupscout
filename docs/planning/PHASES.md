@@ -828,9 +828,9 @@
 - [x] **27.8** `internal/enrichment/enricher.go` — store raw input in `AuditStore` and link to `Lead` before LLM call.
 - [x] **27.12** RawProject Metadata — Added `Metadata map[string]any` to `collector.RawProject` for structured pipeline data and fixed enrichment pipeline.
 
-### Part C — Verification & Access
-- [ ] **27.9** `cmd/server/main.go` — `GET /leads/{id}/raw` endpoint to retrieve the original input data with correct Content-Type.
-- [ ] **27.10** CLI Tool: `groupscout audit <lead_id>` — dumps metadata and provides `--save` flag for raw payload.
+### Part C — Verification & Access ✅
+- [x] **27.9** `cmd/server/main.go` — `GET /leads/{id}/raw` endpoint to retrieve the original input data with correct Content-Type.
+- [x] **27.10** CLI Tool: `groupscout audit <lead_id>` — dumps metadata and provides `--save` flag for raw payload.
 
 ### Part D — Retention & Privacy
 - [ ] **27.11** Implement cleanup worker for old raw inputs and hashing logic for de-duplication.

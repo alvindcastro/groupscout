@@ -88,7 +88,8 @@ func TestBoolLabel(t *testing.T) {
 // ── buildMessage ──────────────────────────────────────────────────────────────
 
 func TestBuildMessage_structure(t *testing.T) {
-	msg := buildMessage([]storage.Lead{sampleLead})
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
+	msg := s.buildMessage([]storage.Lead{sampleLead})
 
 	blocks, ok := msg["blocks"].([]map[string]any)
 	if !ok {
@@ -117,8 +118,9 @@ func TestBuildMessage_structure(t *testing.T) {
 }
 
 func TestBuildMessage_multipleLeads(t *testing.T) {
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
 	leads := []storage.Lead{sampleLead, sampleLead, sampleLead}
-	msg := buildMessage(leads)
+	msg := s.buildMessage(leads)
 
 	blocks := msg["blocks"].([]map[string]any)
 	// header + divider + (section + divider) * 3 = 2 + 6 = 8
@@ -129,9 +131,10 @@ func TestBuildMessage_multipleLeads(t *testing.T) {
 }
 
 func TestBuildMessage_empty(t *testing.T) {
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
 	// Send() returns early for empty leads, but buildMessage itself should
 	// still produce a valid (header-only) structure if ever called directly.
-	msg := buildMessage([]storage.Lead{})
+	msg := s.buildMessage([]storage.Lead{})
 	if _, ok := msg["blocks"]; !ok {
 		t.Error("buildMessage: missing 'blocks' key")
 	}
@@ -140,7 +143,8 @@ func TestBuildMessage_empty(t *testing.T) {
 // ── leadBlock ─────────────────────────────────────────────────────────────────
 
 func TestLeadBlock_containsTitle(t *testing.T) {
-	block := leadBlock(sampleLead)
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
+	block := s.leadBlock(sampleLead)
 
 	text, ok := block["text"].(map[string]any)
 	if !ok {
@@ -153,7 +157,8 @@ func TestLeadBlock_containsTitle(t *testing.T) {
 }
 
 func TestLeadBlock_containsScore(t *testing.T) {
-	block := leadBlock(sampleLead)
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
+	block := s.leadBlock(sampleLead)
 
 	text := block["text"].(map[string]any)
 	content, _ := text["text"].(string)
@@ -163,7 +168,8 @@ func TestLeadBlock_containsScore(t *testing.T) {
 }
 
 func TestLeadBlock_hasFields(t *testing.T) {
-	block := leadBlock(sampleLead)
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
+	block := s.leadBlock(sampleLead)
 
 	fields, ok := block["fields"].([]map[string]any)
 	if !ok {
@@ -175,9 +181,10 @@ func TestLeadBlock_hasFields(t *testing.T) {
 }
 
 func TestLeadBlock_withRationale(t *testing.T) {
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
 	l := sampleLead
 	l.Rationale = "This is a strong lead because of its location and project type."
-	block := leadBlock(l)
+	block := s.leadBlock(l)
 
 	fields, ok := block["fields"].([]map[string]any)
 	if !ok {
@@ -202,7 +209,8 @@ func TestLeadBlock_withRationale(t *testing.T) {
 }
 
 func TestLeadBlock_containsSource(t *testing.T) {
-	block := leadBlock(sampleLead)
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
+	block := s.leadBlock(sampleLead)
 
 	text := block["text"].(map[string]any)
 	content, _ := text["text"].(string)
@@ -214,10 +222,11 @@ func TestLeadBlock_containsSource(t *testing.T) {
 // ── leadBlock contact line ────────────────────────────────────────────────────
 
 func TestLeadBlock_contactLine_both(t *testing.T) {
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
 	l := sampleLead
 	l.Contractor = "Safara Cladding Inc (416)875-1770"
 	l.Applicant = "Studio Senbel Architecture Inc (604)605-6995"
-	block := leadBlock(l)
+	block := s.leadBlock(l)
 	content, _ := block["text"].(map[string]any)["text"].(string)
 	for _, want := range []string{"📞", l.Contractor, l.Applicant} {
 		if !strings.Contains(content, want) {
@@ -227,10 +236,11 @@ func TestLeadBlock_contactLine_both(t *testing.T) {
 }
 
 func TestLeadBlock_contactLine_contractorOnly(t *testing.T) {
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
 	l := sampleLead
 	l.Contractor = "BuildRight Contracting (604)555-0199"
 	l.Applicant = ""
-	block := leadBlock(l)
+	block := s.leadBlock(l)
 	content, _ := block["text"].(map[string]any)["text"].(string)
 	if !strings.Contains(content, l.Contractor) {
 		t.Errorf("leadBlock missing contractor %q\ngot: %s", l.Contractor, content)
@@ -241,8 +251,9 @@ func TestLeadBlock_contactLine_contractorOnly(t *testing.T) {
 }
 
 func TestLeadBlock_noContactLine_whenEmpty(t *testing.T) {
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
 	// sampleLead has no Applicant or Contractor set
-	block := leadBlock(sampleLead)
+	block := s.leadBlock(sampleLead)
 	content, _ := block["text"].(map[string]any)["text"].(string)
 	if strings.Contains(content, "📞") {
 		t.Errorf("leadBlock should not show 📞 when both Contractor and Applicant are empty\ngot: %s", content)
