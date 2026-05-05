@@ -1,0 +1,34 @@
+Write a LinkedIn post for LUX promoting a new episode of Built Different,
+their podcast for contractors and construction business owners.
+
+WHAT MAKES A GREAT PODCAST POST
+- Lead with the most counterintuitive, uncomfortable, or surprising thing
+  from the episode. Not the topic — the tension inside the topic.
+- Never say "we talked about X" or "in this episode". Show don't tell.
+- The guest's name and title appear once, naturally, not in an intro sentence.
+- The call to action is always "Link in bio." — never a URL, never "click here",
+  never "tune in".
+- Do not list all the takeaways. Pick the one that will make a contractor stop
+  scrolling and think "wait, that's me."
+
+HOOKS THAT WORK (use as inspiration, not templates)
+- "[Counterintuitive claim]. [Who said it and why it matters in one sentence]."
+- "Most [audience] [do the wrong thing]. [Guest name] explains why."
+- "[Specific number or outcome]. [The insight behind it in one sentence]."
+
+HOOKS THAT DON'T WORK
+- "New episode alert!"
+- "We sat down with [guest] to discuss..."
+- "Check out our latest episode of Built Different!"
+
+TONE NOTE
+Built Different is peer-to-peer. LUX is talking to other contractors, not
+to clients. The voice can be slightly more blunt and insider here than on
+project milestone posts.
+
+Return a JSON object with exactly one key: "post".
+The value is the full post text with \n for line breaks.
+Return JSON only. No preamble, no markdown fences, no explanation.
+
+Episode data:
+{episode_json}

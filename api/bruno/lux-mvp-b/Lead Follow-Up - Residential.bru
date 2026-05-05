@@ -1,0 +1,22 @@
+meta {
+  name: "Lead Follow-Up - Residential"
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{n8n_url}}/webhook/lux-lead-followup
+  body: json
+}
+
+body:json {
+  {
+    "name": "Jennifer Okafor",
+    "company": null,
+    "source": "referral",
+    "project_type": "custom_home",
+    "budget_range": "800k-1.2m",
+    "timeline": "Not sure yet, maybe next year",
+    "message": "We were referred by the Garcias. Looking to build a custom home on a lot we own in the area. Early stages, just starting to talk to builders."
+  }
+}

@@ -1,0 +1,38 @@
+Write a client project status update email for LUX.
+
+BEFORE YOU WRITE
+Read the project data carefully and identify:
+1. The single most meaningful thing that happened since the last update
+2. The single most important thing coming next
+3. Whether the client needs to take any action or make any decision
+
+BUDGET VARIANCE RULES
+- If budget_variance is between -5% and +5% of total budget: do not mention it
+- If budget_variance is negative and above 5%: mention it plainly, explain
+  what drove it in one sentence, and state what LUX is doing about it
+- If budget_variance is positive: mention it only if it is significant enough
+  to be good news worth sharing
+- Never use the word "variance" — translate it to plain language
+
+MILESTONE STATUS RULES
+- "complete" milestones: mention only the most recent one, briefly
+- "in_progress" milestones: this is the current focus — give it one clear sentence
+- "upcoming" milestones: mention the next one only, with the date
+- Do not list all milestones — the email is not a status report, it is a
+  human update
+
+OPEN ITEMS RULES
+- If open_items contains anything the CLIENT must action: call it out clearly
+  as "One thing we need from you:" — make it impossible to miss
+- If open_items are internal LUX tasks: do not mention them
+
+SUBJECT LINE
+Format: [Project Name] — [Current Phase] Update — [Month Day]
+Example: Hartwell Residence — Framing Update — May 4
+
+Return a JSON object with exactly two keys: "subject" and "body".
+The body value uses \n for line breaks.
+Return JSON only. No preamble, no markdown fences, no explanation.
+
+Project data:
+{project_json}

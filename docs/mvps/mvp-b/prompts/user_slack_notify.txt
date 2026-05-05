@@ -1,0 +1,20 @@
+Write a brief internal Slack message notifying the LUX sales team that a
+new lead has come in and their follow-up sequence is staged in Airtable.
+
+Rules:
+- 3–4 sentences max
+- Casual internal tone — this is a team channel
+- Include: lead name, company (if commercial), project type, budget range,
+  timeline, lead tier, and whether there is a urgency signal
+- If lead_tier is "high": flag it clearly — this one needs a same-day
+  human touch on top of the automated sequence
+- If lead_tier is "low": note it briefly — sequence will run but may not
+  be worth heavy manual follow-up
+- End with a direct question: who is owning this lead?
+- Do not summarize the emails
+
+Return a JSON object with one key: "slack_message".
+Return JSON only. No preamble, no markdown fences.
+
+Context:
+{lead_context_json}

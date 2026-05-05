@@ -1,0 +1,22 @@
+meta {
+  name: "Lead Follow-Up - Commercial"
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{n8n_url}}/webhook/lux-lead-followup
+  body: json
+}
+
+body:json {
+  {
+    "name": "Marcus Webb",
+    "company": "Webb Commercial Properties",
+    "source": "website_contact_form",
+    "project_type": "commercial_renovation",
+    "budget_range": "250k-500k",
+    "timeline": "Q3 2025",
+    "message": "Looking to renovate two tenant spaces in our office building downtown. Want to discuss scope and timeline."
+  }
+}

@@ -1,0 +1,50 @@
+Write a 3-email follow-up sequence for a residential construction lead.
+
+CONTEXT FROM LEAD CLASSIFICATION
+Lead tier: {lead_tier}
+Key detail from their message: {key_detail}
+Urgency signal: {urgency_signal}
+
+EMAIL 1 — Send same day
+Purpose: acknowledge, build immediate personal connection, set up a call
+- Open with the key_detail — show you read their specific situation
+- Residential clients are making one of the largest financial decisions of
+  their lives. The tone is warmer than commercial but still confident.
+- 1–2 sentences that show you understand what they are trying to build —
+  not the construction, the outcome (the home they want to live in)
+- One clear CTA: propose a 20-minute call, ask for their availability
+- If urgency_signal is true: acknowledge their timeline
+- Max 120 words
+
+EMAIL 2 — Send day 3, only if no reply to Email 1
+Purpose: add value specific to residential builds, re-engage gently
+- Lead with one consideration that is specific to their project type:
+  custom home (design-build vs. design-bid-build, how early to engage a
+  builder, what to have ready before the first meeting), addition or remodel
+  (permit timelines, living in the home during construction, how scope creep
+  happens and how LUX prevents it)
+- Frame it as something most homeowners don't know until it's too late
+- Soft CTA: offer a no-obligation conversation
+- Max 120 words
+
+EMAIL 3 — Send day 7, only if no reply to Email 1 or 2
+Purpose: soft close, leave the door open
+- Keep it brief and human — 3–4 sentences
+- Acknowledge that projects like theirs take time to move forward
+- Make it easy to come back without feeling like they owe LUX anything
+- No pressure, no urgency manufacturing
+- Max 100 words
+
+SUBJECT LINE RULES FOR ALL THREE EMAILS
+- Specific to their project or message — never generic
+- Email 1: reference their project type or what they said they want to build
+- Email 2: reference the insight or consideration being shared
+- Email 3: feel like a genuine open door, not a last attempt
+
+Return a JSON object with keys "email_1", "email_2", "email_3".
+Each key contains "subject" and "body".
+Body values use \n for line breaks.
+Return JSON only. No preamble, no markdown fences.
+
+Lead data:
+{lead_json}

@@ -1,0 +1,29 @@
+Write a LinkedIn post for LUX about a project milestone.
+
+WHAT MAKES A GREAT MILESTONE POST
+- Lead with the most concrete fact in the data: a number, a duration, a size,
+  a challenge overcome. Not the milestone name — the fact behind it.
+- The second paragraph gives brief context or credit where it's earned.
+- The third paragraph (optional) teases what's next — but only if it adds tension
+  or momentum. Skip it if it's boring.
+- Never explain what framing is, what a foundation pour is, or any other trade
+  term. The LUX audience knows construction.
+- Do not use the project name in the post unless it adds something. Client privacy
+  is default. Location is fine if it matters.
+
+HOOKS THAT WORK (use as inspiration, not templates)
+- "[Number] sqft. [X] days. [One obstacle]."
+- "The [phase] is done. Here's what it took."
+- "[Specific challenge]. [How it was handled in one sentence]."
+
+HOOKS THAT DON'T WORK
+- "We're proud to share that..."
+- "Another milestone reached at LUX."
+- "Big news from the jobsite."
+
+Return a JSON object with exactly one key: "post".
+The value is the full post text with \n for line breaks.
+Return JSON only. No preamble, no markdown fences, no explanation.
+
+Milestone data:
+{milestone_json}

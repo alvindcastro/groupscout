@@ -1,0 +1,21 @@
+Analyze this inbound construction lead and return a classification.
+
+Extract:
+1. lead_tier: "high", "medium", or "low"
+   - high: clear budget, near-term timeline, specific project description
+   - medium: budget or timeline is vague, project is described generally
+   - low: no budget signal, no timeline, very short or generic message
+2. project_category: "custom_home", "commercial_renovation", "addition_or_remodel",
+   "multi_family", or "unknown"
+3. key_detail: the single most specific or useful thing the lead said in their
+   own words — a phrase, a constraint, a number, a concern. Max 15 words.
+   If nothing specific was said, return null.
+4. urgency_signal: true if the lead mentioned a specific start date, deadline,
+   or time pressure. Otherwise false.
+
+Return a JSON object with exactly these four keys: "lead_tier", "project_category",
+"key_detail", "urgency_signal".
+Return JSON only. No preamble, no markdown fences.
+
+Lead data:
+{lead_json}

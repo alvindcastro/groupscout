@@ -1,0 +1,21 @@
+meta {
+  name: "MVP-C Milestone Post"
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{n8n_url}}/webhook/lux-linkedin-post
+  body: json
+}
+
+body:json {
+  {
+    "type": "project_milestone",
+    "project_name": "Hartwell Residence",
+    "milestone": "Framing complete",
+    "detail": "Wrapped framing on a 4,200 sqft custom home in 11 days despite a 3-day rain delay.",
+    "team": ["Mike (lead framer)", "Delta Framing Co."],
+    "next_phase": "Rough-in electrical and plumbing"
+  }
+}

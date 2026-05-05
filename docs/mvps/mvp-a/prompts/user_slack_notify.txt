@@ -1,0 +1,17 @@
+Write a brief internal Slack message for the LUX team notifying them that
+a client status email draft is ready for review.
+
+Rules:
+- 2–3 sentences max
+- Casual internal tone — this is a team channel, not a client communication
+- Include: project name, client name, current phase, and that it needs a
+  review before sending
+- Do not repeat the email body
+- End with a direct question: who is reviewing this before it goes out?
+- No emoji unless it is the review flag at the very start
+
+Return a JSON object with one key: "slack_message".
+Return JSON only. No preamble, no markdown fences.
+
+Context:
+{notification_context_json}

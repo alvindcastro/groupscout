@@ -1,0 +1,30 @@
+meta {
+  name: "Status Email - Standard Update"
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{n8n_url}}/webhook/lux-status-email
+  body: json
+}
+
+body:json {
+  {
+    "project_name": "Hartwell Residence",
+    "client_name": "Sarah Hartwell",
+    "phase": "Framing",
+    "percent_complete": 62,
+    "milestones": [
+      { "name": "Foundation pour", "status": "complete", "date": "2025-04-10" },
+      { "name": "Framing", "status": "in_progress", "due": "2025-05-15" },
+      { "name": "Rough-in electrical", "status": "upcoming", "due": "2025-05-28" }
+    ],
+    "budget_variance": -4200,
+    "open_items": [
+      "Client to select cabinet hardware",
+      "Pending permit inspection"
+    ],
+    "next_site_visit": "2025-05-07"
+  }
+}

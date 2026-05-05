@@ -200,3 +200,137 @@ go test -v ./internal/storage -run TestAuditStore_PurgeOlderThan
 
 #### Manual Verification via SQL
 You can verify the state of your live database (Postgres) using the queries provided in [POSTGRES_QUERIES.md](./POSTGRES_QUERIES.md#audit-trail-raw-inputs).
+
+---
+
+### 11. LUX MVP Testing (n8n only)
+
+LUX MVP workflows (MVP-A, MVP-B, MVP-C) run entirely inside n8n and call external APIs (Anthropic, Airtable, Slack). They do **not** require the GroupScout Go server, Postgres, or Ollama. Only n8n needs to be running.
+
+#### Start n8n in Isolation
+
+```bash
+# Start only n8n — no other services needed
+docker compose up -d n8n
+
+# Confirm running
+docker compose ps n8n
+
+# Tail logs during test runs
+docker compose logs -f n8n
+```
+
+n8n UI: `http://localhost:5678`
+
+```bash
+# Stop when done
+docker compose stop n8n
+```
+
+---
+
+#### MVP-B — Lead Follow-Up Sequence
+
+**Prerequisites:** Anthropic API key, Airtable base with `Leads` table, Slack bot in `#new-leads`.
+See [LUX_MVP_B_SETUP.md](LUX_MVP_B_SETUP.md) for credential setup.
+
+**Test 1 — Commercial lead (high tier, routes to Prompt 3A)**
+
+```bash
+curl -X POST http://localhost:5678/webhook/lux-lead-followup \
+  -H "Content-Type: application/json" \
+  -d @docs/mvps/mvp-b/payload.json
+```
+
+Expected response: `{"status":"queued","lead":"Marcus Webb","tier":"high"}`
+
+Verify:
+- [ ] Airtable: record created with `Lead Tier: high`, `Project Type: commercial_renovation`
+- [ ] Email 1 body opens with "tenant spaces" (mirrors Marcus's exact words)
+- [ ] Email 2 contains a commercial-specific insight (phased permitting, tenant coordination) — not design-build
+- [ ] Slack `#new-leads`: flags high-tier, ends with ownership question
+
+**Test 2 — Residential lead (medium tier, routes to Prompt 3B)**
+
+```bash
+curl -X POST http://localhost:5678/webhook/lux-lead-followup \
+  -H "Content-Type: application/json" \
+  -d @docs/mvps/mvp-b/payload_alt.json
+```
+
+Expected response: `{"status":"queued","lead":"Jennifer Okafor","tier":"medium"}`
+
+Verify:
+- [ ] Airtable: record created with `Lead Tier: medium`, `Project Type: custom_home`
+- [ ] Email 2 contains a residential-specific insight (design-build, scope creep) — not phased permitting
+- [ ] Email 3 is noticeably softer than the commercial version
+- [ ] `Urgency Signal` checkbox is unchecked ("maybe next year" is not an urgency signal)
+
+**Test 3 — Routing check**
+
+In **Executions** → latest run → open **Route by Category** node:
+- `payload.json` (`commercial_renovation`) → True branch → **Generate Commercial Sequence**
+- `payload_alt.json` (`custom_home`) → False branch → **Generate Residential Sequence**
+
+---
+
+#### MVP-A — Client Status Email
+
+```bash
+curl -X POST http://localhost:5678/webhook/lux-status-email \
+  -H "Content-Type: application/json" \
+  -d @docs/mvps/mvp-a/payload.json
+```
+
+Verify: Slack `#client-updates-review` receives a Block Kit message with Approve/Edit buttons.
+
+```bash
+# Alt payload — budget overrun + supplier delay
+curl -X POST http://localhost:5678/webhook/lux-status-email \
+  -H "Content-Type: application/json" \
+  -d @docs/mvps/mvp-a/payload_alt.json
+```
+
+Verify: email body addresses the budget situation plainly, does not use the word "variance".
+
+---
+
+#### MVP-C — LinkedIn Post Pipeline
+
+```bash
+curl -X POST http://localhost:5678/webhook/lux-linkedin-post \
+  -H "Content-Type: application/json" \
+  -d @docs/mvps/mvp-c/payload_milestone.json
+
+curl -X POST http://localhost:5678/webhook/lux-linkedin-post \
+  -H "Content-Type: application/json" \
+  -d @docs/mvps/mvp-c/payload_podcast.json
+```
+
+Verify: Slack `#content-review` receives the post draft for each payload.
+
+---
+
+#### Using n8n Test Mode (no activation needed)
+
+For iterative prompt testing without activating the workflow:
+
+1. Open the workflow in the n8n editor
+2. Click **Test workflow** (top-right) — n8n listens on the test URL
+3. Send a payload using `/webhook-test/` instead of `/webhook/`:
+
+```bash
+curl -X POST http://localhost:5678/webhook-test/lux-lead-followup \
+  -H "Content-Type: application/json" \
+  -d @docs/mvps/mvp-b/payload.json
+```
+
+Execution results appear inline, node by node. The test URL only responds while the editor is open in test mode.
+
+---
+
+#### Checking Executions
+
+Go to **Executions** in the left sidebar. Click any node in a past run to see its exact input and output — this is the fastest way to debug classification drift, routing errors, or JSON parse failures.
+
+See [LUX_MVP_B_TROUBLESHOOTING.md](LUX_MVP_B_TROUBLESHOOTING.md) for node-by-node failure analysis.

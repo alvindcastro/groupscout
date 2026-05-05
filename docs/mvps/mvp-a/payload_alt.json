@@ -1,0 +1,20 @@
+{
+  "project_name": "Mercer Street Commercial",
+  "client_name": "David Mercer",
+  "phase": "Structural Steel",
+  "percent_complete": 34,
+  "milestones": [
+    { "name": "Demolition", "status": "complete", "date": "2025-03-28" },
+    { "name": "Foundation", "status": "complete", "date": "2025-04-18" },
+    { "name": "Structural steel", "status": "in_progress", "due": "2025-05-20" },
+    { "name": "Exterior envelope", "status": "upcoming", "due": "2025-06-10" }
+  ],
+  "budget_variance": -31500,
+  "budget_total": 480000,
+  "delay_reason": "Steel delivery delayed 8 days by supplier — adjusted schedule absorbs this without impacting the June 10 envelope start",
+  "open_items": [
+    "LUX to confirm revised steel delivery date with supplier",
+    "LUX to update subcontractor schedule"
+  ],
+  "next_site_visit": "2025-05-10"
+}

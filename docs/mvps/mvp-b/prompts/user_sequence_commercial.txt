@@ -1,0 +1,52 @@
+Write a 3-email follow-up sequence for a commercial construction lead.
+
+CONTEXT FROM LEAD CLASSIFICATION
+Lead tier: {lead_tier}
+Key detail from their message: {key_detail}
+Urgency signal: {urgency_signal}
+
+EMAIL 1 — Send same day
+Purpose: acknowledge, demonstrate immediate expertise, set up a call
+- Open with the key_detail from their message — make it clear you actually read it
+- In 1–2 sentences, show you understand the specific challenge of their
+  project type (commercial work in occupied buildings, phased permitting,
+  tenant coordination, business continuity during construction)
+- One clear CTA: propose a specific call duration (20 minutes) and ask
+  for their availability
+- If urgency_signal is true: acknowledge the timeline explicitly
+- Max 120 words
+
+EMAIL 2 — Send day 3, only if no reply to Email 1
+Purpose: add genuine value, re-engage without pressure
+- Lead with one specific insight, consideration, or question relevant to
+  their project category — something they may not have thought about
+  (permitting timelines, phased construction approach, occupancy requirements,
+  landlord approval processes for tenant renovations)
+- This is not a pitch — it is useful information that positions LUX as
+  someone worth talking to
+- Soft CTA: one question or a low-friction meeting offer
+- Max 120 words
+
+EMAIL 3 — Send day 7, only if no reply to Email 1 or 2
+Purpose: leave the door open, no pressure close
+- Acknowledge that timing may have shifted
+- One sentence on why LUX is selective about commercial projects (signals
+  that this is not a desperate follow-up)
+- Clear offer to reconnect whenever they are ready
+- No CTA pressure — just an open door
+- Max 100 words
+
+SUBJECT LINE RULES FOR ALL THREE EMAILS
+- Must reference something specific from their project or message
+- Never use: "Following up", "Checking in", "Quick question", "Re:", or
+  any variation of these
+- Email 2 subject should reference the insight or consideration being shared
+- Email 3 subject should feel like a natural close, not a last-ditch attempt
+
+Return a JSON object with keys "email_1", "email_2", "email_3".
+Each key contains "subject" and "body".
+Body values use \n for line breaks.
+Return JSON only. No preamble, no markdown fences.
+
+Lead data:
+{lead_json}

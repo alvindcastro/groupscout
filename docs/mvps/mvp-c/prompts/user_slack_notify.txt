@@ -1,0 +1,16 @@
+Write a brief internal Slack message notifying the LUX team that a LinkedIn
+post draft is ready for review.
+
+Rules:
+- 2–3 sentences max
+- Include: content type, what it's about, and a note that it needs review
+  before posting
+- Tone is casual internal — this is a team message, not a client communication
+- Do not repeat the full post text
+- End with a single line asking who will review it
+
+Return a JSON object with one key: "slack_message".
+Return JSON only. No preamble, no markdown fences.
+
+Context:
+{post_context_json}
