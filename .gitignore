@@ -11,6 +11,9 @@ CLAUDE.md
 .claude/
 .junie/
 
+# ── Local plugins / agent scaffolds ────────────────────────
+plugins/
+
 # ── Binaries ─────────────────────────────────────────────
 *.exe
 *.out
