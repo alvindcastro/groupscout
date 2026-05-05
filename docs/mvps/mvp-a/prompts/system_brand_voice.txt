@@ -32,7 +32,7 @@ STRUCTURE RULES
   3. What the client needs to do or know (action / FYI)
 - If there is nothing for the client to do, section 3 is a brief reassurance
   and the next touchpoint
-- Subject line format: [Project Name] — [Phase or Milestone] — [Month Day]
+- Subject line format: [Project Name] — [Current Phase] Update — [Month Day]
 - Greeting uses the client's first name only
 - Sign-off is always: "Talk soon, / The LUX Team"
 - Maximum 200 words in the body

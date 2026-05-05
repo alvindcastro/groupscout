@@ -1,0 +1,322 @@
+{
+  "name": "MVP-C: LUX LinkedIn Post Pipeline",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lux-linkedin-post",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "route-by-type",
+      "name": "Route by Type",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equals",
+              "value2": "project_milestone"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "claude-milestone",
+      "name": "Claude: Milestone Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        680,
+        180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-opus-4-6\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($node['Read System Prompt'].json.content) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($node['Read Milestone Prompt'].json.content.replace('{milestone_json}', JSON.stringify($node['Webhook'].json))) }}\n    }\n  ]\n}"
+      }
+    },
+    {
+      "id": "claude-podcast",
+      "name": "Claude: Podcast Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        680,
+        420
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-opus-4-6\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($node['Read System Prompt'].json.content) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($node['Read Podcast Prompt'].json.content.replace('{episode_json}', JSON.stringify($node['Webhook'].json))) }}\n    }\n  ]\n}"
+      }
+    },
+    {
+      "id": "merge",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "mode": "mergeByPosition"
+      }
+    },
+    {
+      "id": "extract-post",
+      "name": "Extract Post",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.content?.[0]?.text ?? '';\nlet post = '';\ntry {\n  post = JSON.parse(text).post;\n} catch (e) {\n  post = text;\n}\nconst inputData = $node['Webhook'].json;\nreturn [{\n  json: {\n    post,\n    content_type: inputData.type,\n    about: inputData.type === 'project_milestone'\n      ? `${inputData.milestone} — ${inputData.project_name}`\n      : `Episode ${inputData.episode} with ${inputData.guest} on ${inputData.topic}`,\n    post_preview: post.split('\\n')[0]\n  }\n}];"
+      }
+    },
+    {
+      "id": "claude-slack-copy",
+      "name": "Claude: Slack Notification Copy",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1340,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 256,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($node['Read Slack Prompt'].json.content.replace('{post_context_json}', JSON.stringify({ content_type: $json.content_type, about: $json.about, post_preview: $json.post_preview }))) }}\n    }\n  ]\n}"
+      }
+    },
+    {
+      "id": "build-slack-message",
+      "name": "Build Slack Message",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1560,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const slackRaw = $input.first().json;\nconst slackText = slackRaw.content?.[0]?.text ?? '';\nlet slackMsg = '';\ntry {\n  slackMsg = JSON.parse(slackText).slack_message;\n} catch (e) {\n  slackMsg = slackText;\n}\nconst post = $node['Extract Post'].json.post;\nconst about = $node['Extract Post'].json.about;\nreturn [{\n  json: {\n    notification_text: slackMsg,\n    blocks: [\n      {\n        type: 'section',\n        text: { type: 'mrkdwn', text: slackMsg }\n      },\n      { type: 'divider' },\n      {\n        type: 'section',\n        text: { type: 'mrkdwn', text: post }\n      },\n      { type: 'divider' },\n      {\n        type: 'actions',\n        elements: [\n          { type: 'button', text: { type: 'plain_text', text: 'Post to LinkedIn' }, style: 'primary', value: 'post' },\n          { type: 'button', text: { type: 'plain_text', text: 'Schedule via Buffer' }, value: 'schedule' },\n          { type: 'button', text: { type: 'plain_text', text: 'Edit First' }, value: 'edit' }\n        ]\n      }\n    ]\n  }\n}];"
+      }
+    },
+    {
+      "id": "slack-post",
+      "name": "Slack: Post to #content-review",
+      "type": "n8n-nodes-base.slack",
+      "position": [
+        1780,
+        300
+      ],
+      "parameters": {
+        "channel": "#content-review",
+        "blocksUi": "={{ JSON.stringify($json.blocks) }}",
+        "otherOptions": {},
+        "text": "={{ $json.notification_text }}"
+      }
+    },
+    {
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        2000,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"message\": \"Post draft delivered to #content-review\" }",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route by Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Type": {
+      "main": [
+        [
+          {
+            "node": "Claude: Milestone Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Claude: Podcast Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Milestone Post": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Podcast Post": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Extract Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Post": {
+      "main": [
+        [
+          {
+            "node": "Claude: Slack Notification Copy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Slack Notification Copy": {
+      "main": [
+        [
+          {
+            "node": "Build Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Slack: Post to #content-review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack: Post to #content-review": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "notes": "MVP-C: LUX LinkedIn Post Pipeline. Accepts project_milestone or podcast_episode JSON via webhook. Routes to the correct Claude prompt, generates a LinkedIn post, generates Slack notification copy, and delivers the draft to #content-review with action buttons."
+}

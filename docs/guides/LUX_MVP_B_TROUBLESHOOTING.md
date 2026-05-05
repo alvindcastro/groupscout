@@ -33,7 +33,7 @@ Before digging into individual nodes:
 - The IF node routes `commercial_renovation` and `multi_family` to commercial — all other values go residential
 - Fix: ensure the input payload's `project_type` matches one of the five expected values: `custom_home`, `commercial_renovation`, `addition_or_remodel`, `multi_family`, or leave blank for Claude to infer from `message`
 
-**Prompt fix:** If Claude consistently misclassifies a project type, edit `docs/mvps/mvp-b/prompts/user_classify.txt` and add a clarifying example. Sync the change to the **Read Classify Prompt** Code node in the workflow.
+**Prompt fix:** If Claude consistently misclassifies a project type, edit `docs/mvps/mvp-b/prompts/user_classify.txt` and add a clarifying example. In the Docker Compose setup, the next workflow run picks it up automatically.
 
 ---
 
@@ -61,7 +61,7 @@ Before digging into individual nodes:
 
 **Cause:** Claude occasionally drifts from brand voice on longer outputs.
 
-**Fix:** Edit the failing email in Airtable before sending. For recurring drift, tighten the relevant prompt file and resync to the n8n Code node.
+**Fix:** Edit the failing email in Airtable before sending. For recurring drift, tighten the relevant prompt file; the next workflow run will read the updated file automatically in the Docker Compose setup.
 
 ---
 
@@ -88,7 +88,7 @@ Before digging into individual nodes:
 **Fix:**
 1. Open the **Airtable: Create Lead Record** node
 2. Compare each mapped field name against your Airtable table (exact case, exact spacing)
-3. "Urgency Signal" must be a Checkbox field — passing a string will fail silently in some versions
+3. The current working workflow does not write `Urgency Signal` to Airtable; if you added it back locally, verify its field type separately
 
 ---
 
@@ -152,12 +152,12 @@ parsed = JSON.parse(cleaned);
 
 **Symptom:** **Parse Sequence JSON** fails because input is empty after the Merge node.
 
-**Cause:** The Merge node is configured for `passThrough` / `single` mode — it passes the first item it receives. If neither branch completed, or if both completed and the second overwrote the first, data can be lost.
+**Cause:** The Merge node should be configured as `append` in Merge v3. If the workflow uses an older merge mode, current n8n builds can drop items or fail to pass the routed branch through cleanly.
 
 **Fix:**
 1. Confirm only one branch executes per run (the IF node should guarantee this)
-2. If both branches fire (misconfigured IF), the Merge will try to combine them — verify the IF node condition is correct
-3. In n8n, the Merge node input indices matter: Commercial → input 0, Residential → input 1. Verify the connections in the workflow match.
+2. Set the Merge node to `mode: append`
+3. If both branches fire (misconfigured IF), fix the IF condition instead of trying to merge both sequence outputs
 
 ---
 

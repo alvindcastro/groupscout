@@ -88,7 +88,7 @@ The workflow references `$env.ANTHROPIC_API_KEY` in the HTTP Request nodes. Alte
 
 ## 4. Load Prompts
 
-The workflow sends prompts inline from the HTTP Request node bodies. The source-of-truth prompt files live at:
+The workflow reads prompts at runtime from these source-of-truth files:
 
 ```
 docs/mvps/mvp-c/prompts/
@@ -98,7 +98,7 @@ docs/mvps/mvp-c/prompts/
 └── user_slack_notify.txt    ← user message for Slack copy (optional Prompt 3)
 ```
 
-If you edit a prompt, update the corresponding HTTP Request node body in n8n to match. Use **Code** or **Set** nodes upstream to load prompt text dynamically if you want the workflow to read from files at runtime (see [Dynamic Prompt Loading](#dynamic-prompt-loading) below).
+If you edit one of these files, the workflow will pick up the new text on the next execution as long as n8n can read the repo mount.
 
 ---
 
@@ -145,11 +145,24 @@ Only responds while the workflow editor is open in test mode.
 
 ---
 
-## 6. Dynamic Prompt Loading (Optional)
+## 6. Runtime Prompt Loading
 
-To avoid copying prompt text into n8n and keep `docs/mvps/mvp-c/prompts/` as the single source of truth, add a **Read Binary File** node before each Claude HTTP Request node, reading the `.txt` file from disk. Then reference `$binary.data.toString()` in the request body.
+The exported workflow now includes a `Load Prompts` Code node that reads the files from:
 
-This requires n8n to have read access to the groupscout repo directory. Set the file path to an absolute path or mount the directory via Docker volume.
+```text
+/workspace/groupscout/docs/mvps/mvp-c/prompts/
+```
+
+For Docker Compose, make sure the `n8n` service has both of these:
+
+- a read-only repo mount: `./:/workspace/groupscout:ro`
+- Code node builtin access for `fs`: `NODE_FUNCTION_ALLOW_BUILTIN=fs`
+
+After changing `docker-compose.yml`, restart n8n:
+
+```bash
+docker compose up -d n8n
+```
 
 ---
 
@@ -175,7 +188,7 @@ To test without activating the workflow, change the URL from `/webhook/` to `/we
 
 - MVP-C makes three Anthropic API calls per trigger: one post generation call (`claude-opus-4-6`) and one Slack copy call (`claude-haiku-4-5-20251001`). The third call only fires if you enable Prompt 3.
 - The IF node routes on `$json.type`. Any value other than `project_milestone` goes to the podcast branch.
-- The Merge node uses `mergeByPosition` — both Claude branches produce one item, so merge order is deterministic.
+- The Merge node uses `append` — only one Claude branch runs for a given payload, so the merge simply passes through whichever branch produced output.
 - The Extract Post Code node pulls `content[0].text` from the Anthropic response and parses the JSON `post` field.
 
 ---

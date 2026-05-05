@@ -111,20 +111,9 @@ Verify:
 
 ---
 
-## Step 5 — Activate the Workflow
+## Step 5 — Prompt Files
 
-Toggle the workflow to **Active** in n8n. The webhook URL becomes live.
-
-Webhook URL:
-```
-http://localhost:5678/webhook/lux-status-email
-```
-
----
-
-## Prompt Files
-
-The prompts are embedded inline in n8n Code nodes for portability. The canonical source files are:
+The workflow reads prompts at runtime from these source-of-truth files:
 
 | File | Purpose |
 | --- | --- |
@@ -132,7 +121,35 @@ The prompts are embedded inline in n8n Code nodes for portability. The canonical
 | `docs/mvps/mvp-a/prompts/user_status_email.txt` | Email generation instructions (user prompt) |
 | `docs/mvps/mvp-a/prompts/user_slack_notify.txt` | Internal Slack notification copy (user prompt) |
 
-If you edit a prompt file, also update the corresponding Code node in n8n.
+If you edit one of these files, the next workflow execution will use the new text as long as n8n can read the repo mount.
+
+The exported workflow includes a `Load Prompts` Code node that reads from:
+
+```text
+/workspace/groupscout/docs/mvps/mvp-a/prompts/
+```
+
+For Docker Compose, make sure the `n8n` service has both of these:
+
+- a read-only repo mount: `./:/workspace/groupscout:ro`
+- Code node builtin access for `fs`: `NODE_FUNCTION_ALLOW_BUILTIN=fs`
+
+Restart `n8n` after changing `docker-compose.yml`:
+
+```bash
+docker compose up -d n8n
+```
+
+---
+
+## Step 6 — Activate the Workflow
+
+Toggle the workflow to **Active** in n8n. The webhook URL becomes live.
+
+Webhook URL:
+```
+http://localhost:5678/webhook/lux-status-email
+```
 
 ---
 

@@ -38,7 +38,7 @@ docker compose stop n8n
 | Requirement | Notes |
 | --- | --- |
 | n8n instance | `docker compose up -d n8n` — see above |
-| Anthropic API key | `sk-ant-...` — needs access to `claude-sonnet-4-6` and `claude-haiku-4-5-20251001` |
+| Anthropic API key | `sk-ant-...` — needs access to `claude-sonnet-4-6` and `claude-haiku-4-5` |
 | Airtable account | Free tier is sufficient. You'll need a Base ID and personal access token. |
 | Slack app with Bot Token | Needs `chat:write` scope, invited to `#new-leads` |
 
@@ -48,7 +48,15 @@ docker compose stop n8n
 
 1. In n8n, go to **Workflows → Import from File**
 2. Select `docs/mvps/mvp-b/n8n_workflow.json`
-3. The workflow imports with all 14 nodes pre-wired
+3. The workflow imports with all 16 nodes pre-wired
+
+## Prompt Files
+
+This workflow reads its prompts from `/workspace/groupscout/docs/mvps/mvp-b/prompts` inside the n8n container.
+
+- With this repo's `docker-compose.yml`, the project root is mounted read-only at `/workspace/groupscout`
+- Editing files under `docs/mvps/mvp-b/prompts/` changes the next workflow run without editing Code nodes in n8n
+- If you run n8n outside this compose stack, mount the same path and allow the `fs` builtin in Code nodes
 
 ---
 
@@ -60,7 +68,7 @@ docker compose stop n8n
 2. Name: `Anthropic API`
 3. Header Name: `x-api-key`
 4. Header Value: your `sk-ant-...` key
-5. Assign this credential to the three HTTP Request nodes: **Classify Lead**, **Generate Commercial Sequence**, **Generate Residential Sequence**, and **Generate Slack Copy**
+5. Assign this credential to the four HTTP Request nodes: **Classify Lead**, **Generate Commercial Sequence**, **Generate Residential Sequence**, and **Generate Slack Copy**
 
 ### Airtable
 
@@ -93,7 +101,6 @@ Create a new Airtable base with a table named exactly `Leads`. Add these fields:
 | Original Message | Long text |
 | Lead Tier | Single select: `high`, `medium`, `low` |
 | Key Detail | Single line text |
-| Urgency Signal | Checkbox |
 | Email 1 Subject | Single line text |
 | Email 1 Body | Long text |
 | Email 2 Subject | Single line text |
@@ -103,6 +110,7 @@ Create a new Airtable base with a table named exactly `Leads`. Add these fields:
 | Status | Single select: `New`, `Contacted`, `Qualified`, `Dead` |
 
 > Field names are case-sensitive. The Airtable node maps by exact name.
+> `Urgency Signal` is used in workflow logic and Slack copy, but is not written to Airtable in the current working export.
 
 ---
 

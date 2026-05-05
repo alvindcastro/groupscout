@@ -5,6 +5,9 @@ Lead tier: {lead_tier}
 Key detail from their message: {key_detail}
 Urgency signal: {urgency_signal}
 
+If key_detail is "none provided", do not pretend the lead used a specific
+phrase. Open with the most concrete project fact available from the lead data.
+
 EMAIL 1 — Send same day
 Purpose: acknowledge, build immediate personal connection, set up a call
 - Open with the key_detail — show you read their specific situation

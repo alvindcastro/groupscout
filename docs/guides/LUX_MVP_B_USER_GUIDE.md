@@ -36,11 +36,12 @@ Emails 2 and 3 are staged in Airtable. Your CRM or email client handles the send
 |---|---|
 | Lead Tier | `high` = act same day; `medium` = standard follow-up; `low` = sequence runs, low manual priority |
 | Key Detail | The phrase Claude extracted from their message — what Email 1 opens with |
-| Urgency Signal | Checked = they mentioned a deadline or start date |
 | Email 1 Body | Open immediately — this goes out today |
 | Project Type | Confirms the sequence path taken (commercial or residential) |
 
 4. After reviewing, update `Status` to `Contacted` when Email 1 goes out
+
+`Urgency Signal` is reflected in the Slack notification, not stored in Airtable in the current workflow.
 
 ---
 

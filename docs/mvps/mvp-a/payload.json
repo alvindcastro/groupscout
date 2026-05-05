@@ -9,6 +9,7 @@
     { "name": "Rough-in electrical", "status": "upcoming", "due": "2025-05-28" }
   ],
   "budget_variance": -4200,
+  "budget_total": 250000,
   "open_items": [
     "Client to select cabinet hardware",
     "Pending permit inspection"

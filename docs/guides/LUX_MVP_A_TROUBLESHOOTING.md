@@ -54,7 +54,7 @@ Note: n8n has two webhook URLs — test (`/webhook-test/`) and production (`/web
 1. Open the failed execution in n8n
 2. Check the raw output from **Generate Status Email** — look at `content[0].text`
 3. If Claude added explanation outside the JSON, update `prompts/user_status_email.txt` to reinforce "Return JSON only. No preamble, no markdown fences, no explanation."
-4. Sync the updated prompt into the **Read Status Email Prompt** Code node in n8n
+4. Re-run the workflow — the **Load Prompts** node will read the updated file on the next execution
 
 ---
 
@@ -63,10 +63,10 @@ Note: n8n has two webhook URLs — test (`/webhook-test/`) and production (`/web
 **Cause:** Brand voice rules not applied, or model slipped.
 
 **Fix:**
-1. Check that the **Generate Status Email** node has the `system` parameter set from **Read Brand Voice** output
+1. Check that the **Generate Status Email** node has the `system` parameter set from **Load Prompts** output
 2. Open `prompts/system_brand_voice.txt` — confirm the forbidden terms list is present
 3. Add the specific term to the "WHAT NEVER APPEARS" list if it's missing
-4. Sync to the Code node
+4. Re-run the workflow so **Load Prompts** picks up the change
 
 ---
 
@@ -137,7 +137,7 @@ Note: n8n has two webhook URLs — test (`/webhook-test/`) and production (`/web
 **Fix:** Edit `prompts/user_slack_notify.txt`:
 - Reinforce "casual internal tone — this is a team channel"
 - Add examples of what casual sounds like vs. what to avoid
-- Sync the updated prompt to the **Read Slack Notify Prompt** Code node
+- Re-run the workflow so **Load Prompts** picks up the change
 
 ---
 

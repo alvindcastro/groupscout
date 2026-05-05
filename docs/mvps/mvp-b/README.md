@@ -28,8 +28,7 @@ mvp-b/
 
 ```
 Webhook (POST)
-  → Code: Read Brand Voice (system prompt — Prompt 1)
-  → Code: Read Classify Prompt (Prompt 2)
+  → Code: Load Prompts (Prompts 1-4 from mounted files)
   → HTTP: Anthropic API (claude-haiku-4-5) → classification JSON
   → Code: Parse Classification
   → Code: Build Context (assemble lead_context_json + inject into sequence prompt)
@@ -38,7 +37,8 @@ Webhook (POST)
       → False: HTTP: Anthropic API (claude-sonnet-4-6) → residential sequence
   → Merge
   → Code: Parse Sequence JSON (extract email_1, email_2, email_3)
-  → Airtable: Create Lead Record (all 17 fields)
+  → Code: Prepare Airtable Record
+  → Airtable: Create Lead Record
   → HTTP: Anthropic API (claude-haiku-4-5) → Slack notification copy
   → Code: Parse Slack JSON
   → Slack: Post to #new-leads (Block Kit with Airtable deep link)
@@ -118,7 +118,6 @@ Table: `Leads`
 | Original Message | Long text |
 | Lead Tier | Single select (high / medium / low) |
 | Key Detail | Text |
-| Urgency Signal | Checkbox |
 | Email 1 Subject | Text |
 | Email 1 Body | Long text |
 | Email 2 Subject | Text |
@@ -127,24 +126,27 @@ Table: `Leads`
 | Email 3 Body | Long text |
 | Status | Single select (New / Contacted / Qualified / Dead) |
 
+`Urgency Signal` is still produced by classification and used in Slack copy, but the current working workflow does not write it to Airtable.
+
 ---
 
 ## Models Used
 
 | Step | Model | Reason |
 |---|---|---|
-| Lead classification (Prompt 2) | claude-haiku-4-5-20251001 | Structured extraction, low latency |
+| Lead classification (Prompt 2) | claude-haiku-4-5 | Structured extraction, low latency |
 | Sequence generation (Prompts 3A/3B) | claude-sonnet-4-6 | Quality, brand voice compliance |
-| Slack notification (Prompt 4) | claude-haiku-4-5-20251001 | Short copy, no brand rules required |
+| Slack notification (Prompt 4) | claude-haiku-4-5 | Short copy, no brand rules required |
 
 ---
 
 ## Build Notes
 
-- Prompts are stored inline in Code nodes for portability; `prompts/` files are the canonical source for editing
-- When editing a prompt in `prompts/`, sync the corresponding Code node in `n8n_workflow.json`
+- Prompts are loaded at runtime from `/workspace/groupscout/docs/mvps/mvp-b/prompts` inside the n8n container
+- `docker-compose.yml` mounts the repo read-only at `/workspace/groupscout` and enables the `fs` builtin for n8n Code nodes
+- Editing a file in `docs/mvps/mvp-b/prompts/` changes the next workflow run; no manual sync into `n8n_workflow.json` is required
 - The IF node uses a regex condition — `commercial_renovation|multi_family` — not a strict equals check; add new commercial categories here
-- The Merge node is set to `passThrough` / `single` mode — it passes whichever branch completed, not both
+- The Merge node uses `append` in Merge v3. Only one route branch should execute per run, so the merge simply passes through that branch's output
 - Human review is handled externally: Airtable gives the sales team a staging area; sequences do not auto-send
 
 ---

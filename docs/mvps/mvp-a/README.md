@@ -33,11 +33,9 @@ mvp-a/
 ```
 Webhook (POST)
   → Code: Build Context (notification_context_json + client action item detection)
-  → Code: Read Brand Voice (system prompt)
-  → Code: Read Status Email Prompt (user prompt)
+  → Code: Load Prompts (reads /workspace/groupscout/docs/mvps/mvp-a/prompts/*.txt)
   → HTTP: Anthropic API (claude-sonnet-4-6) → email subject + body
   → Code: Parse Email JSON
-  → Code: Read Slack Notify Prompt
   → HTTP: Anthropic API (claude-haiku-4-5) → slack_message
   → Code: Parse Slack JSON
   → Slack: Post to #client-updates-review (Block Kit with Approve/Edit buttons)
@@ -132,7 +130,7 @@ Subject: Hartwell Residence — Framing Update — May 7
 
 - Email generation uses `claude-sonnet-4-6` for quality and rule compliance
 - Slack copy uses `claude-haiku-4-5-20251001` — no brand rules needed, just brevity
-- Prompts are stored inline in Code nodes for portability; `prompts/` files are the canonical source of truth for editing
+- Prompts are loaded at runtime from `prompts/` inside the `n8n` container via `/workspace/groupscout/docs/mvps/mvp-a/prompts`
 - The workflow has no branching — both payloads run the same path; the budget variance rules live in Prompt 2
 - Human-in-the-loop by design: the PM reviews and approves before anything reaches the client
 

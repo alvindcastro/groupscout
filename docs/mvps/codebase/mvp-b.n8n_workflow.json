@@ -1,0 +1,366 @@
+{
+  "name": "MVP-B — LUX Lead Follow-Up Sequence Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lux-lead-followup",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node_webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read brand voice system prompt (Prompt 1) — stored inline for portability\nreturn {\n  content: `You are the sales voice of LUX, a high-end general contractor that builds\\ncustom homes and commercial projects for discerning clients.\\n\\nLUX is selective. They do not chase every lead. They qualify well and work\\nwith clients who value craftsmanship, clear communication, and a builder\\nwho treats their project like it matters — because it does.\\n\\nTHE LUX SALES VOICE\\n\\nTONE\\n- Confident and consultative. LUX leads with expertise, not availability.\\n- Never desperate, never pushy. If a lead is not ready, LUX leaves the door\\n  open with zero pressure.\\n- Warm but not sycophantic. No \"Great question!\" energy. No hollow enthusiasm.\\n- Peer-to-peer. LUX talks to owners and decision-makers as equals, not as\\n  a vendor trying to win business.\\n\\nWHAT NEVER APPEARS IN A LUX SALES EMAIL\\n- \"Just following up\" or \"Checking in\" as subject lines or openers\\n- \"I wanted to reach out\" — just reach out\\n- \"We would love the opportunity to...\" — too eager\\n- \"Please let me know if you have any questions\" as a closing line\\n- Exclamation points\\n- Any claim that cannot be backed by a specific fact or example\\n- Generic compliments on the lead's project (\"sounds like an exciting project!\")\\n\\nPERSONALIZATION RULES\\n- Always pull at least one specific detail from the lead's own message\\n- Mirror their language — if they said \"tenant spaces\", use \"tenant spaces\"\\n- The lead should feel like this email was written for them specifically\\n\\nSIGN-OFF\\n- Email 1: \"Looking forward to it, / The LUX Team\"\\n- Email 2 and 3: \"— LUX\"`\n};"
+      },
+      "id": "node_read_brand_voice",
+      "name": "Read Brand Voice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read lead classification prompt (Prompt 2) — stored inline for portability\nreturn {\n  content: `Analyze this inbound construction lead and return a classification.\\n\\nExtract:\\n1. lead_tier: \"high\", \"medium\", or \"low\"\\n   - high: clear budget, near-term timeline, specific project description\\n   - medium: budget or timeline is vague, project is described generally\\n   - low: no budget signal, no timeline, very short or generic message\\n2. project_category: \"custom_home\", \"commercial_renovation\", \"addition_or_remodel\",\\n   \"multi_family\", or \"unknown\"\\n3. key_detail: the single most specific or useful thing the lead said in their\\n   own words — a phrase, a constraint, a number, a concern. Max 15 words.\\n   If nothing specific was said, return null.\\n4. urgency_signal: true if the lead mentioned a specific start date, deadline,\\n   or time pressure. Otherwise false.\\n\\nReturn a JSON object with exactly these four keys: \"lead_tier\", \"project_category\",\\n\"key_detail\", \"urgency_signal\".\\nReturn JSON only. No preamble, no markdown fences.\\n\\nLead data:\\n{lead_json}`\n};"
+      },
+      "id": "node_read_classify_prompt",
+      "name": "Read Classify Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 440]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $credentials.httpHeaderAuth.value }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 256,\n  \"system\": {{ JSON.stringify($('Read Brand Voice').item.json.content) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($('Read Classify Prompt').item.json.content.replace('{lead_json}', JSON.stringify($('Webhook').first().json.body || $('Webhook').first().json))) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "node_classify_lead",
+      "name": "Classify Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content[0].text;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  const match = raw.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/);\n  parsed = match ? JSON.parse(match[1]) : JSON.parse(raw);\n}\nreturn {\n  lead_tier: parsed.lead_tier,\n  project_category: parsed.project_category,\n  key_detail: parsed.key_detail,\n  urgency_signal: parsed.urgency_signal\n};"
+      },
+      "id": "node_parse_classify",
+      "name": "Parse Classification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build enriched context object for sequence prompt and Slack notification\nconst classification = $input.first().json;\nconst lead = $('Webhook').first().json.body || $('Webhook').first().json;\n\nreturn {\n  lead_json: JSON.stringify(lead),\n  lead_tier: classification.lead_tier,\n  project_category: classification.project_category,\n  key_detail: classification.key_detail,\n  urgency_signal: classification.urgency_signal,\n  lead_context_json: JSON.stringify({\n    name: lead.name,\n    company: lead.company || null,\n    project_type: lead.project_type,\n    budget_range: lead.budget_range,\n    timeline: lead.timeline,\n    lead_tier: classification.lead_tier,\n    urgency_signal: classification.urgency_signal,\n    key_detail: classification.key_detail\n  })\n};"
+      },
+      "id": "node_build_context",
+      "name": "Build Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1140, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.project_category }}",
+              "operation": "regex",
+              "value2": "^(commercial_renovation|multi_family)$"
+            }
+          ]
+        }
+      },
+      "id": "node_if_route",
+      "name": "Route by Category",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1360, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $credentials.httpHeaderAuth.value }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 2048,\n  \"system\": {{ JSON.stringify($('Read Brand Voice').item.json.content) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('Write a 3-email follow-up sequence for a commercial construction lead.\\n\\nCONTEXT FROM LEAD CLASSIFICATION\\nLead tier: ' + $('Build Context').item.json.lead_tier + '\\nKey detail from their message: ' + $('Build Context').item.json.key_detail + '\\nUrgency signal: ' + $('Build Context').item.json.urgency_signal + '\\n\\nEMAIL 1 — Send same day\\nPurpose: acknowledge, demonstrate immediate expertise, set up a call\\n- Open with the key_detail from their message — make it clear you actually read it\\n- In 1–2 sentences, show you understand the specific challenge of their project type\\n- One clear CTA: propose a specific call duration (20 minutes) and ask for their availability\\n- If urgency_signal is true: acknowledge the timeline explicitly\\n- Max 120 words\\n\\nEMAIL 2 — Send day 3, only if no reply to Email 1\\nPurpose: add genuine value, re-engage without pressure\\n- Lead with one specific insight relevant to their project category\\n- Soft CTA: one question or a low-friction meeting offer\\n- Max 120 words\\n\\nEMAIL 3 — Send day 7, only if no reply to Email 1 or 2\\nPurpose: leave the door open, no pressure close\\n- Max 100 words\\n\\nSUBJECT LINE RULES\\n- Never use: \"Following up\", \"Checking in\", \"Quick question\", \"Re:\"\\n\\nReturn a JSON object with keys \"email_1\", \"email_2\", \"email_3\". Each key contains \"subject\" and \"body\". Body values use \\\\n for line breaks. Return JSON only. No preamble, no markdown fences.\\n\\nLead data:\\n' + $('Build Context').item.json.lead_json) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "node_sequence_commercial",
+      "name": "Generate Commercial Sequence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1580, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $credentials.httpHeaderAuth.value }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 2048,\n  \"system\": {{ JSON.stringify($('Read Brand Voice').item.json.content) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('Write a 3-email follow-up sequence for a residential construction lead.\\n\\nCONTEXT FROM LEAD CLASSIFICATION\\nLead tier: ' + $('Build Context').item.json.lead_tier + '\\nKey detail from their message: ' + $('Build Context').item.json.key_detail + '\\nUrgency signal: ' + $('Build Context').item.json.urgency_signal + '\\n\\nEMAIL 1 — Send same day\\nPurpose: acknowledge, build immediate personal connection, set up a call\\n- Open with the key_detail — show you read their specific situation\\n- Residential clients are making one of the largest financial decisions of their lives. Tone is warmer than commercial but still confident.\\n- One clear CTA: propose a 20-minute call, ask for their availability\\n- Max 120 words\\n\\nEMAIL 2 — Send day 3, only if no reply to Email 1\\nPurpose: add value specific to residential builds, re-engage gently\\n- Lead with one consideration specific to their project type\\n- Frame it as something most homeowners don\\'t know until it\\'s too late\\n- Soft CTA: offer a no-obligation conversation\\n- Max 120 words\\n\\nEMAIL 3 — Send day 7, only if no reply to Email 1 or 2\\nPurpose: soft close, leave the door open\\n- 3–4 sentences. No pressure, no urgency manufacturing.\\n- Max 100 words\\n\\nSUBJECT LINE RULES\\n- Never generic. Specific to their project or message.\\n\\nReturn a JSON object with keys \"email_1\", \"email_2\", \"email_3\". Each key contains \"subject\" and \"body\". Body values use \\\\n for line breaks. Return JSON only. No preamble, no markdown fences.\\n\\nLead data:\\n' + $('Build Context').item.json.lead_json) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "node_sequence_residential",
+      "name": "Generate Residential Sequence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1580, 440]
+    },
+    {
+      "parameters": {
+        "mode": "passThrough",
+        "output": "single"
+      },
+      "id": "node_merge",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [1800, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content[0].text;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  const match = raw.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/);\n  parsed = match ? JSON.parse(match[1]) : JSON.parse(raw);\n}\nreturn {\n  email_1_subject: parsed.email_1.subject,\n  email_1_body: parsed.email_1.body,\n  email_2_subject: parsed.email_2.subject,\n  email_2_body: parsed.email_2.body,\n  email_3_subject: parsed.email_3.subject,\n  email_3_body: parsed.email_3.body\n};"
+      },
+      "id": "node_parse_sequence",
+      "name": "Parse Sequence JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2020, 300]
+    },
+    {
+      "parameters": {
+        "application": "{{ $env.AIRTABLE_BASE_ID }}",
+        "table": "Leads",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $('Build Context').item.json.lead_json | JSON.parse | .name }}",
+            "Company": "={{ $('Build Context').item.json.lead_json | JSON.parse | .company }}",
+            "Project Type": "={{ $('Build Context').item.json.lead_json | JSON.parse | .project_type }}",
+            "Source": "={{ $('Build Context').item.json.lead_json | JSON.parse | .source }}",
+            "Budget Range": "={{ $('Build Context').item.json.lead_json | JSON.parse | .budget_range }}",
+            "Timeline": "={{ $('Build Context').item.json.lead_json | JSON.parse | .timeline }}",
+            "Original Message": "={{ $('Build Context').item.json.lead_json | JSON.parse | .message }}",
+            "Lead Tier": "={{ $('Build Context').item.json.lead_tier }}",
+            "Key Detail": "={{ $('Build Context').item.json.key_detail }}",
+            "Urgency Signal": "={{ $('Build Context').item.json.urgency_signal }}",
+            "Email 1 Subject": "={{ $json.email_1_subject }}",
+            "Email 1 Body": "={{ $json.email_1_body }}",
+            "Email 2 Subject": "={{ $json.email_2_subject }}",
+            "Email 2 Body": "={{ $json.email_2_body }}",
+            "Email 3 Subject": "={{ $json.email_3_subject }}",
+            "Email 3 Body": "={{ $json.email_3_body }}",
+            "Status": "New"
+          }
+        },
+        "options": {}
+      },
+      "id": "node_airtable",
+      "name": "Airtable: Create Lead Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [2240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $credentials.httpHeaderAuth.value }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 256,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('Write a brief internal Slack message notifying the LUX sales team that a new lead has come in and their follow-up sequence is staged in Airtable.\\n\\nRules:\\n- 3–4 sentences max\\n- Casual internal tone — this is a team channel\\n- Include: lead name, company (if commercial), project type, budget range, timeline, lead tier, and whether there is a urgency signal\\n- If lead_tier is \"high\": flag it clearly — this one needs a same-day human touch on top of the automated sequence\\n- If lead_tier is \"low\": note it briefly — sequence will run but may not be worth heavy manual follow-up\\n- End with a direct question: who is owning this lead?\\n- Do not summarize the emails\\n\\nReturn a JSON object with one key: \"slack_message\".\\nReturn JSON only. No preamble, no markdown fences.\\n\\nContext:\\n' + $('Build Context').item.json.lead_context_json) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "node_generate_slack",
+      "name": "Generate Slack Copy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content[0].text;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  const match = raw.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/);\n  parsed = match ? JSON.parse(match[1]) : JSON.parse(raw);\n}\nreturn { slack_message: parsed.slack_message };"
+      },
+      "id": "node_parse_slack",
+      "name": "Parse Slack JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2680, 300]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#new-leads",
+          "mode": "name"
+        },
+        "text": "={{ $json.slack_message }}",
+        "blocksUi": {
+          "blocksValues": [
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "={{ $('Parse Slack JSON').item.json.slack_message }}"
+              }
+            },
+            {
+              "type": "divider"
+            },
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "*Email 1 — {{ $('Parse Sequence JSON').item.json.email_1_subject }}*\n{{ $('Parse Sequence JSON').item.json.email_1_body }}"
+              }
+            },
+            {
+              "type": "actions",
+              "elements": [
+                {
+                  "type": "button",
+                  "text": { "type": "plain_text", "text": "View in Airtable" },
+                  "style": "primary",
+                  "url": "https://airtable.com/{{ $env.AIRTABLE_BASE_ID }}"
+                }
+              ]
+            }
+          ]
+        },
+        "otherOptions": {}
+      },
+      "id": "node_slack_post",
+      "name": "Post to #new-leads",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [2900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'queued', lead: ($('Webhook').first().json.body || $('Webhook').first().json).name, tier: $('Build Context').item.json.lead_tier }) }}",
+        "options": {}
+      },
+      "id": "node_respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2900, 460]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          { "node": "Read Brand Voice", "type": "main", "index": 0 },
+          { "node": "Read Classify Prompt", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Read Brand Voice": {
+      "main": [[{ "node": "Classify Lead", "type": "main", "index": 0 }]]
+    },
+    "Read Classify Prompt": {
+      "main": [[{ "node": "Classify Lead", "type": "main", "index": 0 }]]
+    },
+    "Classify Lead": {
+      "main": [[{ "node": "Parse Classification", "type": "main", "index": 0 }]]
+    },
+    "Parse Classification": {
+      "main": [[{ "node": "Build Context", "type": "main", "index": 0 }]]
+    },
+    "Build Context": {
+      "main": [[{ "node": "Route by Category", "type": "main", "index": 0 }]]
+    },
+    "Route by Category": {
+      "main": [
+        [{ "node": "Generate Commercial Sequence", "type": "main", "index": 0 }],
+        [{ "node": "Generate Residential Sequence", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Commercial Sequence": {
+      "main": [[{ "node": "Merge", "type": "main", "index": 0 }]]
+    },
+    "Generate Residential Sequence": {
+      "main": [[{ "node": "Merge", "type": "main", "index": 1 }]]
+    },
+    "Merge": {
+      "main": [[{ "node": "Parse Sequence JSON", "type": "main", "index": 0 }]]
+    },
+    "Parse Sequence JSON": {
+      "main": [[{ "node": "Airtable: Create Lead Record", "type": "main", "index": 0 }]]
+    },
+    "Airtable: Create Lead Record": {
+      "main": [[{ "node": "Generate Slack Copy", "type": "main", "index": 0 }]]
+    },
+    "Generate Slack Copy": {
+      "main": [[{ "node": "Parse Slack JSON", "type": "main", "index": 0 }]]
+    },
+    "Parse Slack JSON": {
+      "main": [
+        [
+          { "node": "Post to #new-leads", "type": "main", "index": 0 },
+          { "node": "Respond to Webhook", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "MVP-B: Accepts an inbound lead payload, classifies it with Claude (Haiku), routes to a commercial or residential sequence generator (Sonnet), logs all three email drafts to Airtable, and fires a Slack notification to #new-leads.",
+    "instanceId": "mvp-b-lux-lead-followup-sequence"
+  }
+}

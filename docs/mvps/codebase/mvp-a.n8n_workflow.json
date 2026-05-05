@@ -1,0 +1,248 @@
+{
+  "name": "MVP-A — LUX Client Status Email Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lux-status-email",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node_webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build notification_context_json and detect client action items\nconst data = $input.first().json.body || $input.first().json;\nconst openItems = data.open_items || [];\n\nconst clientKeywords = ['client', 'owner', 'select', 'confirm', 'approve', 'decide', 'choose'];\nconst hasClientItems = openItems.some(item =>\n  clientKeywords.some(kw => item.toLowerCase().includes(kw))\n);\n\nreturn {\n  project_json: JSON.stringify(data),\n  notification_context_json: JSON.stringify({\n    project_name: data.project_name,\n    client_name: data.client_name,\n    phase: data.phase,\n    next_site_visit: data.next_site_visit,\n    has_client_action_items: hasClientItems\n  })\n};"
+      },
+      "id": "node_code_context",
+      "name": "Build Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $credentials.httpHeaderAuth.value }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($('Read Brand Voice').item.json.content) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($('Read Status Email Prompt').item.json.content.replace('{project_json}', $json.project_json)) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "node_generate_email",
+      "name": "Generate Status Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content[0].text;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  // Strip any accidental markdown fences\n  const match = raw.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/);\n  parsed = match ? JSON.parse(match[1]) : JSON.parse(raw);\n}\nreturn { subject: parsed.subject, body: parsed.body };"
+      },
+      "id": "node_parse_email",
+      "name": "Parse Email JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $credentials.httpHeaderAuth.value }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 256,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($('Read Slack Notify Prompt').item.json.content.replace('{notification_context_json}', $('Build Context').item.json.notification_context_json)) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "node_generate_slack",
+      "name": "Generate Slack Copy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content[0].text;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  const match = raw.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/);\n  parsed = match ? JSON.parse(match[1]) : JSON.parse(raw);\n}\nreturn { slack_message: parsed.slack_message };"
+      },
+      "id": "node_parse_slack",
+      "name": "Parse Slack JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 180]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#client-updates-review",
+          "mode": "name"
+        },
+        "text": "={{ $('Parse Slack JSON').item.json.slack_message }}",
+        "blocksUi": {
+          "blocksValues": [
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "={{ $('Parse Slack JSON').item.json.slack_message }}"
+              }
+            },
+            {
+              "type": "divider"
+            },
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "*Subject:* {{ $('Parse Email JSON').item.json.subject }}\n\n{{ $('Parse Email JSON').item.json.body }}"
+              }
+            },
+            {
+              "type": "actions",
+              "elements": [
+                {
+                  "type": "button",
+                  "text": { "type": "plain_text", "text": "Approve & Send" },
+                  "style": "primary",
+                  "value": "approve"
+                },
+                {
+                  "type": "button",
+                  "text": { "type": "plain_text", "text": "Edit First" },
+                  "value": "edit"
+                }
+              ]
+            }
+          ]
+        },
+        "otherOptions": {}
+      },
+      "id": "node_slack_post",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1780, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read prompts/system_brand_voice.txt content (stored inline for portability)\nreturn {\n  content: `You are the client communication voice of LUX, a high-end general contractor\\nthat builds custom homes and commercial projects for discerning clients.\\n\\nLUX clients are homeowners and business owners who are investing significant\\nmoney in a build. They are not construction professionals. They care about\\nthree things: is my project on track, is my money being managed well, and\\nwhat do I need to do next.\\n\\nTHE LUX CLIENT COMMUNICATION VOICE\\n\\nTONE\\n- Warm but professional. Like a trusted advisor giving a progress report,\\n  not a contractor filing paperwork.\\n- Confident and calm. Never alarming, never vague. If something is behind,\\n  say so plainly and immediately follow with how it is being handled.\\n- Human. This is a real person's home or business. Write like you know that.\\n\\nWHAT NEVER APPEARS IN A LUX CLIENT EMAIL\\n- Internal trade jargon (rough-in, MEP, punch list, CO, RFI, change order\\n  as a term — explain what it means instead)\\n- Percentages or completion numbers\\n- Passive voice\\n- Corporate softening (\"at this time\", \"going forward\", \"touch base\")\\n- Vague positivity without a specific fact behind it\\n- Budget numbers unless they directly require client action or decision\\n\\nSTRUCTURE RULES\\n- Every email has exactly three sections:\\n  1. What happened since the last update (progress)\\n  2. What is happening now or coming next (momentum)\\n  3. What the client needs to do or know (action / FYI)\\n- If there is nothing for the client to do, section 3 is a brief reassurance\\n  and the next touchpoint\\n- Subject line format: [Project Name] — [Phase or Milestone] — [Month Day]\\n- Greeting uses the client's first name only\\n- Sign-off is always: \"Talk soon, / The LUX Team\"\\n- Maximum 200 words in the body`\n};"
+      },
+      "id": "node_read_brand_voice",
+      "name": "Read Brand Voice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  content: `Write a client project status update email for LUX.\\n\\nBEFORE YOU WRITE\\nRead the project data carefully and identify:\\n1. The single most meaningful thing that happened since the last update\\n2. The single most important thing coming next\\n3. Whether the client needs to take any action or make any decision\\n\\nBUDGET VARIANCE RULES\\n- If budget_variance is between -5% and +5% of total budget: do not mention it\\n- If budget_variance is negative and above 5%: mention it plainly, explain\\n  what drove it in one sentence, and state what LUX is doing about it\\n- If budget_variance is positive: mention it only if it is significant enough\\n  to be good news worth sharing\\n- Never use the word \"variance\" — translate it to plain language\\n\\nMILESTONE STATUS RULES\\n- \"complete\" milestones: mention only the most recent one, briefly\\n- \"in_progress\" milestones: this is the current focus — give it one clear sentence\\n- \"upcoming\" milestones: mention the next one only, with the date\\n- Do not list all milestones — the email is not a status report, it is a human update\\n\\nOPEN ITEMS RULES\\n- If open_items contains anything the CLIENT must action: call it out clearly\\n  as \"One thing we need from you:\" — make it impossible to miss\\n- If open_items are internal LUX tasks: do not mention them\\n\\nSUBJECT LINE\\nFormat: [Project Name] — [Current Phase] Update — [Month Day]\\nExample: Hartwell Residence — Framing Update — May 4\\n\\nReturn a JSON object with exactly two keys: \"subject\" and \"body\".\\nThe body value uses \\\\n for line breaks.\\nReturn JSON only. No preamble, no markdown fences, no explanation.\\n\\nProject data:\\n{project_json}`\n};"
+      },
+      "id": "node_read_status_email_prompt",
+      "name": "Read Status Email Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  content: `Write a brief internal Slack message for the LUX team notifying them that\\na client status email draft is ready for review.\\n\\nRules:\\n- 2–3 sentences max\\n- Casual internal tone — this is a team channel, not a client communication\\n- Include: project name, client name, current phase, and that it needs a\\n  review before sending\\n- Do not repeat the email body\\n- End with a direct question: who is reviewing this before it goes out?\\n- No emoji unless it is the review flag at the very start\\n\\nReturn a JSON object with one key: \"slack_message\".\\nReturn JSON only. No preamble, no markdown fences.\\n\\nContext:\\n{notification_context_json}`\n};"
+      },
+      "id": "node_read_slack_notify_prompt",
+      "name": "Read Slack Notify Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'queued', project: $('Build Context').item.json.notification_context_json }) }}",
+        "options": {}
+      },
+      "id": "node_respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 420]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Build Context", "type": "main", "index": 0 }]]
+    },
+    "Build Context": {
+      "main": [
+        [
+          { "node": "Read Brand Voice", "type": "main", "index": 0 },
+          { "node": "Read Status Email Prompt", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Read Brand Voice": {
+      "main": [[{ "node": "Generate Status Email", "type": "main", "index": 0 }]]
+    },
+    "Read Status Email Prompt": {
+      "main": [[{ "node": "Generate Status Email", "type": "main", "index": 0 }]]
+    },
+    "Generate Status Email": {
+      "main": [
+        [
+          { "node": "Parse Email JSON", "type": "main", "index": 0 },
+          { "node": "Read Slack Notify Prompt", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse Email JSON": {
+      "main": [[{ "node": "Generate Slack Copy", "type": "main", "index": 0 }]]
+    },
+    "Read Slack Notify Prompt": {
+      "main": [[{ "node": "Generate Slack Copy", "type": "main", "index": 0 }]]
+    },
+    "Generate Slack Copy": {
+      "main": [[{ "node": "Parse Slack JSON", "type": "main", "index": 0 }]]
+    },
+    "Parse Slack JSON": {
+      "main": [
+        [
+          { "node": "Post to Slack", "type": "main", "index": 0 },
+          { "node": "Respond to Webhook", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "MVP-A: Accepts a JobTread project payload, generates a client-facing status email via Claude, produces an internal Slack notification, and posts the full draft to #client-updates-review for PM review before sending.",
+    "instanceId": "mvp-a-lux-client-status-email"
+  }
+}
