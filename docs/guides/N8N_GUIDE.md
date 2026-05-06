@@ -234,10 +234,10 @@ Credentials in use across this instance:
 | Credential | Used By |
 | --- | --- |
 | `GroupScout API` (Header Auth) | GroupScout `/run`, `/n8n/webhook`, `/digest` |
-| `Anthropic API` (Header Auth) | MVP-B: Classify Lead, Generate Commercial/Residential Sequence, Generate Slack Copy; MVP-C: all three Claude HTTP Request nodes |
+| `Anthropic API` (API credential) | MVP-B: Classify Lead, Generate Commercial/Residential Sequence, Generate Slack Copy; MVP-C: all three Claude HTTP Request nodes |
 | `Airtable` (Personal Access Token) | MVP-B: Create Lead Record node |
 | `Slack — #new-leads` (Bot Token) | MVP-B: Post to #new-leads node |
-| `Slack — #content-review` (Incoming Webhook) | MVP-C: Slack delivery node |
+| `Slack — #content-review` (Bot Token) | MVP-C: Slack delivery node |
 | `Slack — GroupScout` (Incoming Webhook) | GroupScout internal Slack notifications |
 
 #### Environment Variables
@@ -258,7 +258,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 AIRTABLE_BASE_ID=appXXXXXXXXXXXXXX
 
 # MVP-C (LUX LinkedIn Post Pipeline)
-ANTHROPIC_API_KEY=sk-ant-...
+# Current export stores the Anthropic key in the n8n credential.
+NODE_FUNCTION_ALLOW_BUILTIN=fs
 ```
 
 ---
@@ -313,9 +314,11 @@ Full setup and user guide:
 
 Generates LinkedIn post drafts from project milestone or podcast episode data and delivers them to `#content-review` for human review.
 
+The current export includes tolerant parsing in `Extract Post` and `Build Slack Message` so Claude responses with fenced JSON or a `json` prefix do not leak into Slack.
+
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
-| LUX LinkedIn Post Pipeline | Webhook POST `/webhook/lux-linkedin-post` | Generate post → Slack draft → action buttons |
+| LUX LinkedIn Post Pipeline | Webhook POST `/webhook/lux-linkedin-post` | Generate post → Slack draft for review |
 
 Workflow file: `docs/mvps/mvp-c/n8n_workflow.json`
 
@@ -330,7 +333,7 @@ The workflow families are independent — they share credentials storage and the
 
 ### 11. Slack Integration
 
-This instance uses Slack for three distinct notification purposes. Each uses a different credential type and posts to a different channel.
+This instance uses Slack for three distinct notification purposes. Each uses its own credential and posts to a different channel.
 
 #### Slack Channels and Credential Types
 
@@ -338,16 +341,16 @@ This instance uses Slack for three distinct notification purposes. Each uses a d
 | --- | --- | --- | --- |
 | `#new-leads` | MVP-B | Bot Token (OAuth2) | Lead arrival notification with Airtable link |
 | `#client-updates-review` | MVP-A | Bot Token (OAuth2) | Email draft with Approve/Edit action buttons |
-| `#content-review` | MVP-C | Incoming Webhook | LinkedIn post draft for review |
+| `#content-review` | MVP-C | Bot Token (OAuth2) | LinkedIn post draft for review |
 | GroupScout channel | GroupScout | Incoming Webhook | Weekly lead digest |
 
 Bot Tokens support interactive components (buttons, actions). Incoming Webhooks are simpler but cannot receive interactions.
 
 ---
 
-#### Creating a Slack App (Bot Token — MVP-A and MVP-B)
+#### Creating a Slack App (Bot Token — MVP-A, MVP-B, and MVP-C)
 
-MVP-A and MVP-B use a Slack Bot Token because their messages include action buttons (Approve/Edit, View in Airtable).
+MVP-A, MVP-B, and the current MVP-C export use a Slack Bot Token.
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
 2. Name: `LUX n8n Bot` — Workspace: your Slack workspace
@@ -361,19 +364,19 @@ MVP-A and MVP-B use a Slack Bot Token because their messages include action butt
 ```
 /invite @lux-n8n-bot
 ```
-Run this in both `#new-leads` and `#client-updates-review`.
+Run this in `#new-leads`, `#client-updates-review`, and `#content-review` as needed.
 
 **In n8n:**
 1. Go to **Credentials → New → Slack API**
 2. Name: `Slack — LUX Bot`
 3. Paste the `xoxb-...` token
-4. Assign to the **Post to #new-leads** node (MVP-B) and **Post to Slack** node (MVP-A)
+4. Assign to the relevant Slack nodes in MVP-A, MVP-B, and MVP-C
 
 ---
 
-#### Creating an Incoming Webhook (MVP-C and GroupScout)
+#### Creating an Incoming Webhook (GroupScout)
 
-MVP-C and GroupScout use Incoming Webhooks — simpler to set up, no bot required, no interactive components.
+GroupScout uses an Incoming Webhook for simple outbound notifications.
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → select or create an app
 2. Go to **Incoming Webhooks** → toggle **Activate Incoming Webhooks** on
@@ -382,7 +385,7 @@ MVP-C and GroupScout use Incoming Webhooks — simpler to set up, no bot require
 
 **In n8n:**
 1. Go to **Credentials → New → Slack Incoming Webhook**
-2. Name: `Slack — #content-review` (or `Slack — GroupScout`)
+2. Name: `Slack — GroupScout`
 3. Paste the webhook URL
 4. Assign to the relevant Slack node
 
@@ -395,7 +398,7 @@ MVP-C and GroupScout use Incoming Webhooks — simpler to set up, no bot require
 curl -X POST https://slack.com/api/chat.postMessage \
   -H "Authorization: Bearer xoxb-your-token" \
   -H "Content-Type: application/json" \
-  -d '{"channel": "#new-leads", "text": "n8n Slack test — MVP-B"}'
+  -d '{"channel": "#content-review", "text": "n8n Slack test — MVP-C"}'
 ```
 Expected response: `{"ok":true,...}`
 

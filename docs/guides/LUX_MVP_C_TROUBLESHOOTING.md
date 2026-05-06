@@ -2,28 +2,60 @@
 
 ---
 
+## Slack Shows `json { ... }` Instead of a Normal Review Message
+
+**Symptom:** Slack shows a raw blob like `json { "slack_message": "..." }` or the Slack copy includes markdown fences.
+
+**Cause:** Claude returned valid content, but not as a clean bare JSON object. Common variants:
+- prefixed text like `json { ... }`
+- fenced output like ```` ```json ... ``` ````
+- extra text before or after the JSON object
+
+**Current workflow behavior:** The latest `docs/mvps/mvp-c/n8n_workflow.json` already handles this in both `Extract Post` and `Build Slack Message` using tolerant JSON extraction.
+
+**Fix if your live workflow still fails:** Re-import the latest workflow JSON or paste the updated code from the current export into both Code nodes:
+- `Extract Post`
+- `Build Slack Message`
+
+The parser now:
+- tries `JSON.parse()` directly
+- strips fenced JSON if present
+- falls back to slicing from the first `{` to the last `}`
+
+**What to verify in the execution:**
+- `Claude: Slack Notification Copy` may still show prefixed or fenced JSON in `content[0].text`
+- `Build Slack Message` must normalize that into a plain `notification_text`
+- `Slack: Post to #content-review` should post the normalized text, not the raw JSON
+
+---
+
 ## Claude Returns Non-JSON or Wraps in Markdown Fences
 
-**Symptom:** The Extract Post Code node fails with a JSON parse error. The Slack message never lands.
+**Symptom:** The `Extract Post` Code node fails with a JSON parse error, or the `post` field falls back to raw text.
 
 **Cause:** The model occasionally wraps output in ` ```json ``` ` fences or adds a preamble sentence despite the prompt instruction.
 
-**Fix:**
-
-Update the `Extract Post` Code node to strip fences before parsing:
+**Fix:** The current export already includes the tolerant parser below in `Extract Post` and `Build Slack Message`:
 
 ```js
-const raw = $input.first().json;
-const text = raw.content?.[0]?.text ?? '';
-let post = '';
-try {
-  // Strip markdown fences if present
-  const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  post = JSON.parse(cleaned).post;
-} catch (e) {
-  // Fall back to raw text if JSON parse still fails
-  post = text;
-}
+const parseJSON = (value) => {
+  const trimmed = String(value || '').trim();
+
+  try {
+    return JSON.parse(trimmed);
+  } catch (err) {
+    const fenced = trimmed.match(/```(?:json)?\n?([\s\S]*?)\n?```/i);
+    if (fenced) return JSON.parse(fenced[1]);
+
+    const start = trimmed.indexOf('{');
+    const end = trimmed.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end >= start) {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    }
+
+    throw err;
+  }
+};
 ```
 
 If this happens repeatedly, add `"Return JSON only. No markdown fences."` as the last line of the failing prompt file in `docs/mvps/mvp-c/prompts/`.
@@ -32,17 +64,47 @@ If this happens repeatedly, add `"Return JSON only. No markdown fences."` as the
 
 ## Slack Message Does Not Appear in #content-review
 
-**Check 1 — Webhook URL is correct.**
-In n8n, open the Slack node and verify the credential is the incoming webhook for `#content-review`, not another channel.
+**Check 1 — Slack credential is correct.**
+In n8n, open the Slack node and verify it uses the Slack bot credential assigned to the workspace where `#content-review` exists.
 
 **Check 2 — n8n execution log.**
-Go to **Executions** in n8n. Find the latest run. Click into it and look at the Slack node output. If it shows `error: channel_not_found`, the webhook was created for a different channel name.
+Go to **Executions** in n8n. Find the latest run. Click into it and look at the Slack node output. If it shows `error: channel_not_found`, the bot is either posting to the wrong workspace or is not in the channel.
 
 **Check 3 — Slack app permissions.**
-If you switched to Bot API mode instead of Incoming Webhook, the bot must be invited to `#content-review`:
+The bot must be invited to `#content-review`:
 ```
 /invite @your-bot-name
 ```
+
+Also confirm the token has `chat:write`.
+
+---
+
+## How to Inspect a Failed Execution
+
+Use this order when debugging:
+
+1. Open **Executions** in n8n.
+2. Click the failed or suspicious run.
+3. Inspect `Load Prompts` first.
+4. Inspect `Route by Type`.
+5. Inspect the Claude node that actually ran.
+6. Inspect `Extract Post`.
+7. Inspect `Claude: Slack Notification Copy`.
+8. Inspect `Build Slack Message`.
+9. Inspect `Slack: Post to #content-review`.
+
+**Expected outputs by node:**
+
+| Node | Healthy output |
+| --- | --- |
+| `Load Prompts` | All prompt strings loaded under `prompts.*` |
+| `Route by Type` | Milestone payload goes true branch; podcast payload goes false branch |
+| `Claude: Milestone Post` or `Claude: Podcast Post` | `content[0].text` contains a JSON object with `post` |
+| `Extract Post` | Clean `post`, `content_type`, `about`, `post_preview` |
+| `Claude: Slack Notification Copy` | `content[0].text` contains a JSON object with `slack_message` |
+| `Build Slack Message` | Clean `notification_text` |
+| `Slack: Post to #content-review` | Success response from Slack |
 
 ---
 
@@ -134,7 +196,7 @@ If `inputData.milestone` is undefined, `about` becomes `undefined — undefined`
 
 **Symptom:** Clicking "Schedule via Buffer" in Slack does nothing.
 
-**Cause:** The Buffer step is optional and not wired in the base workflow. The action buttons post a Slack interactive payload back to n8n, which requires a separate webhook listener workflow.
+**Cause:** The Buffer step is optional and not wired in the base workflow. The exported workflow prepares a `blocks` payload in `Build Slack Message`, but the current Slack node posts `notification_text` only. Interactive scheduling requires a separate Slack interaction workflow.
 
 **Fix:** Create a second n8n workflow:
 1. **Webhook** node — receives Slack interactive component callbacks.

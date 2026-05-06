@@ -221,7 +221,7 @@ Condition: {{ $json.type }} === "project_milestone"
   → False branch: HTTP Request node with Prompt 2B
 ```
 
-Both branches then merge into the same JSON Parse → Slack nodes downstream.
+Both branches then merge into the same `Extract Post` → `Claude: Slack Notification Copy` → `Build Slack Message` path downstream.
 
 ---
 
@@ -262,6 +262,11 @@ Framing done. 4,200 sqft. 11 days. Through a 3-day rain delay.
 ✅ Post to LinkedIn   📅 Schedule via Buffer   ✏️ Edit First
 ```
 
+Current exported workflow behavior:
+- The `Build Slack Message` node prepares both `notification_text` and a `blocks` array.
+- The current Slack node posts `notification_text` as plain Slack text.
+- `Extract Post` and `Build Slack Message` both use tolerant JSON parsing so Claude responses like fenced JSON or `json { ... }` do not leak into Slack.
+
 ---
 
 ## Build Path
@@ -271,18 +276,30 @@ Framing done. 4,200 sqft. 11 days. Through a 3-day rain delay.
 | Step | Node | Config |
 |---|---|---|
 | 1 | Webhook | POST trigger, accepts milestone or episode JSON |
-| 2 | IF | Route on `type` field: `project_milestone` → 3A, else → 3B |
-| 3A | HTTP Request | Anthropic API — system: Prompt 1, user: Prompt 2A (milestone) |
-| 3B | HTTP Request | Anthropic API — system: Prompt 1, user: Prompt 2B (podcast) |
-| 4 | Merge | Rejoin both branches |
-| 5 | JSON Parse | Extract `post` field |
-| 6 | HTTP Request (optional) | Anthropic API — Prompt 3 for Slack copy |
-| 7 | Slack | Post draft + notification copy to `#content-review` |
-| 8 (optional) | Buffer | Schedule post if approved via Slack action |
+| 2 | Load Prompts | Read prompt files from `docs/mvps/mvp-c/prompts/` at runtime |
+| 3 | IF | Route on `type` field: `project_milestone` → milestone branch, else → podcast branch |
+| 4A | Claude: Milestone Post | Anthropic API — system: Prompt 1, user: Prompt 2A |
+| 4B | Claude: Podcast Post | Anthropic API — system: Prompt 1, user: Prompt 2B |
+| 5 | Merge | Rejoin the two content-generation branches |
+| 6 | Extract Post | Parse the Anthropic response and build `post`, `about`, and `post_preview` |
+| 7 | Claude: Slack Notification Copy | Anthropic API — Prompt 3 for Slack copy |
+| 8 | Build Slack Message | Parse `slack_message` and prepare Slack payload fields |
+| 9 | Slack: Post to #content-review | Post the review note to Slack |
+| 10 | Respond to Webhook | Return `{ "ok": true }` to the caller |
 
-**Estimated build time:** 3 hours (without Buffer or Prompt 3) / 5 hours (full pipeline)
+**Estimated build time:** 3 hours for the current text-only Slack workflow / 5 hours if you add interactive Slack actions or Buffer scheduling
 
 ---
+
+## Execution Notes
+
+- The current export makes two Anthropic calls per run: one post-generation call and one Slack-copy call.
+- The `Load Prompts` Code node requires the repo to be mounted into n8n and `NODE_FUNCTION_ALLOW_BUILTIN=fs` enabled.
+- If a Claude response includes fenced JSON or a `json` prefix, the parser in `Extract Post` and `Build Slack Message` recovers automatically.
+
+For setup and troubleshooting:
+- `docs/guides/LUX_MVP_C_SETUP.md`
+- `docs/guides/LUX_MVP_C_TROUBLESHOOTING.md`
 
 ## Demo Script (Loom)
 
