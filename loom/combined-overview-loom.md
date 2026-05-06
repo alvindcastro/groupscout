@@ -10,6 +10,17 @@ Operators, founders, and stakeholders who want one clear overview of what the MV
 
 ## Recommended Screen Flow
 
+Start with a simple repo overview or README heading:
+
+```text
+LUX Automation MVP Suite
+MVP A: Client Status Updates
+MVP B: Lead Follow-Up
+MVP C: Content Pipeline
+```
+
+Then move through:
+
 1. `docs/mvps/`
 2. `docs/mvps/mvp-a/README.md`
 3. `docs/mvps/mvp-b/README.md`
@@ -20,9 +31,11 @@ Operators, founders, and stakeholders who want one clear overview of what the MV
 
 ### 0:00-0:35 Introduction
 
-"Hi, my name is Alvin. Thanks for taking the time to watch this. I put together three MVPs for LUX, and they all follow the same basic idea: take structured business input, use AI to create a solid first draft, and keep a human in the loop before anything goes out."
+"Hi, my name is Alvin. I put together three MVPs for LUX to show how I would approach this role from day one."
 
-"I picked these three on purpose because they map pretty closely to the kind of work in the role, especially around client communication, sales workflow automation, and marketing content systems. More specifically, MVP A is client status updates, MVP B is lead follow-up, and MVP C is LinkedIn and podcast content. I’ll move through each one pretty quickly, talk through a few of the choices I made, and then wrap up with the pattern that ties all three together."
+"The pattern across all three is simple: take structured business input, use AI to create a useful first draft, and keep a human in control before anything goes to a client, a lead, or the public."
+
+"I chose these three because they map directly to the role: client communication, sales follow-up, and marketing content systems. MVP A handles client status updates, MVP B handles lead follow-up, and MVP C handles LinkedIn and podcast content."
 
 ### 0:35-2:20 MVP A
 
@@ -30,7 +43,7 @@ Operators, founders, and stakeholders who want one clear overview of what the MV
 
 "The reason I picked this use case is pretty simple: PMs spend a lot of time pulling details from JobTread, memory, and site notes, then writing the same kind of update again and again, so this turns that into a quick first draft and keeps the tone consistent."
 
-"One choice I made here was to keep the input structured. It includes things like phase, percent complete, schedule detail, milestones, budget context, and open items, which matters because Claude isn’t guessing from a messy paragraph. It’s working from a clean snapshot of the project."
+"One choice I made here was to keep the input structured. It includes things like phase, percent complete, schedule detail, milestones, budget context, and open items, which matters because Claude is not being asked to infer everything from a messy paragraph. It’s working from a clean snapshot of the project."
 
 "The workflow itself is pretty straightforward: the webhook receives the payload, a Code node builds context, another node loads prompts from the repo, Claude writes the email, and then a lighter Claude call writes the Slack note. By the end of that flow, Slack has a review-ready draft with approve or edit options."
 
@@ -56,17 +69,21 @@ Operators, founders, and stakeholders who want one clear overview of what the MV
 
 "This workflow supports two content types: if the payload is a project milestone, it routes to one prompt, and if it’s a podcast episode, it routes to another. Both share the same brand voice rules, but the writing logic changes based on the content."
 
-"That branching is important, because a milestone post and a contractor podcast post shouldn’t sound the same. One leads with proof and progress, while the other leads with tension or a sharper insight."
+"That branching is important, because a milestone post and a contractor podcast post shouldn’t sound the same. The milestone post leads with proof and progress. The podcast post leads with tension or a sharper business insight."
 
 "And again, the workflow stops at review rather than auto-posting, so the team gets the draft in Slack, makes edits if needed, and decides whether it should go live."
 
 ### 5:55-7:00 Wrap-Up
 
-"Across all three MVPs, the pattern stays consistent: structured input comes in, AI produces a useful first draft, and a human reviews the output before it goes anywhere important."
+"Across all three MVPs, the pattern is the same: structured input comes in, AI creates the first draft, and the team reviews before anything important goes out."
 
-"That’s really what I wanted to show with this MVP set. It’s not AI for the sake of AI, but AI applied to specific business workflows where speed matters, consistency matters, and human judgment still matters. Even though these examples focus on communication, sales, and content, the same approach carries over pretty naturally into operations, reporting, internal workflows, and agent platform work."
+"That is the main thing I wanted to show. I am not trying to automate judgment away. I am trying to remove the repetitive drafting work around the judgment, so the team can move faster without losing control."
 
-"If I had to sum up my approach in one line, it would be this: automate the first draft, not the final decision."
+"The same pattern can extend into schedule alerts, budget variance reporting, subcontractor onboarding, internal briefings, and agent platform workflows."
+
+"If I had to summarize the approach in one line, it would be this: automate the first draft, not the final decision."
+
+"Thanks for watching. I would be happy to walk through the workflows, prompt structure, or n8n setup in more detail."
 
 ## Key Points To Land
 
@@ -77,4 +94,4 @@ Operators, founders, and stakeholders who want one clear overview of what the MV
 
 ## Close
 
-"There’s obviously more we could get into on each of these, but for this overview, what I’d want you to take away is how I think about workflow design, AI guardrails, and human review, and how that lines up with the kind of systems you’re looking to build at LUX. If it’d be helpful, I’d be glad to talk through any of this in more detail on a call. Thanks for taking the time to watch, and I hope to hear from you soon."
+"There’s obviously more we could get into on each of these, but for this overview, what I’d want you to take away is how I think about workflow design, AI guardrails, and human review, and how that lines up with the kind of systems you’re looking to build at LUX. Thanks for taking the time to watch, and I hope to hear from you soon."
