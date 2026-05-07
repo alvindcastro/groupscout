@@ -1,4 +1,4 @@
-.PHONY: help build test lint run run-once docker-up docker-down docker-logs ollama-pull ollama-push db-migrate doctor clean fmt vet
+.PHONY: help build test lint run run-once eval-target eval-quality eval-gate docker-up docker-down docker-logs ollama-pull ollama-push db-migrate doctor clean fmt vet
 
 # Default target: help
 help:
@@ -12,6 +12,9 @@ help:
 	@echo "run              - Run the lead generation server"
 	@echo "run-alertd       - Run the alertd service"
 	@echo "run-once         - Run the lead generation pipeline once and exit"
+	@echo "eval-target      - Run the local Promptfoo-compatible eval target"
+	@echo "eval-quality     - Run offline GroupScout evals and write JSON/Markdown/JUnit reports"
+	@echo "eval-gate        - Fail if the latest eval report breaches release thresholds"
 	@echo "docker-up        - Start all services using Docker Compose"
 	@echo "docker-down      - Stop all services using Docker Compose"
 	@echo "docker-logs      - Follow Docker Compose logs"
@@ -52,6 +55,15 @@ run-alertd:
 
 run-once:
 	go run cmd/server/main.go --run-once
+
+eval-target:
+	go run ./cmd/evaltarget -addr 127.0.0.1:18080 -cases data/evals/groupscout
+
+eval-quality:
+	go run ./cmd/evalquality -cases data/evals/groupscout -out build/evals
+
+eval-gate:
+	go run ./cmd/evalgate -report build/evals/groupscout-eval-report.json -thresholds evals/promptfoo/thresholds.yaml
 
 docker-up:
 	docker compose up -d

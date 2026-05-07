@@ -149,6 +149,19 @@ Run the entire stack (app, database, monitoring) using Docker Compose:
 docker compose up -d
 ```
 
+#### 4. AI Quality EvalOps
+Run the deterministic GroupScout quality evals and release gate without live provider keys:
+```bash
+make eval-quality
+make eval-gate
+```
+
+To drive the same cases through Promptfoo, run the local Go target first:
+```bash
+make eval-target
+promptfoo eval -c evals/promptfoo/groupscout.yaml
+```
+
 ### 📄 Documentation
 
 *   [DEVELOPER.md](./docs/DEVELOPER.md) - Developer's guide for running and testing the system.
@@ -170,3 +183,4 @@ docker compose up -d
 *   [groupscout-case-schema.md](./docs/evals/groupscout-case-schema.md) - GQ1 schema for reusable JSONL eval fixtures in `data/evals/groupscout/`.
 *   [TDD_AI_QUALITY.md](./docs/guides/TDD_AI_QUALITY.md) - Strict TDD policy for AI quality work.
 *   [PROMPTS_AI_QUALITY.md](./docs/prompts/PROMPTS_AI_QUALITY.md) - Task prompts for AI quality implementation phases.
+*   [evals/promptfoo/groupscout.yaml](./evals/promptfoo/groupscout.yaml) - GQ3 Promptfoo config for the local Go eval target.

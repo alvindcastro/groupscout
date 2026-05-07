@@ -1,0 +1,3 @@
+max_critical_failures: 0
+max_release_blocking_failures: 0
+warnings_as_errors: false

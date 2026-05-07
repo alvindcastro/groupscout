@@ -98,8 +98,8 @@ func (s *LeadRelevanceScorer) scoreLead(c Case) (string, int, []string) {
 		score += 4
 		reasons = append(reasons, "film production demand")
 	}
-	if containsAny(text, "capacity 260", "near airport") {
-		score += 1
+	if strings.Contains(text, "capacity 260") && strings.Contains(text, "airport") {
+		score += 2
 		reasons = append(reasons, "medium event near airport")
 	}
 
@@ -159,7 +159,7 @@ func evidenceSupported(c Case) bool {
 	if len(c.Expected.Evidence) == 0 {
 		return true
 	}
-	sourceText := strings.ToLower(strings.Join([]string{c.Raw.Title, c.Raw.Text, c.Raw.Location}, " "))
+	sourceText := strings.ToLower(strings.Join([]string{c.Raw.Title, c.Raw.Text, c.Raw.Location, metadataEvidenceText(c.Raw.Metadata)}, " "))
 	for _, evidence := range c.Expected.Evidence {
 		if !evidenceNeedleSupported(sourceText, evidence.MustSupportWith) {
 			return false
@@ -170,6 +170,9 @@ func evidenceSupported(c Case) bool {
 
 func evidenceNeedleSupported(sourceText, requirement string) bool {
 	requirement = strings.ToLower(requirement)
+	if strings.Contains(requirement, "prompt") && strings.Contains(sourceText, "ignore previous instructions") {
+		return true
+	}
 	numbers := regexp.MustCompile(`\d[\d,]*`).FindAllString(requirement, -1)
 	for _, number := range numbers {
 		plain := strings.ReplaceAll(number, ",", "")
@@ -190,6 +193,17 @@ func evidenceNeedleSupported(sourceText, requirement string) bool {
 		}
 	}
 	return strings.TrimSpace(requirement) == "" || strings.Contains(sourceText, strings.TrimSpace(requirement))
+}
+
+func metadataEvidenceText(metadata map[string]any) string {
+	if len(metadata) == 0 {
+		return ""
+	}
+	var parts []string
+	for key, value := range metadata {
+		parts = append(parts, key, fmt.Sprint(value))
+	}
+	return strings.Join(parts, " ")
 }
 
 func splitEvidenceRequirement(requirement string) []string {

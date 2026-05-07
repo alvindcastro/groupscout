@@ -169,27 +169,27 @@ Live evals are optional calibration runs. They require an explicit command, expl
 
 **Goal:** let Promptfoo run `groupscout` quality checks without JS glue.
 
-- [ ] **GQ3-T01 — Code: local eval target HTTP server**  
+- [x] **GQ3-T01 — Code: local eval target HTTP server**  
   **Files:** `cmd/evaltarget/main.go`, `internal/evalops/target.go`  
   **Prompt:** [GQ3-T01](../prompts/PROMPTS_AI_QUALITY.md#gq3-t01-code-local-eval-target-http-server)  
   **Done when:** `httptest` proves request validation, response shape, trace ID, timeout, and scorer output.
-- [ ] **GQ3-T02 — Add Promptfoo YAML configs**  
+- [x] **GQ3-T02 — Add Promptfoo YAML configs**  
   **Type:** Documentation/config  
   **Files:** `evals/promptfoo/groupscout.yaml`  
   **Done when:** Promptfoo can call `http://localhost:18080/eval/run` and pass case variables.
-- [ ] **GQ3-T03 — Code: release gate command**  
+- [x] **GQ3-T03 — Code: release gate command**  
   **Files:** `cmd/evalgate/main.go`, `internal/evalops/gate.go`  
   **Prompt:** [GQ3-T03](../prompts/PROMPTS_AI_QUALITY.md#gq3-t03-code-release-gate-command)  
   **Done when:** critical failures produce non-zero exit and warnings do not block unless configured.
-- [ ] **GQ3-T04 — Add Makefile/CI commands**  
+- [x] **GQ3-T04 — Add Makefile/CI commands**  
   **Type:** Documentation/config  
   **Done when:** `make eval-quality` and `make eval-gate` are documented.
 
 ### GQ3 phase gate
 
-- [ ] A local eval run produces JSON, Markdown, and JUnit outputs.
-- [ ] A seeded critical failure blocks the gate.
-- [ ] CI instructions avoid live provider keys by default.
+- [x] A local eval run produces JSON, Markdown, and JUnit outputs.
+- [x] A seeded critical failure blocks the gate.
+- [x] CI instructions avoid live provider keys by default.
 
 ---
 

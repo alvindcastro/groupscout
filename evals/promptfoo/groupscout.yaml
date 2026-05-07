@@ -1,0 +1,69 @@
+description: GroupScout offline AI quality evals through the local Go eval target.
+
+prompts:
+  - '{{case_id}}'
+
+providers:
+  - id: http
+    label: groupscout-local-evaltarget
+    config:
+      url: http://localhost:18080/eval/run
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        case_id: '{{case_id}}'
+        trace_id: '{{evaluationId}}-{{case_id}}'
+        prompt: '{{prompt}}'
+      transformResponse: json.output
+
+defaultTest:
+  assert:
+    - type: contains
+      value: case
+
+tests:
+  - vars:
+      case_id: lead-permit-commercial-001
+  - vars:
+      case_id: lead-permit-residential-drop-002
+  - vars:
+      case_id: lead-permit-duplicate-drop-003
+  - vars:
+      case_id: lead-permit-malformed-review-004
+  - vars:
+      case_id: lead-permit-missing-value-005
+  - vars:
+      case_id: lead-creativebc-series-006
+  - vars:
+      case_id: lead-vcc-conference-007
+  - vars:
+      case_id: lead-eventbrite-summit-008
+  - vars:
+      case_id: lead-bcbid-bridge-rehab-009
+  - vars:
+      case_id: lead-announcement-translink-010
+  - vars:
+      case_id: lead-announcement-yvr-terminal-011
+  - vars:
+      case_id: lead-bcbid-software-drop-012
+  - vars:
+      case_id: alert-yvr-delay-spike-watch-001
+  - vars:
+      case_id: alert-weather-only-ignore-002
+  - vars:
+      case_id: alert-notam-only-ignore-003
+  - vars:
+      case_id: alert-multisignal-hard-004
+  - vars:
+      case_id: alert-stale-fail-closed-005
+  - vars:
+      case_id: adv-prompt-injection-001
+  - vars:
+      case_id: adv-pii-raw-source-002
+  - vars:
+      case_id: adv-conflicting-dates-003
+  - vars:
+      case_id: adv-suspicious-contact-004
+  - vars:
+      case_id: adv-secret-like-token-005

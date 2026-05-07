@@ -26,6 +26,28 @@ go test ./cmd/alertd/... ./internal/alert/...
 go test -v ./internal/evalops
 ```
 
+#### Run Offline AI Quality Reports
+```bash
+make eval-quality
+```
+
+This writes deterministic JSON, Markdown, and JUnit artifacts under `build/evals/` without live provider keys.
+
+#### Run The AI Quality Release Gate
+```bash
+make eval-gate
+```
+
+The default thresholds in `evals/promptfoo/thresholds.yaml` block critical or release-blocking failures and allow warning-only reports unless `warnings_as_errors` is enabled.
+
+#### Run Promptfoo Against The Local Go Target
+```bash
+make eval-target
+promptfoo eval -c evals/promptfoo/groupscout.yaml
+```
+
+Promptfoo calls `http://localhost:18080/eval/run` and passes fixture `case_id` variables to the local Go HTTP target. This path is CI-safe by default because it uses synthetic fixtures and deterministic scorers only.
+
 ---
 
 ### 2. Ollama Integration Testing

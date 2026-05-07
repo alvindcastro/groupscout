@@ -59,6 +59,11 @@ func JSONSummary(results []Result) ([]byte, error) {
 	return json.MarshalIndent(BuildReport(redactResults(results)), "", "  ")
 }
 
+func MarshalReportJSON(report Report) ([]byte, error) {
+	report.Results = redactResults(report.Results)
+	return json.MarshalIndent(report, "", "  ")
+}
+
 func MarkdownSummary(results []Result) string {
 	report := BuildReport(redactResults(results))
 	var b strings.Builder
