@@ -166,14 +166,17 @@ func redactResults(results []Result) []Result {
 }
 
 func redactSensitive(text string) string {
+	text = webhookPattern.ReplaceAllString(text, "[REDACTED_WEBHOOK]")
 	text = secretPattern.ReplaceAllString(text, "[REDACTED_SECRET]")
 	text = emailPattern.ReplaceAllString(text, "[REDACTED_EMAIL]")
 	text = phonePattern.ReplaceAllString(text, "[REDACTED_PHONE]")
+	text = rawPIIPattern.ReplaceAllString(text, "[REDACTED_PII]")
 	text = regexpTokenValue.ReplaceAllString(text, "[REDACTED_TOKEN]")
 	return text
 }
 
 var regexpTokenValue = regexp.MustCompile(`(?i)\bfixture-token-[a-z0-9\-]+\b`)
+var rawPIIPattern = regexp.MustCompile(`(?i)\b(?:SIN|SSN)\s*\d{3}[-\s]?\d{3}[-\s]?\d{3}\b`)
 
 func escapeMarkdown(text string) string {
 	text = strings.ReplaceAll(text, "|", "\\|")

@@ -197,23 +197,27 @@ Live evals are optional calibration runs. They require an explicit command, expl
 
 **Goal:** monitor production-like runs and turn failures into future tests.
 
-- [ ] **GQ4-T01 — Code: trace event model**  
+- [x] **GQ4-T01 — Code: trace event model**  
+  **Files:** `internal/evalops/telemetry.go`, `internal/evalops/telemetry_test.go`, `internal/evalops/report.go`  
   **Prompt:** [GQ4-T01](../prompts/PROMPTS_AI_QUALITY.md#gq4-t01-code-trace-event-model)  
   **Done when:** collector, enrichment, LLM, notification, and alert spans/events have redaction tests.
-- [ ] **GQ4-T02 — Code: metric counters and histograms**  
+- [x] **GQ4-T02 — Code: metric counters and histograms**  
+  **Files:** `internal/evalops/metrics.go`, `internal/evalops/metrics_test.go`  
   **Prompt:** [GQ4-T02](../prompts/PROMPTS_AI_QUALITY.md#gq4-t02-code-metric-counters-and-histograms)  
   **Done when:** tests cover collector failures, skipped enrichments, LLM errors, alert decisions, latency, and cost counters.
-- [ ] **GQ4-T03 — Code: review sample writer**  
+- [x] **GQ4-T03 — Code: review sample writer**  
+  **Files:** `internal/evalops/review_sample.go`, `internal/evalops/review_sample_test.go`  
   **Prompt:** [GQ4-T03](../prompts/PROMPTS_AI_QUALITY.md#gq4-t03-code-review-sample-writer)  
   **Done when:** sampled failures write redacted JSONL with enough context to create a regression case.
-- [ ] **GQ4-T04 — Add dashboard/alert checklist**  
+- [x] **GQ4-T04 — Add dashboard/alert checklist**  
   **Type:** Documentation  
+  **Files:** `docs/guides/VERIFICATION.md`  
   **Done when:** Grafana/Sentry/Loki alert candidates are documented for hallucination, drift, cost, collector failure, and webhook failure.
 
 ### GQ4 phase gate
 
-- [ ] No traces or samples leak secrets or PII.
-- [ ] Monitoring events include enough IDs to debug a failed lead without storing raw sensitive source data.
+- [x] No traces or samples leak secrets or PII.
+- [x] Monitoring events include enough IDs to debug a failed lead without storing raw sensitive source data.
 
 ---
 

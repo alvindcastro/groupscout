@@ -86,3 +86,32 @@ If leads have a `priority_score` of 1 but clearly should be higher, or if the `r
 1. **AI Provider**: Are you using Claude, Gemini, or Ollama? (Claude is currently the highest quality).
 2. **Prompts**: Check `internal/enrichment/prompts.go` (if applicable) or the embedded prompts in the code.
 3. **Raw Data**: Check `raw_projects.raw_data` to see if the scraper is actually getting enough text for the AI to work with.
+
+---
+
+## 6. Verifying GQ4 Runtime Telemetry
+
+Run the EvalOps package tests before enabling new production-like telemetry paths:
+
+```bash
+go test -v ./internal/evalops
+```
+
+The GQ4 telemetry helpers cover:
+
+1. **Trace events**: Collector, enrichment, LLM, notification, and alert events preserve `trace_id`, `case_id`, stage, operation, status, and safe attributes.
+2. **Redaction**: Trace payloads and review samples redact API keys, tokens, Slack webhook URLs, emails, phone numbers, raw PII, and oversized source excerpts before they are safe for logs, Loki, Sentry breadcrumbs, or OpenTelemetry attributes.
+3. **Metrics**: `RuntimeMetrics` uses an injected Prometheus registry for collector failures, enrichment skipped counts, LLM errors, alert decisions, stage latency, token counts, and estimated cost counters.
+4. **Review samples**: `ReviewSampleWriter` writes append-only JSONL when enabled, requires review metadata, rejects unredacted sensitive attributes, and keeps samples suitable as draft eval-case inputs.
+
+### Dashboard and Alert Checklist
+
+Use the following candidates for Grafana, Sentry, Loki, or alert rules:
+
+| Risk | Signal | Suggested alert |
+|---|---|---|
+| Hallucination or unsupported claim | Review samples with `severity=critical` or scorer messages about unsupported evidence | Page/review when any critical sample appears after a prompt, collector, or provider change. |
+| Source drift | Rising `groupscout_pipeline_collector_failures_total` or repeated parse warning samples by collector | Alert when one collector fails repeatedly in a run window or when case metadata points to a changed source type. |
+| Cost drift | `groupscout_pipeline_llm_tokens_total` or `groupscout_pipeline_llm_cost_cents_total` exceeds the expected baseline | Alert on unexpected provider/model spend growth or live-provider usage in deterministic eval contexts. |
+| Collector failure | `groupscout_pipeline_collector_failures_total{collector,reason}` increases across scheduled runs | Route to pipeline operations with the collector name and trace ID. |
+| Webhook failure | Notification-stage trace events or Sentry breadcrumbs with `status=failed` | Alert when Slack or email notification failures repeat, without storing raw webhook URLs. |
