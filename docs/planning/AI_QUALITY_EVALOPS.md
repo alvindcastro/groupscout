@@ -107,28 +107,28 @@ Live evals are optional calibration runs. They require an explicit command, expl
 
 **Goal:** create reusable fixture cases before implementing scorers.
 
-- [ ] **GQ1-T01 — Create lead eval case schema**  
+- [x] **GQ1-T01 — Create lead eval case schema**  
   **Type:** Documentation  
-  **Target files:** `docs/evals/groupscout-case-schema.md`, future `data/evals/groupscout/*.jsonl`  
+  **Target files:** `docs/evals/groupscout-case-schema.md`, `data/evals/groupscout/*.jsonl`  
   **Done when:** schema includes source, raw text, expected keep/drop decision, expected score band, expected enrichment fields, expected evidence, and forbidden claims.
-- [ ] **GQ1-T02 — Add construction and permit cases**  
+- [x] **GQ1-T02 — Add construction and permit cases**  
   **Type:** Documentation  
   **Done when:** cases include large commercial project, low-value residential renovation, duplicate permit, malformed PDF text, and missing value.
-- [ ] **GQ1-T03 — Add film/event/bid/infrastructure cases**  
+- [x] **GQ1-T03 — Add film/event/bid/infrastructure cases**  
   **Type:** Documentation  
   **Done when:** cases cover Creative BC, VCC, Eventbrite, CivicInfo/BCBid, and infrastructure announcements.
-- [ ] **GQ1-T04 — Add airport disruption alert cases**  
+- [x] **GQ1-T04 — Add airport disruption alert cases**  
   **Type:** Documentation  
   **Done when:** cases cover YVR delay spike, weather-only noise, NOTAM-only noise, multi-signal severe disruption, and stale-data fail-closed.
-- [ ] **GQ1-T05 — Add adversarial and privacy cases**  
+- [x] **GQ1-T05 — Add adversarial and privacy cases**  
   **Type:** Documentation  
   **Done when:** cases include prompt injection inside source text, PII in raw source, conflicting source dates, and suspicious contact data.
 
 ### GQ1 phase gate
 
-- [ ] At least 20 total cases are specified.
-- [ ] Every case has expected pass/fail behavior.
-- [ ] No fixture requires a live website or provider.
+- [x] At least 20 total cases are specified.
+- [x] Every case has expected pass/fail behavior.
+- [x] No fixture requires a live website or provider.
 
 ---
 

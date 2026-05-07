@@ -167,5 +167,6 @@ docker compose up -d
 *   [API_TESTING.md](./docs/API_TESTING.md) - How to test the APIs.
 *   [ROADMAP.md](./docs/planning/ROADMAP.md) - Long-term project roadmap.
 *   [AI_QUALITY_EVALOPS.md](./docs/planning/AI_QUALITY_EVALOPS.md) - EvalOps plan for AI enrichment, scoring, outreach, and alert quality.
+*   [groupscout-case-schema.md](./docs/evals/groupscout-case-schema.md) - GQ1 schema for reusable JSONL eval fixtures in `data/evals/groupscout/`.
 *   [TDD_AI_QUALITY.md](./docs/guides/TDD_AI_QUALITY.md) - Strict TDD policy for AI quality work.
 *   [PROMPTS_AI_QUALITY.md](./docs/prompts/PROMPTS_AI_QUALITY.md) - Task prompts for AI quality implementation phases.
