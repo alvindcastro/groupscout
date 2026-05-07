@@ -477,6 +477,16 @@ Pull a base model: `./scripts/ollama_pull.sh llama3.2`
 
 Track Claude API calls, token costs, response quality, and hallucinations over time.
 
+#### EvalOps quality baseline
+
+AI observability should feed the deterministic quality layer in [AI_QUALITY_EVALOPS.md](../planning/AI_QUALITY_EVALOPS.md). GQ0 defines the release-blocking dimensions before new code is added: lead relevance, source evidence, enrichment completeness, room-night rationale, outreach safety, alert correctness, latency, and cost.
+
+Use these rules when wiring observability:
+
+- deterministic evals use fixtures, fake providers, and local reports by default;
+- live provider calibration is explicit, credentialed, and manually reviewed;
+- critical failures fail closed for unsupported priority claims, fabricated evidence, unsafe outreach, secret or PII leakage, false priority alerts, stale-data priority decisions, and unexpected live calls during deterministic evals.
+
 #### Cloud
 
 | Tool | Free Tier | Notes |
