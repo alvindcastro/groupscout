@@ -18,3 +18,5 @@ Fixture rules:
 - Do not add real customer, traveler, passenger, student, sales, or private portal data.
 - Keep case IDs stable because future reports and changelogs will cite them.
 - Add a changelog entry whenever cases are added, removed, renamed, or materially re-scoped.
+
+GQ5 draft cases generated from review samples are not golden fixtures yet. Keep draft JSONL outside this directory until a human reviewer replaces all `TODO_REVIEW_*` fields, confirms the synthetic source text is safe, chooses whether the case is release-blocking, updates this README's counts, and records the promotion in `docs/CHANGELOG.md`.

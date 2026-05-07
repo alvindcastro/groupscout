@@ -225,17 +225,38 @@ Live evals are optional calibration runs. They require an explicit command, expl
 
 **Goal:** convert real failures into permanent regression coverage.
 
-- [ ] **GQ5-T01 — Define production-to-case workflow**  
+### Production-to-case workflow
+
+1. Capture a redacted `ReviewSample` from GQ4 telemetry with `review_required=true`, `trace_id`, stage, reason, source system/type, and only safe source excerpts.
+2. Triage the sample by issue class: unsupported claim, enrichment gap, outreach safety, collector drift, alert false positive/negative, privacy leak, cost/latency drift, or provider/model regression.
+3. Assign an owner in the operator issue tracker. Owner notes must include trace ID, source system, failure reason, expected user impact, and whether the issue should become release-blocking after review.
+4. Convert the reviewed sample to a draft JSONL case with `DraftCasesFromReviewSamples` and `WriteDraftCasesJSONL`. Keep generated drafts outside `data/evals/groupscout/` until review, for example under `build/evals/draft_cases.jsonl` or an issue attachment.
+5. A human reviewer replaces every `TODO_REVIEW_*` expected field with the intended decision, score band, evidence requirements, forbidden claims, privacy requirements, and critical failure examples.
+6. Only after review, move the case into the relevant golden JSONL file, update fixture counts and `docs/CHANGELOG.md`, then run `go test -v ./internal/evalops`, `make eval-quality`, and `make eval-gate`.
+
+Generated drafts preserve `trace_id` at the top level and in raw metadata, keep `review_required=true`, and set `expected.release_blocking=false`. The normal `LoadCases` path rejects TODO decisions so drafts cannot silently become golden cases.
+
+- [x] **GQ5-T01 — Define production-to-case workflow**  
   **Type:** Documentation  
   **Done when:** a sampled issue can become a JSONL case with expected behavior and owner notes.
-- [ ] **GQ5-T02 — Code: sample-to-case helper**  
+- [x] **GQ5-T02 — Code: sample-to-case helper**  
   **Prompt:** [GQ5-T02](../prompts/PROMPTS_AI_QUALITY.md#gq5-t02-code-sample-to-case-helper)  
   **Done when:** redacted samples generate draft cases, never auto-commit them, and include TODO fields for human review.
-- [ ] **GQ5-T03 — Add monthly calibration checklist**  
+- [x] **GQ5-T03 — Add monthly calibration checklist**  
   **Type:** Documentation  
   **Done when:** thresholds, prompt versions, model versions, and source drift are reviewed on a schedule.
 
+### Monthly calibration checklist
+
+- Review new production samples by issue class and confirm every repeatable class has a draft-case or explicit non-case rationale.
+- Re-run `go test -v ./internal/evalops`, `make eval-quality`, and `make eval-gate`; record report paths and threshold decisions in the monthly review note.
+- Compare current `evals/promptfoo/thresholds.yaml` against recent warning volume, critical failures, and false positive/negative alert decisions.
+- Record prompt versions, model/provider versions, local Ollama model tags, and any deterministic scorer changes since the previous review.
+- Check source drift for Richmond/Delta permits, Creative BC, VCC, Eventbrite, BCBid, announcements, YVR weather, and NOTAM data shape changes.
+- Review cost, latency, token, and collector-failure metrics for material changes after provider, prompt, or collector updates.
+- Promote only reviewed draft cases into `data/evals/groupscout/`, update fixture counts, and decide whether each promoted case should be release-blocking.
+
 ### GQ5 phase gate
 
-- [ ] Every production issue class has a path to a regression test.
-- [ ] New cases must be reviewed before becoming release-blocking.
+- [x] Every production issue class has a path to a regression test.
+- [x] New cases must be reviewed before becoming release-blocking.

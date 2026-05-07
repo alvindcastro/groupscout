@@ -94,3 +94,20 @@ Alert `alert` should include:
 - Preserve file order for deterministic reports.
 - Never dereference `fixture_url`; it is an identifier, not an HTTP target.
 - Treat any unredacted secret-like, webhook-like, email, phone, or raw PII output as a critical mismatch when the case lists it under `privacy`.
+
+## Draft Cases For GQ5
+
+GQ5 draft cases are generated from redacted `ReviewSample` entries before they become golden fixtures. Drafts use the same case shape plus these review-only top-level fields:
+
+| Field | Type | Required | Notes |
+|---|---:|---:|---|
+| `trace_id` | string | yes | Production trace ID copied from the redacted review sample. Also preserved under `raw.metadata.trace_id`. |
+| `review_required` | boolean | yes | Always `true` for generated drafts. |
+
+Draft generation rules:
+
+- Draft IDs use a `draft-` prefix and deterministic duplicate suffixes such as `-2` or `-3`.
+- `expected.release_blocking` is always `false` until a human reviewer promotes the case.
+- Human-owned expected fields contain `TODO_REVIEW_*` placeholders for the decision, eval result, evidence, forbidden claims, privacy requirements, critical failure examples, and domain-specific expectations.
+- `LoadCases` rejects the TODO decision, so drafts cannot enter the golden set until expected outcomes are reviewed and replaced with schema-valid values.
+- Keep draft JSONL outside `data/evals/groupscout/` until review is complete. Promoted cases require fixture-count and changelog updates.

@@ -115,3 +115,21 @@ Use the following candidates for Grafana, Sentry, Loki, or alert rules:
 | Cost drift | `groupscout_pipeline_llm_tokens_total` or `groupscout_pipeline_llm_cost_cents_total` exceeds the expected baseline | Alert on unexpected provider/model spend growth or live-provider usage in deterministic eval contexts. |
 | Collector failure | `groupscout_pipeline_collector_failures_total{collector,reason}` increases across scheduled runs | Route to pipeline operations with the collector name and trace ID. |
 | Webhook failure | Notification-stage trace events or Sentry breadcrumbs with `status=failed` | Alert when Slack or email notification failures repeat, without storing raw webhook URLs. |
+
+---
+
+## 7. Verifying GQ5 Feedback Loop
+
+Run the draft-case helper tests when changing review sample, eval fixture, or calibration behavior:
+
+```bash
+go test -v ./internal/evalops -run 'TestDraftCasesFromReviewSamples|TestWriteDraftCasesJSONL'
+```
+
+The GQ5 feedback loop should preserve these guarantees:
+
+1. **Review gate**: Only `ReviewSample` entries with `review_required=true` convert into draft cases.
+2. **Traceability**: Draft cases preserve `trace_id` at the top level, in raw metadata, and in owner notes.
+3. **Human TODOs**: Generated cases include `TODO_REVIEW_*` expected fields and `expected.release_blocking=false`.
+4. **Promotion guard**: `LoadCases` rejects draft TODO decisions until a reviewer fills expected behavior.
+5. **No auto-commit**: Generated drafts stay outside `data/evals/groupscout/` until reviewed, promoted, counted, and recorded in `docs/CHANGELOG.md`.

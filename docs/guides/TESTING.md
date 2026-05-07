@@ -26,6 +26,13 @@ go test ./cmd/alertd/... ./internal/alert/...
 go test -v ./internal/evalops
 ```
 
+#### Run GQ5 Draft-Case Helper Tests
+```bash
+go test -v ./internal/evalops -run 'TestDraftCasesFromReviewSamples|TestWriteDraftCasesJSONL'
+```
+
+These tests verify that redacted review samples become review-only draft cases with trace IDs, TODO expected fields, deterministic duplicate IDs, and a loader rejection until human review is complete.
+
 #### Run Offline AI Quality Reports
 ```bash
 make eval-quality

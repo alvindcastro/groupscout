@@ -162,6 +162,8 @@ make eval-target
 promptfoo eval -c evals/promptfoo/groupscout.yaml
 ```
 
+GQ5 review samples can be converted into review-only draft cases with the evalops draft-case helper; generated drafts keep `TODO_REVIEW_*` expected fields and must be reviewed before they move into `data/evals/groupscout/`.
+
 ### 📄 Documentation
 
 *   [DEVELOPER.md](./docs/DEVELOPER.md) - Developer's guide for running and testing the system.
@@ -171,6 +173,7 @@ promptfoo eval -c evals/promptfoo/groupscout.yaml
 *   [SETUP.md](./docs/guides/SETUP.md) - Installation and configuration guide.
 *   [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
 *   [TESTING.md](./docs/guides/TESTING.md) - Comprehensive testing guide (unit, integration, Ollama).
+*   [VERIFICATION.md](./docs/guides/VERIFICATION.md) - Runtime and EvalOps verification checklist.
 *   [N8N_GUIDE.md](./docs/guides/N8N_GUIDE.md) - Workflow automation and scheduling.
 *   [HOME_DEPLOY.md](./docs/guides/HOME_DEPLOY.md) - Self-hosting and deployment guide.
 *   [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Local LLM setup guide.
