@@ -21,6 +21,11 @@ go test -v ./internal/enrichment/...
 go test ./cmd/alertd/... ./internal/alert/...
 ```
 
+#### Run AI Quality EvalOps Tests
+```bash
+go test -v ./internal/evalops
+```
+
 ---
 
 ### 2. Ollama Integration Testing

@@ -136,32 +136,32 @@ Live evals are optional calibration runs. They require an explicit command, expl
 
 **Goal:** implement local repeatable checks using Go.
 
-- [ ] **GQ2-T01 — Code: eval case loader**  
+- [x] **GQ2-T01 — Code: eval case loader**  
   **Files:** `internal/evalops/cases.go`, `internal/evalops/cases_test.go`  
   **Prompt:** [GQ2-T01](../prompts/PROMPTS_AI_QUALITY.md#gq2-t01-code-eval-case-loader)  
   **Done when:** valid JSONL loads, malformed cases fail with useful errors, duplicate IDs fail, and `go test ./internal/evalops` passes.
-- [ ] **GQ2-T02 — Code: lead relevance scorer**  
+- [x] **GQ2-T02 — Code: lead relevance scorer**  
   **Files:** `internal/evalops/lead_scorer.go`, `internal/evalops/lead_scorer_test.go`  
   **Prompt:** [GQ2-T02](../prompts/PROMPTS_AI_QUALITY.md#gq2-t02-code-lead-relevance-scorer)  
   **Done when:** keep/drop decisions, score bands, and duplicate behavior are tested.
-- [ ] **GQ2-T03 — Code: enrichment completeness scorer**  
+- [x] **GQ2-T03 — Code: enrichment completeness scorer**  
   **Prompt:** [GQ2-T03](../prompts/PROMPTS_AI_QUALITY.md#gq2-t03-code-enrichment-completeness-scorer)  
   **Done when:** required fields, rationale, source evidence, room-night estimate range, and unknown handling are tested.
-- [ ] **GQ2-T04 — Code: outreach safety scorer**  
+- [x] **GQ2-T04 — Code: outreach safety scorer**  
   **Prompt:** [GQ2-T04](../prompts/PROMPTS_AI_QUALITY.md#gq2-t04-code-outreach-safety-scorer)  
   **Done when:** fabricated claims, aggressive tone, missing review status, and PII leakage fail.
-- [ ] **GQ2-T05 — Code: alert threshold scorer**  
+- [x] **GQ2-T05 — Code: alert threshold scorer**  
   **Prompt:** [GQ2-T05](../prompts/PROMPTS_AI_QUALITY.md#gq2-t05-code-alert-threshold-scorer)  
   **Done when:** SPS/priority alert behavior is deterministic and stale or partial data fails safe.
-- [ ] **GQ2-T06 — Code: Markdown and JUnit reports**  
+- [x] **GQ2-T06 — Code: Markdown and JUnit reports**  
   **Prompt:** [GQ2-T06](../prompts/PROMPTS_AI_QUALITY.md#gq2-t06-code-markdown-and-junit-reports)  
   **Done when:** reports are deterministic, include critical failures, and can be uploaded by CI.
 
 ### GQ2 phase gate
 
-- [ ] `go test ./internal/evalops` passes.
-- [ ] `go test ./...` passes.
-- [ ] Every scorer has happy-path, invalid-input, and critical-failure tests.
+- [x] `go test ./internal/evalops` passes.
+- [x] `go test ./...` passes.
+- [x] Every scorer has happy-path, invalid-input, and critical-failure tests.
 
 ---
 

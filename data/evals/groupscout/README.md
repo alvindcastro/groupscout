@@ -1,6 +1,6 @@
-# GroupScout GQ1 Eval Fixtures
+# GroupScout Eval Fixtures
 
-These JSONL files are the GQ1 golden fixture set for AI quality work.
+These JSONL files are the golden fixture set for AI quality work. GQ1 defines the cases, and GQ2 loads them through `internal/evalops`.
 
 | File | Cases | Coverage |
 |---|---:|---|

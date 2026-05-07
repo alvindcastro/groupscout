@@ -1,6 +1,6 @@
 # GroupScout Eval Case Schema
 
-This schema defines the synthetic golden cases used by GQ1 and loaded by the future GQ2 eval harness.
+This schema defines the synthetic golden cases used by GQ1 and loaded by the GQ2 eval harness.
 
 The fixture files live in `data/evals/groupscout/*.jsonl`. Each line is one complete JSON object. Cases are synthetic, stable, and must not require live websites, live providers, credentials, or private source material.
 
