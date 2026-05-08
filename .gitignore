@@ -41,3 +41,7 @@ coverage.html
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key
