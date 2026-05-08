@@ -261,6 +261,7 @@ Out of scope for the first UI:
 | Doc | Ownership |
 |---|---|
 | `docs/planning/ui/UI_STRATEGY.md` | Product flow, screen map, frontend architecture, and UI API plan. |
+| `docs/planning/ui/BACKEND_FOR_UI_TESTING.md` | Backend startup paths, current endpoint status, and frontend proxy notes for UI testing. |
 | `docs/planning/PHASES.md` | Atomic implementation checklist. |
 | `docs/planning/ROADMAP.md` | Big-picture milestones and sequencing. |
 | `docs/DATA_FLOW.md` | System and human workflow diagram. |

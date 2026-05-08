@@ -183,6 +183,7 @@ GQ5 review samples can be converted into review-only draft cases with the evalop
 *   [API_TESTING.md](./docs/API_TESTING.md) - How to test the APIs.
 *   [ROADMAP.md](./docs/planning/ROADMAP.md) - Long-term project roadmap.
 *   [UI_STRATEGY.md](./docs/planning/ui/UI_STRATEGY.md) - Operator UI strategy, information architecture, and UI API plan.
+*   [BACKEND_FOR_UI_TESTING.md](./docs/planning/ui/BACKEND_FOR_UI_TESTING.md) - Backend startup paths and API status for UI testing.
 *   [AI_QUALITY_EVALOPS.md](./docs/planning/AI_QUALITY_EVALOPS.md) - EvalOps plan for AI enrichment, scoring, outreach, and alert quality.
 *   [groupscout-case-schema.md](./docs/evals/groupscout-case-schema.md) - GQ1 schema for reusable JSONL eval fixtures in `data/evals/groupscout/`.
 *   [TDD_AI_QUALITY.md](./docs/guides/TDD_AI_QUALITY.md) - Strict TDD policy for AI quality work.
