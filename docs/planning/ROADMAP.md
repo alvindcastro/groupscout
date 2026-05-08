@@ -130,12 +130,19 @@
 
 ## Phase 10 — Ecosystem & UI 📋
 
-- [ ] Admin dashboard — lightweight React/Vite frontend for lead visualization
+> Product and integration strategy: [UI_STRATEGY.md](./ui/UI_STRATEGY.md).
+
+- [ ] Operator UI foundation — TypeScript React SPA under a future `web/` app, backed by `/api/*` contracts and same-origin deployment
+- [ ] Lead inbox — filterable triage table by status, score, source, property, owner, and timing
+- [ ] Lead detail — source evidence, raw audit access, AI rationale, notes, status actions, and outreach history
+- [ ] Verification queue — flagged or low-confidence leads with reviewer corrections and audit trail
+- [ ] Pipeline monitor — collector run health, failures, LLM latency/errors, and webhook delivery status
+- [ ] Analytics — source attribution, claimed/won/lost rate, score distribution, aging leads, and demand calendar
 - [ ] CRM sync — one-click push to HubSpot/Salesforce/Pipedrive via their APIs
 - [ ] Multi-persona outreach drafting — A/B templates (e.g., "Technical Specialist" vs. "Sales Executive")
 - [ ] Chrome Extension — manually clip a lead from any webpage into the pipeline
 - [ ] Smart scheduling — scrapers run more frequently during high-activity periods
-- [ ] Fully automated follow-up reminders based on lead status
+- [ ] Follow-up reminders based on lead status; keep auto-sending outreach out of the MVP
 
 ---
 
@@ -305,6 +312,14 @@
 ---
 
 ## Phase 19 — Slack Actions & Lead Feedback 📋
+
+> Slack remains the interrupt channel while the web UI becomes the durable review workspace.
+
+- [ ] Slack action buttons — Claim, Dismiss, Snooze
+- [ ] Secure Slack action handler — signature verification and status transitions
+- [ ] Outreach outcome buttons — Won, Lost, No Response after a lead is claimed
+- [ ] Lead aging — resurface snoozed or stale claimed leads
+- [ ] Status model alignment with [UI_STRATEGY.md](./ui/UI_STRATEGY.md)
 
 ---
 

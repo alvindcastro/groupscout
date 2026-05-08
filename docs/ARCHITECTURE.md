@@ -48,6 +48,14 @@ Dispatches alerts and monitors system health.
 - **Health Check**: Exposes a `/health` endpoint to verify database and API connectivity.
 - **Monitoring**: Integrates with Prometheus and Grafana Loki (via Docker) for infrastructure-level observability.
 
+#### 4.5 Planned Operator UI Layer (`web/` + `/api/*` — Phase 10)
+A future admin/operator UI should sit above the existing Go API and storage layer. It should not read the database directly and should not expose the automation `API_TOKEN` in browser JavaScript.
+- **Slack remains the interrupt channel**: high-priority leads and airport disruption alerts still land in Slack first.
+- **Web UI becomes the durable workspace**: lead triage, source evidence review, ownership, notes, outreach history, and outcome analytics.
+- **UI-facing API boundary**: add `/api/*` endpoints for lead list/detail, status updates, raw audit access, outreach logs, pipeline run history, and summary stats.
+- **Same-origin deployment preferred**: serve built static assets from the Go server or a small proxy container so cookies, auth, and API calls stay simple.
+- **Design source of truth**: see [UI_STRATEGY.md](./planning/ui/UI_STRATEGY.md).
+
 #### 5. Disruption Alert System (`cmd/alertd/` — Phase 17)
 A **separate long-running binary** — distinct from the lead pipeline, different cadence and failure modes.
 - **Weather**: `internal/weather/eccc.go` polls `api.weather.gc.ca` (no key required) for Metro Vancouver + Fraser Valley alert zones; classifies type (atmospheric river, fog, snow) and severity.

@@ -276,11 +276,21 @@
 ## Phase 10 — Ecosystem & UI (Planned)
 **Goal:** Improve user interaction and external integrations.
 
-- [ ] **10.1** Admin Dashboard — Lightweight React/Vue frontend for lead visualization.
-- [ ] **10.2** CRM Sync — "One-click" push to HubSpot/Salesforce.
-- [ ] **10.3** Outreach Refinement — Multi-persona drafting (A/B testing for templates).
-- [ ] **10.4** Chrome Extension — Manually clip leads from the browser into the pipeline.
-- [ ] **10.5** `CHANGELOG.md` — Document UI and ecosystem expansion.
+- [x] **10.0** `docs/planning/ui/UI_STRATEGY.md` — Define operator UI strategy, information architecture, status model, API boundaries, and MVP sequence.
+- [ ] **10.1** `internal/storage/leads.go` — Add filtered `List` with status/source/min-score/search/pagination support.
+- [ ] **10.2** `cmd/server/main.go` — Add UI-facing `GET /api/leads` and `GET /api/leads/{id}` handlers.
+- [ ] **10.3** `cmd/server/main.go` — Add `PATCH /api/leads/{id}` for safe operator fields: status, owner, notes, snooze date, and corrections.
+- [ ] **10.4** `internal/storage/outreach.go` — Add outreach log list/insert methods around the existing `outreach_log` table.
+- [ ] **10.5** `cmd/server/main.go` — Add `GET/POST /api/leads/{id}/outreach` handlers.
+- [ ] **10.6** `api/swagger.yaml` — Document UI-facing `/api/*` contracts before generating frontend types.
+- [ ] **10.7** `web/` — Create TypeScript React SPA with lead inbox, filters, detail view, and raw audit access.
+- [ ] **10.8** `web/` — Add status actions: claim, dismiss, snooze, flag, contacted, won, lost.
+- [ ] **10.9** `web/` — Add pipeline controls and compact health panel without replacing Grafana/Prometheus.
+- [ ] **10.10** `cmd/server` or deployment config — Add same-origin serving and session/auth boundary so browser code never sees `API_TOKEN`.
+- [ ] **10.11** CRM Sync — "One-click" push to HubSpot/Salesforce.
+- [ ] **10.12** Outreach Refinement — Multi-persona drafting (A/B testing for templates).
+- [ ] **10.13** Chrome Extension — Manually clip leads from the browser into the pipeline.
+- [ ] **10.14** `CHANGELOG.md` — Document UI and ecosystem expansion.
 
 ---
 

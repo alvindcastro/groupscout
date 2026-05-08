@@ -23,8 +23,13 @@ graph TD
     Hunter --> LeadStore[(DB: leads)]
     LeadStore --> Embedding[Vector Embeddings: pgvector/SQLite]
     LeadStore --> Notifier[Notification Layer: Slack/Email]
-    Notifier --> User[User Actions: Claim/Dismiss/Snooze]
-    User --> OutreachLog[(DB: outreach_log)]
+    LeadStore --> AdminUI[Planned Operator UI: Lead Inbox/Detail]
+    Notifier --> Triage[Human Triage: Slack or UI]
+    AdminUI --> Triage
+    Triage --> Decision{Claim / Dismiss / Snooze / Verify}
+    Decision -- Verify --> RawAudit[(DB: raw_inputs)]
+    Decision -- Correct --> LeadStore
+    Decision --> OutreachLog[(DB: outreach_log)]
 ```
 
 #### Detailed Stages
@@ -39,6 +44,11 @@ graph TD
     -   **Real-time**: High-priority leads are sent immediately to Slack.
     -   **Digest**: Lower-priority leads are aggregated into a daily or weekly email summary via Resend.
     -   **Interaction**: Users can interact with leads (e.g., Claim/Dismiss) directly from Slack, which updates the lead status and logs the interaction in `outreach_log`.
+9.  **Planned Operator Review Loop**:
+    -   **Lead inbox**: The future UI should expose sortable/filterable lead triage backed by UI-specific `/api/*` endpoints.
+    -   **Evidence review**: Operators should be able to open the raw audit payload for uncertain leads, starting with the implemented `GET /leads/{id}/raw` endpoint and later an authenticated UI alias.
+    -   **Outcome capture**: Claim, dismiss, snooze, contacted, won, lost, and no-response actions should update lead state and `outreach_log`, creating the analytics base for source hit rate and demand forecasting.
+    -   **Corrections**: Reviewer corrections should preserve the original AI extraction plus the corrected value for auditability.
 
 ---
 

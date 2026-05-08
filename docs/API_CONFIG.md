@@ -14,9 +14,11 @@ Default port: `8080` (Configurable via `PORT`)
 | Endpoint | Method | Description | Auth Required |
 |---|---|---|---|
 | `/health` | `GET` | System health check (DB + API connectivity). | No |
+| `/metrics` | `GET` | Prometheus metrics for runtime monitoring. | No |
 | `/run` | `POST` | Manually triggers the collect-enrich-notify pipeline. | Yes (Bearer Token) |
 | `/digest` | `POST` | Sends a weekly email summary of leads via SendGrid. | Yes (Bearer Token) |
 | `/n8n/webhook` | `POST` | Receives raw lead data from n8n for storage and enrichment. | Yes (Bearer Token) |
+| `/leads/{id}/raw` | `GET` | Returns the stored raw audit payload associated with a lead. | No today; UI wrapper should require auth |
 
 #### Alertd Binary (`cmd/alertd`)
 Default port: `8081` (Configurable via `ALERTD_PORT`)
@@ -68,3 +70,26 @@ The following URLs are polled by collectors to gather raw data.
 -   **Security**: Use the `API_TOKEN` (Bearer Auth) for all sensitive POST endpoints.
 -   **Extensibility**: Adding new data sources usually requires a new entry in the Scrapers table and a corresponding URL in the `.env` file.
 -   **Testing**: See [API_TESTING.md](./API_TESTING.md) for a guide on how to test these endpoints.
+
+---
+
+### 5. Planned UI-Facing API Namespace
+
+The current API is optimized for automation triggers. The future operator UI should use a separate `/api/*` namespace so browser sessions, authorization, pagination, and response shapes can evolve without breaking n8n or other automation clients.
+
+Do **not** expose `API_TOKEN` to browser JavaScript. It is intended for server-to-server automation. Use a cookie session, an auth proxy, or another server-side session boundary for the admin UI.
+
+| Planned Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/leads` | `GET` | List leads with filters such as `status`, `source`, `min_score`, `q`, `limit`, and `cursor`. |
+| `/api/leads/{id}` | `GET` | Return lead detail, enrichment fields, status, notes, and audit metadata. |
+| `/api/leads/{id}` | `PATCH` | Update safe operator fields such as status, owner, notes, snooze date, and corrections. |
+| `/api/leads/{id}/raw` | `GET` | Authenticated UI alias for raw audit evidence. |
+| `/api/leads/{id}/outreach` | `GET` | List outreach attempts and outcomes for the lead. |
+| `/api/leads/{id}/outreach` | `POST` | Log an outreach attempt, channel, contact, notes, and outcome. |
+| `/api/pipeline/runs` | `POST` | Start a pipeline run asynchronously instead of blocking the browser for the full run. |
+| `/api/pipeline/runs` | `GET` | Show recent run history, status, counts, and failures. |
+| `/api/stats` | `GET` | Summaries by status, source, score band, owner, week, and outcome. |
+| `/api/system` | `GET` | UI-friendly health and integration summary derived from health/metrics/log signals. |
+
+See [UI_STRATEGY.md](./planning/ui/UI_STRATEGY.md) for the product flow and implementation sequence.
