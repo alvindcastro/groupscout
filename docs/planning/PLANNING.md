@@ -244,7 +244,7 @@ CREATE TABLE outreach_log (
 
 #### D3 — Email Digest (fallback)
 - Same content as Slack, HTML email format
-- SendGrid or AWS SES
+- Resend or AWS SES
 - Weekly cadence, BCC to sales manager
 
 #### D4 — Outreach Draft in Notification
@@ -314,7 +314,7 @@ groupscout/
 │   │   └── leads.go           # leads repo
 │   ├── notify/
 │   │   ├── slack.go           # Slack webhook
-│   │   └── email.go           # SendGrid/SES
+│   │   └── email.go           # Resend/SES
 │   └── scheduler/
 │       └── scheduler.go       # cron wiring
 ├── migrations/
@@ -338,7 +338,7 @@ groupscout/
 DATABASE_URL=postgres://...
 CLAUDE_API_KEY=sk-ant-...
 SLACK_WEBHOOK_URL=https://hooks.slack.com/...
-SENDGRID_API_KEY=...
+RESEND_API_KEY=...
 RICHMOND_PERMITS_URL=https://...
 BCBID_RSS_URL=https://...
 NEWS_API_KEY=...

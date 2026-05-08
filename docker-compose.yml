@@ -17,7 +17,7 @@ services:
       - DATABASE_URL=postgres://groupscout:groupscout@postgres:5432/groupscout
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY}
       - API_TOKEN=${API_TOKEN}
       - RICHMOND_PERMITS_URL=${RICHMOND_PERMITS_URL}
       - DELTA_PERMITS_URL=${DELTA_PERMITS_URL}

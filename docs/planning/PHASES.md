@@ -217,7 +217,7 @@
 
 ### Part C — Email + Outreach Draft ✅
 - [x] **C1** `internal/storage/leads.go` — `ListForDigest` implementation (past 7 days)
-- [x] **C2** `internal/notify/email.go` — weekly HTML digest via SendGrid
+- [x] **C2** `internal/leadnotify/email.go` — weekly HTML digest via Resend
 - [x] **C3** `internal/enrichment/claude.go` — `DraftOutreach` automated cold email generation
 - [x] **C4** `cmd/server/main.go` — `/digest` HTTP endpoint for scheduled triggers
 

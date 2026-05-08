@@ -208,12 +208,12 @@ docker compose ps
 
 Follow GroupScout logs in real time:
 ```bash
-docker compose logs -f app
+docker compose logs -f groupscout
 ```
 
 View recent logs (last 50 lines):
 ```bash
-docker compose logs app --tail=50
+docker compose logs groupscout --tail=50
 ```
 
 Follow logs for all services:
@@ -231,7 +231,7 @@ docker compose logs grafana --tail=30
 
 #### Docker — Reading a Pipeline Run
 
-After triggering `/run`, check `docker compose logs app --tail=50`. A healthy run looks like:
+After triggering `/run`, check `docker compose logs groupscout --tail=50`. A healthy run looks like:
 
 ```
 INFO  pipeline triggered via HTTP /run
@@ -395,7 +395,7 @@ All endpoints except `/health` require `Authorization: Bearer YOUR_API_TOKEN`.
 | Problem | Fix |
 |---|---|
 | `401 Unauthorized` | Check `API_TOKEN` in `.env` matches the Bearer value in n8n |
-| `Connection refused` (Docker n8n → app) | Use `http://groupscout:8080` not `localhost` — they share a Docker network |
+| `Connection refused` (Docker n8n → groupscout) | Use `http://groupscout:8080` not `localhost` — they share a Docker network |
 | `Connection refused` (local n8n → local Go) | Use `http://host.docker.internal:8080` on Mac/Windows |
 | No leads generated | Lower `MIN_PERMIT_VALUE_CAD` to `100000` for testing |
 | PDF parse errors | Confirm `pdftotext` is on your PATH: `pdftotext -v` |

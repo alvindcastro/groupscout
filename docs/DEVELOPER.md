@@ -114,7 +114,7 @@ A dedicated script verifies Ollama connectivity and model availability:
 
 ### 3. API Testing
 Manual API testing can be done via `curl` or the **Bruno** collection in `api/bruno`.
-See [docs/API_TESTING.md](./docs/API_TESTING.md) for examples.
+See [TESTING.md](./guides/TESTING.md#8-api-testing-details) for examples.
 
 ## 📂 Project Structure
 - `api/`: OpenAPI / Swagger specifications.
@@ -143,7 +143,7 @@ See [docs/guides/SUBAGENTS.md](./docs/guides/SUBAGENTS.md) for a list of availab
 - [N8N_GUIDE.md](./docs/guides/N8N_GUIDE.md) - Workflow automation and scheduling.
 - [HOME_DEPLOY.md](./docs/guides/HOME_DEPLOY.md) - Self-hosting and deployment guide.
 - [API_CONFIG.md](./docs/API_CONFIG.md) - Detailed API and endpoint configuration.
-- [API_TESTING.md](./docs/API_TESTING.md) - Guide on how to test the APIs.
+- [TESTING.md](./guides/TESTING.md#8-api-testing-details) - Guide on how to test the APIs.
 - [ALERTD_SETUP.md](./docs/guides/ALERTD_SETUP.md) - Specific configuration for the alert system.
 - [OLLAMA_INTEGRATION.md](./docs/planning/OLLAMA_INTEGRATION.md) - Local LLM integration plan and phases.
 - [OLLAMA_SETUP.md](./docs/guides/OLLAMA_SETUP.md) - Docker and native setup guide for Ollama.

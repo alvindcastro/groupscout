@@ -20,7 +20,7 @@ Every code task follows this sequence:
 ## Forbidden shortcuts
 
 - Do not write production Go code before the failing test exists.
-- Do not call live LLMs, live cloud search, Slack, SendGrid, Sentry, Botpress, external threat feeds, or public websites from unit tests.
+- Do not call live LLMs, live cloud search, Slack, Resend, Sentry, Botpress, external threat feeds, or public websites from unit tests.
 - Do not add secrets, real customer data, real student data, real incident evidence, or private portal content to fixtures.
 - Do not mark a task done because the code compiles; task completion requires acceptance evidence.
 - Do not allow critical safety, privacy, unsupported-claim, or unauthorized-action checks to fail open.

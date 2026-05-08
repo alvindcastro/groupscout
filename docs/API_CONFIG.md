@@ -16,7 +16,7 @@ Default port: `8080` (Configurable via `PORT`)
 | `/health` | `GET` | System health check (DB + API connectivity). | No |
 | `/metrics` | `GET` | Prometheus metrics for runtime monitoring. | No |
 | `/run` | `POST` | Manually triggers the collect-enrich-notify pipeline. | Yes (Bearer Token) |
-| `/digest` | `POST` | Sends a weekly email summary of leads via SendGrid. | Yes (Bearer Token) |
+| `/digest` | `POST` | Sends a weekly email summary of leads via Resend. | Yes (Bearer Token) |
 | `/n8n/webhook` | `POST` | Receives raw lead data from n8n for storage and enrichment. | Yes (Bearer Token) |
 | `/leads/{id}/raw` | `GET` | Returns the stored raw audit payload associated with a lead. | No today; UI wrapper should require auth |
 
@@ -39,7 +39,7 @@ GroupScout integrates with several external SaaS providers.
 | **Google Gemini** | `GEMINI_API_KEY` | `https://generativelanguage.googleapis.com/...` | Alternative AI provider. |
 | **Slack Webhooks** | `SLACK_WEBHOOK_URL` | `https://hooks.slack.com/services/...` | Posting lead digests to channels. |
 | **Slack Bot API** | `SLACK_BOT_TOKEN` | `https://slack.com/api/...` | Used by `alertd` for stateful alert updates. |
-| **SendGrid** | `SENDGRID_API_KEY` | `https://api.sendgrid.com/v3/...` | Sending weekly lead summary emails. |
+| **Resend** | `RESEND_API_KEY` | `https://api.resend.com/emails` | Sending weekly lead summary emails. |
 | **Hunter.io** | `HUNTER_API_KEY` | `https://api.hunter.io/v2/...` | (Phase 18) Finding decision-maker contact info. |
 | **Sentry** | `SENTRY_DSN` | - | Error tracking and observability. |
 
@@ -69,7 +69,7 @@ The following URLs are polled by collectors to gather raw data.
 -   **Internal APIs**: The Lead Generation Server and Alertd are separate binaries with distinct ports.
 -   **Security**: Use the `API_TOKEN` (Bearer Auth) for all sensitive POST endpoints.
 -   **Extensibility**: Adding new data sources usually requires a new entry in the Scrapers table and a corresponding URL in the `.env` file.
--   **Testing**: See [API_TESTING.md](./API_TESTING.md) for a guide on how to test these endpoints.
+-   **Testing**: See [TESTING.md](./guides/TESTING.md#8-api-testing-details) for a guide on how to test these endpoints with curl, Bruno, or Swagger.
 
 ---
 

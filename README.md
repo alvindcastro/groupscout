@@ -16,7 +16,7 @@
 *   **Automated Outreach:** Generates personalized cold email drafts for each lead using AI.
 *   **Airport Disruption Alert System (`alertd`):** A real-time binary that monitors YVR flight disruptions, weather alerts (ECCC), and NOTAMs (NavCanada) to compute a **Stranded Passenger Score (SPS)** and alert hotel teams via Slack.
 *   **Real-time Notifications:** Delivers formatted Block Kit messages directly to **Slack**.
-*   **Weekly Digest:** Sends a formatted HTML email digest of the week's best leads via **SendGrid**.
+*   **Weekly Digest:** Sends a formatted HTML email digest of the week's best leads via **Resend**.
 *   **Secure API Trigger:** Can be integrated with automation tools like **n8n** via a protected HTTP endpoint.
 
 ### 🛠 Tech Stack
@@ -28,7 +28,7 @@
 *   **pdftotext:** Used for high-accuracy PDF parsing (via Poppler or Git for Windows).
 *   **Ollama:** Local LLM runtime for privacy-preserving lead extraction and scoring rationale.
 *   **Anthropic Claude API:** Advanced project analysis and room night estimation.
-*   **SendGrid:** Delivery of weekly HTML email digests.
+*   **Resend:** Delivery of weekly HTML email digests.
 *   **Slack Webhooks:** Real-time delivery of prioritized leads.
 
 ### 🏗 Setup & Installation
@@ -75,7 +75,7 @@ docker compose up -d
 # --- REQUIRED ---
 CLAUDE_API_KEY=your_anthropic_api_key_here
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-SENDGRID_API_KEY=your_sendgrid_api_key_here
+RESEND_API_KEY=re_your_resend_key_here
 API_TOKEN=a_secure_random_string_for_n8n_authentication
 
 # --- OBSERVABILITY ---
@@ -180,7 +180,7 @@ GQ5 review samples can be converted into review-only draft cases with the evalop
 *   [ALERTD_SETUP.md](./docs/guides/ALERTD_SETUP.md) - Airport disruption system configuration.
 *   [TROUBLESHOOTING.md](./docs/guides/TROUBLESHOOTING.md) - Pipeline and missing lead troubleshooting.
 *   [API_CONFIG.md](./docs/API_CONFIG.md) - Endpoint reference and configuration.
-*   [API_TESTING.md](./docs/API_TESTING.md) - How to test the APIs.
+*   [TESTING.md](./docs/guides/TESTING.md#8-api-testing-details) - How to test the APIs with curl, Bruno, or Swagger.
 *   [ROADMAP.md](./docs/planning/ROADMAP.md) - Long-term project roadmap.
 *   [UI_STRATEGY.md](./docs/planning/ui/UI_STRATEGY.md) - Operator UI strategy, information architecture, and UI API plan.
 *   [BACKEND_FOR_UI_TESTING.md](./docs/planning/ui/BACKEND_FOR_UI_TESTING.md) - Backend startup paths and API status for UI testing.

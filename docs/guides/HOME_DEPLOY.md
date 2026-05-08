@@ -77,13 +77,13 @@ Add `DUCKDNS_TOKEN=your_token` to your `.env`.
 Temporarily expose port 8080 directly (no Traefik yet):
 
 ```yaml
-# In docker-compose.yml, ensure app has:
+# In docker-compose.yml, ensure groupscout has:
 ports:
   - "8080:8080"
 ```
 
 ```bash
-docker compose up -d app postgres
+docker compose up -d groupscout postgres
 curl http://groupscout.duckdns.org:8080/health
 # Expected: {"status":"ok"} or similar
 ```
@@ -100,8 +100,8 @@ Adds automatic TLS and hides port numbers. Every container gets its own subdomai
 
 Replace your current `docker-compose.yml` with the Traefik-enabled version below. Key changes:
 - Add `traefik` service
-- Remove direct port bindings from `app` and `alertd` (Traefik routes internally)
-- Add `labels:` to `app` and `alertd`
+- Remove direct port bindings from `groupscout` and `alertd` (Traefik routes internally)
+- Add `labels:` to `groupscout` and `alertd`
 - Add `letsencrypt` volume for cert storage
 
 ```yaml
@@ -127,7 +127,7 @@ services:
       - "letsencrypt:/letsencrypt"
     restart: unless-stopped
 
-  app:
+  groupscout:
     build: .
     # No ports: section — Traefik handles routing
     depends_on:
@@ -149,10 +149,10 @@ services:
       - MIN_PERMIT_VALUE_CAD=500000
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.app.rule=Host(`server.groupscout.duckdns.org`)"
-      - "traefik.http.routers.app.entrypoints=websecure"
-      - "traefik.http.routers.app.tls.certresolver=letsencrypt"
-      - "traefik.http.services.app.loadbalancer.server.port=8080"
+      - "traefik.http.routers.groupscout.rule=Host(`server.groupscout.duckdns.org`)"
+      - "traefik.http.routers.groupscout.entrypoints=websecure"
+      - "traefik.http.routers.groupscout.tls.certresolver=letsencrypt"
+      - "traefik.http.services.groupscout.loadbalancer.server.port=8080"
     restart: unless-stopped
 
   alertd:
@@ -303,7 +303,7 @@ Use this instead of port forwarding if:
 ### How it works
 
 ```
-Internet → Cloudflare Edge → Tunnel (outbound-only) → cloudflared container → Traefik → app / alertd
+Internet → Cloudflare Edge → Tunnel (outbound-only) → cloudflared container → Traefik → groupscout / alertd
 ```
 
 Your machine makes an outbound connection to Cloudflare. No ports need to be opened on your router. Your IP is never exposed.
@@ -320,7 +320,7 @@ Your machine makes an outbound connection to Cloudflare. No ports need to be ope
 3. Copy the tunnel token (long string starting with `eyJ...`)
 4. Set `CLOUDFLARE_TUNNEL_TOKEN=<token>` in your `.env`
 5. In the tunnel's Public Hostnames tab, add:
-   - `server.yourdomain.com` → `http://app:8080`
+   - `server.yourdomain.com` → `http://groupscout:8080`
    - `alertd.yourdomain.com` → `http://alertd:8081`
    - `n8n.yourdomain.com` → `http://n8n:5678`
 
@@ -363,16 +363,16 @@ Postgres data lives in the `pgdata` Docker volume. Back it up with:
 
 ```bash
 # Dump to a file
-docker exec groupscout-postgres-1 pg_dump -U groupscout groupscout > backup_$(date +%Y%m%d).sql
+docker exec groupscout_postgres pg_dump -U groupscout groupscout > backup_$(date +%Y%m%d).sql
 
 # Restore from a file
-cat backup_20260410.sql | docker exec -i groupscout-postgres-1 psql -U groupscout groupscout
+cat backup_20260410.sql | docker exec -i groupscout_postgres psql -U groupscout groupscout
 ```
 
 Run this weekly via cron:
 
 ```bash
-0 2 * * 0 cd /path/to/groupscout && docker exec groupscout-postgres-1 pg_dump -U groupscout groupscout > backups/backup_$(date +\%Y\%m\%d).sql
+0 2 * * 0 cd /path/to/groupscout && docker exec groupscout_postgres pg_dump -U groupscout groupscout > backups/backup_$(date +\%Y\%m\%d).sql
 ```
 
 ---

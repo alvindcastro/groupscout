@@ -29,7 +29,7 @@ How to connect to and query the Postgres database when running via Docker Compos
 ## Connect via psql
 
 ```bash
-docker exec -it groupscout-postgres-1 psql -U groupscout -d groupscout
+docker exec -it groupscout_postgres psql -U groupscout -d groupscout
 ```
 
 Exit with `\q`.

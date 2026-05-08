@@ -24,7 +24,7 @@ Go eval harness + project fixtures
 
 - Replacing the existing enrichment pipeline.
 - Live scraping inside unit tests.
-- Live Slack, SendGrid, Sentry, Anthropic, Ollama, or external API calls from tests.
+- Live Slack, Resend, Sentry, Anthropic, Ollama, or external API calls from tests.
 - Fully automated outreach sending without review gates.
 
 ## Non-negotiable code rule

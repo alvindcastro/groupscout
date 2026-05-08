@@ -30,7 +30,7 @@ This starts all services in the background.
 
 | Service | Port | Description |
 |---|---|---|
-| `app` | 8080 | Main lead generation server (cmd/server) |
+| `groupscout` | 8080 | Main lead generation server (cmd/server) |
 | `alertd` | 8081 | Airport disruption monitor (cmd/alertd) |
 | `postgres` | 5432 | Database with `pgvector` extension |
 | `n8n` | 5678 | Workflow automation / scheduler |
@@ -48,8 +48,8 @@ docker compose ps
 
 ### View Logs
 ```bash
-# Follow app logs
-docker compose logs -f app
+# Follow GroupScout API logs
+docker compose logs -f groupscout
 
 # Follow alertd logs
 docker compose logs -f alertd
@@ -146,8 +146,8 @@ GroupScout requires the `pdftotext` utility for scraping certain PDF sources. Th
 - **Fix:** Ensure the `FROM golang:X.XX-alpine` version in `Dockerfile` matches the `go 1.XX` version in `go.mod`.
 
 ### 3. Container Communication
-- **Symptom:** n8n cannot connect to the `app` server.
-- **Fix:** When n8n is running inside Docker, use `http://app:8080` instead of `localhost:8080`. Containers on the same Docker network use their service names as hostnames.
+- **Symptom:** n8n cannot connect to the `groupscout` server.
+- **Fix:** When n8n is running inside Docker, use `http://groupscout:8080` instead of `localhost:8080`. Containers on the same Docker network use their service names as hostnames.
 
 ### 4. WSL2 Specifics (Windows)
 - **Symptom:** `docker-compose: command not found`.
@@ -162,8 +162,8 @@ GroupScout requires the `pdftotext` utility for scraping certain PDF sources. Th
   ```
 
 ### 6. Database Connection Issues
-- **Symptom:** `app` container fails to start because it can't reach Postgres.
-- **Fix:** The `app` service is configured to depend on `postgres` being healthy. Check `docker compose logs postgres` to ensure the database initialized correctly.
+- **Symptom:** `groupscout` container fails to start because it can't reach Postgres.
+- **Fix:** The `groupscout` service is configured to depend on `postgres` being healthy. Check `docker compose logs postgres` to ensure the database initialized correctly.
 
 ### 7. Missing or Low Lead Count
 - **Symptom:** Pipeline runs successfully but returns fewer leads than expected.

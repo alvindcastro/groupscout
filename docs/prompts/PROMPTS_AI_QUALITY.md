@@ -4,7 +4,7 @@ Use these prompts for the AI quality EvalOps phases. Every code prompt requires 
 
 ## Reusable code task prompt
 
-> You are working in `groupscout`. Implement the requested AI quality behavior in Go using strict TDD. Start by reading `docs/planning/AI_QUALITY_EVALOPS.md`, `docs/guides/TDD_AI_QUALITY.md`, existing package tests, and the target files. Add the smallest failing test first. Run the narrow test and confirm it fails for the expected reason. Implement only enough code to pass. Run the narrow test, then `go test ./...`. Refactor only while green. Do not call live websites, Slack, SendGrid, Sentry, Anthropic, Ollama, or external APIs from unit tests. Use fixtures, fake clients, and `httptest`. In the final task note, include files changed, red evidence, green evidence, broader test command, behavior added, and residual risk.
+> You are working in `groupscout`. Implement the requested AI quality behavior in Go using strict TDD. Start by reading `docs/planning/AI_QUALITY_EVALOPS.md`, `docs/guides/TDD_AI_QUALITY.md`, existing package tests, and the target files. Add the smallest failing test first. Run the narrow test and confirm it fails for the expected reason. Implement only enough code to pass. Run the narrow test, then `go test ./...`. Refactor only while green. Do not call live websites, Slack, Resend, Sentry, Anthropic, Ollama, or external APIs from unit tests. Use fixtures, fake clients, and `httptest`. In the final task note, include files changed, red evidence, green evidence, broader test command, behavior added, and residual risk.
 
 ## GQ2-T01 Code: eval case loader
 
