@@ -12,6 +12,9 @@ This folder groups planning documents for the future GroupScout operator UI.
 - [UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md](./UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md) - Phase 34 lead detail, evidence review, raw audit safety, outreach/activity, status action, and correction-control implementation contract.
 - [UI_PHASE35_API_CONTRACT.md](./UI_PHASE35_API_CONTRACT.md) - Phase 35 implemented `/api/leads` list, detail, patch, raw evidence, auth, and schema-gap contract.
 - [UI_PHASE35_FRONTEND_TYPES.md](./UI_PHASE35_FRONTEND_TYPES.md) - Temporary TypeScript type contract for the Phase 35 API until generated frontend client types exist.
+- [UI_PHASE36_OUTREACH_STATE_CONTRACT.md](./UI_PHASE36_OUTREACH_STATE_CONTRACT.md) - Phase 36 outreach log, lead action, transition validation, and workflow-field contract.
+- [UI_PHASE37_PIPELINE_STATS_SYSTEM_CONTRACT.md](./UI_PHASE37_PIPELINE_STATS_SYSTEM_CONTRACT.md) - Phase 37 pipeline run, stats, and system-health API contract.
+- [UI_PHASE38_DOCKER_SMOKE_CONTRACT.md](./UI_PHASE38_DOCKER_SMOKE_CONTRACT.md) - Phase 38 backend plus external UI Docker smoke contract.
 - [UI_API_ENDPOINTS.md](./UI_API_ENDPOINTS.md) - Brainstormed `/api/*` contracts for the future operator UI.
 - [UI_TDD_PHASE_PLAN.md](./UI_TDD_PHASE_PLAN.md) - Phase-by-phase strict TDD plan for UI and backend contract work.
 - [BACKEND_FOR_UI_TESTING.md](./BACKEND_FOR_UI_TESTING.md) - Runbook for starting the backend while developing or testing the UI.

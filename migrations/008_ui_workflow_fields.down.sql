@@ -1,0 +1,5 @@
+ALTER TABLE leads DROP COLUMN IF EXISTS verification_state;
+ALTER TABLE leads DROP COLUMN IF EXISTS flagged;
+ALTER TABLE leads DROP COLUMN IF EXISTS snoozed_until;
+ALTER TABLE leads DROP COLUMN IF EXISTS owner;
+

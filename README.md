@@ -190,6 +190,9 @@ GQ5 review samples can be converted into review-only draft cases with the evalop
 *   [UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md](./docs/planning/ui/UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md) - Phase 34 lead detail, evidence review, raw audit safety, outreach/activity, status action, and correction-control contract.
 *   [UI_PHASE35_API_CONTRACT.md](./docs/planning/ui/UI_PHASE35_API_CONTRACT.md) - Phase 35 implemented `/api/leads` list, detail, patch, raw evidence, and schema-gap contract.
 *   [UI_PHASE35_FRONTEND_TYPES.md](./docs/planning/ui/UI_PHASE35_FRONTEND_TYPES.md) - Temporary frontend type contract for the Phase 35 UI API responses.
+*   [UI_PHASE36_OUTREACH_STATE_CONTRACT.md](./docs/planning/ui/UI_PHASE36_OUTREACH_STATE_CONTRACT.md) - Phase 36 outreach logging and lead state action contract.
+*   [UI_PHASE37_PIPELINE_STATS_SYSTEM_CONTRACT.md](./docs/planning/ui/UI_PHASE37_PIPELINE_STATS_SYSTEM_CONTRACT.md) - Phase 37 pipeline run, stats, and system API contract.
+*   [UI_PHASE38_DOCKER_SMOKE_CONTRACT.md](./docs/planning/ui/UI_PHASE38_DOCKER_SMOKE_CONTRACT.md) - Phase 38 backend plus external UI Docker smoke contract.
 *   [UI_TDD_PHASE_PLAN.md](./docs/planning/ui/UI_TDD_PHASE_PLAN.md) - Strict TDD phase checklist for operator UI and `/api/*` work.
 *   [PROMPTS_PHASE31_UI.md](./docs/prompts/PROMPTS_PHASE31_UI.md) - Copy-paste prompts for future UI and UI API TDD implementation tasks.
 *   [PROMPTS_PHASE32_UI.md](./docs/prompts/PROMPTS_PHASE32_UI.md) - Copy-paste prompts for Phase 32 route, app shell, responsive layout, build, and component-test implementation.

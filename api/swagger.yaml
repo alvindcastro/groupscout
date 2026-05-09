@@ -228,6 +228,106 @@ paths:
                 $ref: '#/components/schemas/APIError'
         '500':
           description: Failed to load raw audit payload
+  /api/leads/{id}/outreach:
+    get:
+      summary: List lead outreach
+      parameters:
+        - $ref: '#/components/parameters/LeadID'
+      responses:
+        '200':
+          description: Outreach history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutreachListResponse'
+        '404':
+          description: Lead not found
+    post:
+      summary: Log lead outreach
+      parameters:
+        - $ref: '#/components/parameters/LeadID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutreachCreateRequest'
+      responses:
+        '201':
+          description: Outreach logged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutreachCreateResponse'
+        '400':
+          description: Invalid outreach payload
+        '404':
+          description: Lead not found
+  /api/pipeline/runs:
+    post:
+      summary: Start asynchronous pipeline run
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PipelineRunRequest'
+      responses:
+        '202':
+          description: Pipeline run accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineRunAccepted'
+    get:
+      summary: List pipeline runs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pipeline run history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineRunListResponse'
+  /api/stats:
+    get:
+      summary: UI lead and outreach stats
+      responses:
+        '200':
+          description: Stats summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsSummary'
+  /api/system:
+    get:
+      summary: UI system health
+      responses:
+        '200':
+          description: Healthy or degraded UI system status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
+        '503':
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
   /slack/inventory:
     post:
       summary: Update room inventory (Slack Slash Command)
@@ -401,6 +501,16 @@ components:
           type: string
         notes:
           type: string
+        owner:
+          type: string
+        snoozed_until:
+          type: string
+          format: date-time
+          nullable: true
+        flagged:
+          type: boolean
+        verification_state:
+          type: string
         status:
           type: string
         created_at:
@@ -440,6 +550,152 @@ components:
       required:
         - count
         - latest_at
+    OutreachEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        lead_id:
+          type: string
+          format: uuid
+        contact:
+          type: string
+        channel:
+          type: string
+        notes:
+          type: string
+        outcome:
+          type: string
+        logged_at:
+          type: string
+          format: date-time
+    OutreachListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OutreachEvent'
+        next_cursor:
+          type: string
+    OutreachCreateRequest:
+      type: object
+      properties:
+        contact:
+          type: string
+        channel:
+          type: string
+        notes:
+          type: string
+        outcome:
+          type: string
+    OutreachCreateResponse:
+      type: object
+      properties:
+        outreach:
+          $ref: '#/components/schemas/OutreachEvent'
+        lead:
+          $ref: '#/components/schemas/LeadDetail'
+    PipelineRunRequest:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            type: string
+        bcbid_raw_input:
+          type: string
+        dry_run:
+          type: boolean
+    PipelineRunAccepted:
+      type: object
+      properties:
+        run_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+    PipelineRun:
+      type: object
+      properties:
+        ID:
+          type: string
+        Status:
+          type: string
+        Sources:
+          type: array
+          items:
+            type: string
+        Counts:
+          type: object
+          additionalProperties:
+            type: integer
+        Errors:
+          type: array
+          items:
+            type: string
+        StartedAt:
+          type: string
+          format: date-time
+        FinishedAt:
+          type: string
+          format: date-time
+          nullable: true
+    PipelineRunListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PipelineRun'
+        next_cursor:
+          type: string
+    StatsSummary:
+      type: object
+      properties:
+        Window:
+          type: string
+        ByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        BySource:
+          type: object
+          additionalProperties:
+            type: integer
+        ScoreBands:
+          type: object
+          additionalProperties:
+            type: integer
+        ByOwner:
+          type: object
+          additionalProperties:
+            type: integer
+        ByWeek:
+          type: object
+          additionalProperties:
+            type: integer
+        ByOutcome:
+          type: object
+          additionalProperties:
+            type: integer
+    SystemStatus:
+      type: object
+      properties:
+        status:
+          type: string
+        database:
+          type: object
+        ollama:
+          type: object
+        metrics_available:
+          type: boolean
+        last_pipeline_run:
+          nullable: true
     LeadDetailResponse:
       type: object
       properties:
@@ -465,6 +721,23 @@ components:
           type: string
         notes:
           type: string
+        action:
+          type: string
+          enum:
+            - claim
+            - dismiss
+            - snooze
+            - flag
+            - contacted
+            - won
+            - lost
+            - no-response
+            - reopen
+        owner:
+          type: string
+        snoozed_until:
+          type: string
+          format: date-time
     LeadPatchResponse:
       type: object
       properties:

@@ -1,3 +1,31 @@
+## 2026-05-09 - Phases 36-38 UI API and Docker smoke contracts
+
+### groupscout-al3 - Implement Phase 36 outreach and lead state API contracts
+
+- **What:** Added outreach log storage, `/api/leads/{id}/outreach` GET/POST, schema-backed lead workflow fields, and validated lead actions for claim, dismiss, snooze, flag, contacted, won, lost, no-response, and reopen.
+- **Where:** `internal/storage/outreach.go`, `internal/storage/outreach_test.go`, `internal/storage/leads.go`, `internal/storage/db.go`, `cmd/server/ui_api.go`, `cmd/server/ui_api_phase36_test.go`, `migrations/008_ui_workflow_fields.up.sql`, `migrations/008_ui_workflow_fields.down.sql`, `api/swagger.yaml`, `docs/planning/ui/UI_PHASE36_OUTREACH_STATE_CONTRACT.md`, `docs/planning/ui/UI_TDD_PHASE_PLAN.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, `docs/API_CONFIG.md`, and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** Operators need durable outreach history and constrained workflow actions instead of free-form status edits before the UI can safely support lead triage and follow-up.
+- **How:** Wrote failing storage and HTTP tests first, added `OutreachStore`, added workflow fields for owner, snooze, flag, and verification separation, implemented action validation in storage, routed outreach GET/POST, returned `409` for invalid transitions, and documented the contract.
+
+### groupscout-0pm - Implement Phase 37 pipeline runs stats and system API contracts
+
+- **What:** Added persisted pipeline run tracking, nonblocking `POST /api/pipeline/runs`, `GET /api/pipeline/runs`, `GET /api/stats`, and `GET /api/system`.
+- **Where:** `internal/storage/pipeline_runs.go`, `internal/storage/pipeline_runs_test.go`, `internal/storage/stats.go`, `internal/storage/db.go`, `cmd/server/ui_api.go`, `cmd/server/ui_api_phase37_test.go`, `cmd/server/main.go`, `migrations/009_pipeline_runs.up.sql`, `migrations/009_pipeline_runs.down.sql`, `api/swagger.yaml`, `docs/planning/ui/UI_PHASE37_PIPELINE_STATS_SYSTEM_CONTRACT.md`, `docs/planning/ui/UI_TDD_PHASE_PLAN.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, `docs/API_CONFIG.md`, and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** The operator UI needs nonblocking pipeline execution, run history, dashboard stats, and health state without scraping Prometheus metrics in browser code.
+- **How:** Wrote failing storage and HTTP tests first, added a `pipeline_runs` table and store, wired production `/api/pipeline/runs` to run the real pipeline asynchronously, added stats queries over supported schema fields, exposed `/api/system`, and documented browser-safe health semantics.
+
+### groupscout-kh1 - Implement Phase 38 Docker UI smoke checks
+
+- **What:** Added a backend-owned Docker smoke script for the external production UI container and a Go test that locks the smoke script contract.
+- **Where:** `scripts/smoke-ui-docker-e2e.sh`, `internal/smoke/ui_docker_script_test.go`, `docs/planning/ui/UI_PHASE38_DOCKER_SMOKE_CONTRACT.md`, `docs/planning/ui/UI_TDD_PHASE_PLAN.md`, `docs/guides/TESTING.md`, `README.md`, and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** Phase 38 needs a repeatable way to verify backend Compose plus the separate UI production static/proxy runtime, same-origin API behavior, backend 404 versus proxy 502 semantics, route smoke, and browser-visible secret safety.
+- **How:** Wrote a failing script-contract test first, added `scripts/smoke-ui-docker-e2e.sh` with Compose startup, production UI container checks for `/`, `/healthz`, and `/assets/app.js`, proxy checks for `/api/leads` and bad-target `502`, UI repo Node route smoke, static secret scans, and cleanup traps.
+
+---
+
 ## 2026-05-09 - Phase 35 UI API contracts
 
 ### groupscout-pvx - Implement UI lead API contracts with strict TDD

@@ -24,6 +24,19 @@ go test ./cmd/server
 
 These cover the Phase 35 filtered lead listing storage contract and the `/api/leads`, `/api/leads/{id}`, `PATCH /api/leads/{id}`, and authenticated `/api/leads/{id}/raw` HTTP contracts.
 
+Phase 36 and 37 extend the same package tests with outreach logging, lead actions, pipeline run persistence, stats, and `/api/system`.
+
+#### Run UI Docker Smoke Contract Tests
+```bash
+go test ./internal/smoke
+```
+
+This verifies the backend-owned Phase 38 smoke script contract. To run the full Docker smoke against the external UI repo:
+
+```bash
+bash scripts/smoke-ui-docker-e2e.sh
+```
+
 #### Run Alertd Tests
 ```bash
 go test ./cmd/alertd/... ./internal/alert/...

@@ -59,6 +59,10 @@ CREATE TABLE IF NOT EXISTS leads (
     contractor                TEXT,   -- raw contractor from permit (may include phone)
     source_url                TEXT,   -- direct link to the source document (PDF, page, etc.)
     notes                     TEXT,
+    owner                     TEXT,
+    snoozed_until             DATETIME,
+    flagged                   INTEGER DEFAULT 0,
+    verification_state        TEXT DEFAULT 'unverified',
     status                    TEXT DEFAULT 'new', -- new|contacted|proposal|booked|lost
     created_at                DATETIME NOT NULL,
     updated_at                DATETIME NOT NULL
@@ -80,6 +84,25 @@ CREATE TABLE IF NOT EXISTS outreach_log (
     outcome   TEXT,
     logged_at DATETIME NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_outreach_log_lead_logged_at
+    ON outreach_log (lead_id, logged_at DESC);
+
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+    id          TEXT PRIMARY KEY,
+    status      TEXT NOT NULL,
+    sources     TEXT NOT NULL DEFAULT '[]',
+    counts      TEXT NOT NULL DEFAULT '{}',
+    errors      TEXT NOT NULL DEFAULT '[]',
+    request     TEXT NOT NULL DEFAULT '{}',
+    started_at  DATETIME NOT NULL,
+    finished_at DATETIME,
+    created_at  DATETIME NOT NULL,
+    updated_at  DATETIME NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status_started
+    ON pipeline_runs (status, started_at DESC);
 `
 
 // Open opens the database at dsn (a file path for SQLite local dev,
@@ -135,6 +158,10 @@ func Migrate(db *sql.DB, dsn string) error {
 		`ALTER TABLE leads ADD COLUMN source_url TEXT`,
 		`ALTER TABLE leads ADD COLUMN rationale TEXT`,
 		`ALTER TABLE leads ADD COLUMN raw_input_id TEXT`,
+		`ALTER TABLE leads ADD COLUMN owner TEXT`,
+		`ALTER TABLE leads ADD COLUMN snoozed_until DATETIME`,
+		`ALTER TABLE leads ADD COLUMN flagged INTEGER DEFAULT 0`,
+		`ALTER TABLE leads ADD COLUMN verification_state TEXT DEFAULT 'unverified'`,
 		`ALTER TABLE raw_projects ADD COLUMN raw_type TEXT`,
 	} {
 		if _, err := db.Exec(stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {

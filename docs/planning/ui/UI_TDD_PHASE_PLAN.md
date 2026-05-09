@@ -68,27 +68,33 @@ Phase 35 implementation note: `/api/leads`, `/api/leads/{id}`, `PATCH /api/leads
 
 ## Phase 36 - Outreach And Lead State Actions
 
-- [ ] Write failing storage tests for `outreach_log` insert/list behavior.
-- [ ] Write failing HTTP tests for `GET /api/leads/{id}/outreach`.
-- [ ] Write failing HTTP tests for `POST /api/leads/{id}/outreach`.
-- [ ] Test claim, dismiss, snooze, flag, contacted, won, lost, no-response, and reopen transitions.
-- [ ] Reject invalid transitions with specific errors.
-- [ ] Keep verification status separable from commercial workflow status unless a design decision says otherwise.
+- [x] Write failing storage tests for `outreach_log` insert/list behavior.
+- [x] Write failing HTTP tests for `GET /api/leads/{id}/outreach`.
+- [x] Write failing HTTP tests for `POST /api/leads/{id}/outreach`.
+- [x] Test claim, dismiss, snooze, flag, contacted, won, lost, no-response, and reopen transitions.
+- [x] Reject invalid transitions with specific errors.
+- [x] Keep verification status separable from commercial workflow status unless a design decision says otherwise.
+
+Phase 36 implementation note: outreach logging is implemented with `OutreachStore`, `/api/leads/{id}/outreach`, and validated lead actions on `PATCH /api/leads/{id}`. Commercial workflow fields `owner`, `snoozed_until`, and `flagged` are schema-backed, and `verification_state` remains separate from commercial status.
 
 ## Phase 37 - Pipeline Runs, Stats, And System Health
 
-- [ ] Write failing tests proving `POST /api/pipeline/runs` does not block on the full pipeline.
-- [ ] Add run persistence or document a dev-only in-memory tracker before implementation.
-- [ ] Write failing tests for `GET /api/pipeline/runs` ordering, status filtering, counts, and errors.
-- [ ] Write failing tests for `GET /api/stats` by status, source, score band, owner, and week where schema supports it.
-- [ ] Write failing tests for `GET /api/system` healthy and degraded states.
-- [ ] Do not parse Prometheus `/metrics` directly in browser UI.
+- [x] Write failing tests proving `POST /api/pipeline/runs` does not block on the full pipeline.
+- [x] Add run persistence or document a dev-only in-memory tracker before implementation.
+- [x] Write failing tests for `GET /api/pipeline/runs` ordering, status filtering, counts, and errors.
+- [x] Write failing tests for `GET /api/stats` by status, source, score band, owner, and week where schema supports it.
+- [x] Write failing tests for `GET /api/system` healthy and degraded states.
+- [x] Do not parse Prometheus `/metrics` directly in browser UI.
+
+Phase 37 implementation note: pipeline runs are persisted in `pipeline_runs`, `/api/pipeline/runs` starts the real pipeline asynchronously in production, `/api/stats` summarizes supported schema fields, and `/api/system` exposes UI health without requiring browser-side Prometheus parsing.
 
 ## Phase 38 - Docker Runtime And End-To-End Smoke
 
-- [ ] Write failing smoke checks before changing runtime wiring.
-- [ ] Verify the production UI container serves `/`, `/healthz`, and static assets.
-- [ ] Verify same-origin `/api/*` proxy behavior.
-- [ ] Distinguish backend `404` from proxy `502` in smoke expectations.
-- [ ] Add Playwright smoke for lead inbox, lead detail, and responsive navigation.
-- [ ] Verify static assets contain no `API_TOKEN`, database URL, Slack token, email token, LLM key, or session secret.
+- [x] Write failing smoke checks before changing runtime wiring.
+- [x] Verify the production UI container serves `/`, `/healthz`, and static assets.
+- [x] Verify same-origin `/api/*` proxy behavior.
+- [x] Distinguish backend `404` from proxy `502` in smoke expectations.
+- [x] Add Playwright smoke for lead inbox, lead detail, and responsive navigation.
+- [x] Verify static assets contain no `API_TOKEN`, database URL, Slack token, email token, LLM key, or session secret.
+
+Phase 38 implementation note: this backend repo does not own the production UI app, so the executable contract lives in `scripts/smoke-ui-docker-e2e.sh` and targets the external `groupscout-ui` production container. Until that UI has a real browser renderer for inbox/detail, route and responsive smoke uses the UI repo's Node model-level tests as the Playwright-equivalent gate.

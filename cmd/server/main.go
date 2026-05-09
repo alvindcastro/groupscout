@@ -131,7 +131,12 @@ func main() {
 	}
 
 	http.Handle("/metrics", promhttp.Handler())
-	http.Handle("/api/", newUIAPIHandler(db, cfg.DatabaseURL, cfg.APIToken))
+	http.Handle("/api/", newUIAPIHandlerWithDeps(uiAPIConfig{
+		DB:             db,
+		DSN:            cfg.DatabaseURL,
+		APIToken:       cfg.APIToken,
+		PipelineRunner: serverPipelineRunner{cfg: cfg, db: db},
+	}))
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		status := map[string]string{
 			"status":   "ok",
@@ -354,6 +359,27 @@ func main() {
 		l.Error("server failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+type serverPipelineRunner struct {
+	cfg *config.Config
+	db  *sql.DB
+}
+
+func (r serverPipelineRunner) Run(ctx context.Context, req pipelineRunRequest) (pipelineRunResult, error) {
+	if req.BCBidRawInput != "" {
+		ctx = context.WithValue(ctx, "bcbid_raw_input", req.BCBidRawInput)
+	}
+	err := runPipeline(ctx, r.cfg, r.db)
+	result := pipelineRunResult{
+		Sources: req.Sources,
+		Counts:  map[string]int{},
+		Errors:  []string{},
+	}
+	if err != nil {
+		result.Errors = append(result.Errors, err.Error())
+	}
+	return result, err
 }
 
 func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {

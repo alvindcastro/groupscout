@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,7 +15,43 @@ import (
 	"github.com/google/uuid"
 )
 
+type uiAPIConfig struct {
+	DB             *sql.DB
+	DSN            string
+	APIToken       string
+	PipelineRunner pipelineRunner
+}
+
+type pipelineRunRequest struct {
+	Sources       []string `json:"sources"`
+	BCBidRawInput string   `json:"bcbid_raw_input"`
+	DryRun        bool     `json:"dry_run"`
+}
+
+type pipelineRunResult struct {
+	Sources []string       `json:"sources"`
+	Counts  map[string]int `json:"counts"`
+	Errors  []string       `json:"errors"`
+}
+
+type pipelineRunner interface {
+	Run(ctx context.Context, req pipelineRunRequest) (pipelineRunResult, error)
+}
+
+type noopPipelineRunner struct{}
+
+func (noopPipelineRunner) Run(ctx context.Context, req pipelineRunRequest) (pipelineRunResult, error) {
+	return pipelineRunResult{Sources: req.Sources, Counts: map[string]int{"new_leads": 0}, Errors: []string{}}, nil
+}
+
 func newUIAPIHandler(db *sql.DB, dsn, apiToken string) http.Handler {
+	return newUIAPIHandlerWithDeps(uiAPIConfig{DB: db, DSN: dsn, APIToken: apiToken, PipelineRunner: noopPipelineRunner{}})
+}
+
+func newUIAPIHandlerWithDeps(cfg uiAPIConfig) http.Handler {
+	if cfg.PipelineRunner == nil {
+		cfg.PipelineRunner = noopPipelineRunner{}
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/leads", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/leads" {
@@ -25,10 +62,19 @@ func newUIAPIHandler(db *sql.DB, dsn, apiToken string) http.Handler {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handleUILeadList(w, r, storage.NewLeadStoreWithDSN(db, dsn))
+		handleUILeadList(w, r, storage.NewLeadStoreWithDSN(cfg.DB, cfg.DSN))
 	})
 	mux.HandleFunc("/api/leads/", func(w http.ResponseWriter, r *http.Request) {
-		handleUILeadResource(w, r, db, dsn, apiToken)
+		handleUILeadResource(w, r, cfg.DB, cfg.DSN, cfg.APIToken)
+	})
+	mux.HandleFunc("/api/pipeline/runs", func(w http.ResponseWriter, r *http.Request) {
+		handleUIPipelineRuns(w, r, cfg)
+	})
+	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
+		handleUIStats(w, r, cfg)
+	})
+	mux.HandleFunc("/api/system", func(w http.ResponseWriter, r *http.Request) {
+		handleUISystem(w, r, cfg)
 	})
 	return mux
 }
@@ -86,6 +132,123 @@ func handleUILeadList(w http.ResponseWriter, r *http.Request, leadStore storage.
 	})
 }
 
+func handleUIPipelineRuns(w http.ResponseWriter, r *http.Request, cfg uiAPIConfig) {
+	store := storage.NewPipelineRunStoreWithDSN(cfg.DB, cfg.DSN)
+	switch r.Method {
+	case http.MethodPost:
+		var req pipelineRunRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.DryRun {
+			writeJSONError(w, http.StatusBadRequest, "dry_run is not supported")
+			return
+		}
+		run, err := store.Create(r.Context(), storage.PipelineRun{
+			Sources: req.Sources,
+			Request: map[string]any{
+				"sources":         req.Sources,
+				"bcbid_raw_input": req.BCBidRawInput != "",
+				"dry_run":         req.DryRun,
+			},
+		})
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "create pipeline run failed")
+			return
+		}
+		go func(runID string, request pipelineRunRequest) {
+			result, err := cfg.PipelineRunner.Run(context.Background(), request)
+			completion := storage.PipelineRunCompletion{Status: "succeeded", Counts: result.Counts, Errors: result.Errors}
+			if err != nil {
+				completion.Status = "failed"
+				completion.Errors = append(completion.Errors, err.Error())
+			}
+			_ = store.Complete(context.Background(), runID, completion)
+		}(run.ID, req)
+		writeJSON(w, http.StatusAccepted, map[string]any{"run_id": run.ID, "status": run.Status, "started_at": run.StartedAt})
+	case http.MethodGet:
+		filter := storage.PipelineRunListFilter{Status: r.URL.Query().Get("status"), Cursor: r.URL.Query().Get("cursor")}
+		if filter.Status != "" && !validPipelineStatus(filter.Status) {
+			writeJSONError(w, http.StatusBadRequest, "invalid status")
+			return
+		}
+		if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+			limit, err := strconv.Atoi(rawLimit)
+			if err != nil || limit < 1 || limit > 100 {
+				writeJSONError(w, http.StatusBadRequest, "invalid limit")
+				return
+			}
+			filter.Limit = limit
+		}
+		runs, next, err := store.List(r.Context(), filter)
+		if err != nil {
+			if strings.Contains(err.Error(), "invalid cursor") {
+				writeJSONError(w, http.StatusBadRequest, "invalid cursor")
+				return
+			}
+			writeJSONError(w, http.StatusInternalServerError, "list pipeline runs failed")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": runs, "next_cursor": next, "filters": filter})
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func validPipelineStatus(status string) bool {
+	switch status {
+	case "queued", "running", "succeeded", "failed":
+		return true
+	default:
+		return false
+	}
+}
+
+func handleUIStats(w http.ResponseWriter, r *http.Request, cfg uiAPIConfig) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	stats, err := storage.NewStatsStoreWithDSN(cfg.DB, cfg.DSN).Summary(r.Context(), storage.StatsFilter{Window: r.URL.Query().Get("window")})
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "load stats failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
+func handleUISystem(w http.ResponseWriter, r *http.Request, cfg uiAPIConfig) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	status := "healthy"
+	database := map[string]string{"status": "ok"}
+	code := http.StatusOK
+	if err := cfg.DB.PingContext(r.Context()); err != nil {
+		status = "degraded"
+		database["status"] = "error"
+		database["error"] = err.Error()
+		code = http.StatusServiceUnavailable
+	}
+	latest, err := storage.NewPipelineRunStoreWithDSN(cfg.DB, cfg.DSN).Latest(r.Context())
+	if err != nil {
+		status = "degraded"
+	}
+	if latest != nil && latest.Status == "failed" && code == http.StatusOK {
+		status = "degraded"
+	}
+	writeJSON(w, code, map[string]any{
+		"status":            status,
+		"database":          database,
+		"ollama":            map[string]string{"status": "not_checked"},
+		"metrics_available": true,
+		"last_pipeline_run": latest,
+		"note":              fmt.Sprintf("metrics_available is a server capability flag; browser UI does not parse /metrics"),
+	})
+}
+
 func handleUILeadResource(w http.ResponseWriter, r *http.Request, db *sql.DB, dsn, apiToken string) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/leads/")
 	parts := strings.Split(strings.Trim(rest, "/"), "/")
@@ -96,6 +259,7 @@ func handleUILeadResource(w http.ResponseWriter, r *http.Request, db *sql.DB, ds
 	leadID := parts[0]
 	leadStore := storage.NewLeadStoreWithDSN(db, dsn)
 	auditStore := storage.NewAuditStoreWithDSN(db, dsn)
+	outreachStore := storage.NewOutreachStoreWithDSN(db, dsn)
 
 	if len(parts) == 1 {
 		switch r.Method {
@@ -114,6 +278,17 @@ func handleUILeadResource(w http.ResponseWriter, r *http.Request, db *sql.DB, ds
 			return
 		}
 		handleUILeadRaw(w, r, leadStore, auditStore, leadID, apiToken)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "outreach" {
+		switch r.Method {
+		case http.MethodGet:
+			handleUIOutreachList(w, r, leadStore, outreachStore, leadID)
+		case http.MethodPost:
+			handleUIOutreachCreate(w, r, leadStore, outreachStore, leadID)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
 		return
 	}
 	http.NotFound(w, r)
@@ -149,12 +324,39 @@ func handleUILeadPatch(w http.ResponseWriter, r *http.Request, leadStore storage
 		return
 	}
 
-	allowed := map[string]bool{"status": true, "notes": true}
+	allowed := map[string]bool{"status": true, "notes": true, "action": true, "owner": true, "snoozed_until": true}
 	for field := range raw {
 		if !allowed[field] {
 			writeJSONError(w, http.StatusBadRequest, "unsupported field: "+field)
 			return
 		}
+	}
+
+	if _, ok := raw["action"]; ok {
+		action, err := decodeLeadAction(raw)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		result, err := leadStore.ApplyAction(r.Context(), leadID, action)
+		if err != nil {
+			if errors.Is(err, storage.ErrLeadNotFound) {
+				writeJSONError(w, http.StatusNotFound, "lead not found")
+				return
+			}
+			if errors.Is(err, storage.ErrInvalidLeadTransition) {
+				writeJSONError(w, http.StatusConflict, err.Error())
+				return
+			}
+			writeJSONError(w, http.StatusInternalServerError, "apply lead action failed")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"lead":           leadDetail(result.Lead),
+			"changed_fields": result.ChangedFields,
+			"updated_at":     result.UpdatedAt,
+		})
+		return
 	}
 
 	var patch storage.LeadPatch
@@ -188,6 +390,111 @@ func handleUILeadPatch(w http.ResponseWriter, r *http.Request, leadStore storage
 		"lead":           leadDetail(result.Lead),
 		"changed_fields": result.ChangedFields,
 		"updated_at":     result.UpdatedAt,
+	})
+}
+
+func decodeLeadAction(raw map[string]json.RawMessage) (storage.LeadAction, error) {
+	var action storage.LeadAction
+	if v, ok := raw["action"]; ok {
+		if err := json.Unmarshal(v, &action.Action); err != nil || strings.TrimSpace(action.Action) == "" {
+			return action, errors.New("invalid action")
+		}
+	}
+	if v, ok := raw["owner"]; ok {
+		if err := json.Unmarshal(v, &action.Owner); err != nil {
+			return action, errors.New("invalid owner")
+		}
+	}
+	if v, ok := raw["notes"]; ok {
+		var notes string
+		if err := json.Unmarshal(v, &notes); err != nil {
+			return action, errors.New("invalid notes")
+		}
+		action.Notes = &notes
+	}
+	if v, ok := raw["snoozed_until"]; ok {
+		var text string
+		if err := json.Unmarshal(v, &text); err != nil {
+			return action, errors.New("invalid snoozed_until")
+		}
+		parsed, err := time.Parse(time.RFC3339, text)
+		if err != nil {
+			return action, errors.New("invalid snoozed_until")
+		}
+		action.SnoozedUntil = &parsed
+	}
+	return action, nil
+}
+
+func handleUIOutreachList(w http.ResponseWriter, r *http.Request, leadStore storage.LeadStore, outreachStore storage.OutreachStore, leadID string) {
+	lead, err := leadStore.GetByID(r.Context(), leadID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "get lead failed")
+		return
+	}
+	if lead == nil {
+		writeJSONError(w, http.StatusNotFound, "lead not found")
+		return
+	}
+	filter := storage.OutreachListFilter{Cursor: r.URL.Query().Get("cursor")}
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		limit, err := strconv.Atoi(rawLimit)
+		if err != nil || limit < 1 || limit > 100 {
+			writeJSONError(w, http.StatusBadRequest, "invalid limit")
+			return
+		}
+		filter.Limit = limit
+	}
+	events, next, err := outreachStore.ListByLead(r.Context(), leadID, filter)
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid cursor") {
+			writeJSONError(w, http.StatusBadRequest, "invalid cursor")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, "list outreach failed")
+		return
+	}
+	items := make([]outreachEventResponse, 0, len(events))
+	for _, event := range events {
+		items = append(items, outreachEvent(event))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+}
+
+func handleUIOutreachCreate(w http.ResponseWriter, r *http.Request, leadStore storage.LeadStore, outreachStore storage.OutreachStore, leadID string) {
+	lead, err := leadStore.GetByID(r.Context(), leadID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "get lead failed")
+		return
+	}
+	if lead == nil {
+		writeJSONError(w, http.StatusNotFound, "lead not found")
+		return
+	}
+	var req struct {
+		Contact string `json:"contact"`
+		Channel string `json:"channel"`
+		Notes   string `json:"notes"`
+		Outcome string `json:"outcome"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	event, err := outreachStore.Insert(r.Context(), storage.OutreachEvent{
+		LeadID:  leadID,
+		Contact: req.Contact,
+		Channel: req.Channel,
+		Notes:   req.Notes,
+		Outcome: req.Outcome,
+	})
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"outreach": outreachEvent(*event),
+		"lead":     leadDetail(*lead),
 	})
 }
 
@@ -254,27 +561,41 @@ type leadSummaryResponse struct {
 }
 
 type leadDetailResponse struct {
-	ID                      string    `json:"id"`
-	Source                  string    `json:"source"`
-	Title                   string    `json:"title"`
-	Location                string    `json:"location"`
-	ProjectValue            int64     `json:"project_value"`
-	GeneralContractor       string    `json:"general_contractor"`
-	Applicant               string    `json:"applicant"`
-	Contractor              string    `json:"contractor"`
-	SourceURL               string    `json:"source_url"`
-	ProjectType             string    `json:"project_type"`
-	EstimatedCrewSize       int       `json:"estimated_crew_size"`
-	EstimatedDurationMonths int       `json:"estimated_duration_months"`
-	OutOfTownCrewLikely     bool      `json:"out_of_town_crew_likely"`
-	PriorityScore           int       `json:"priority_score"`
-	PriorityReason          string    `json:"priority_reason"`
-	Rationale               string    `json:"rationale"`
-	SuggestedOutreachTiming string    `json:"suggested_outreach_timing"`
-	Notes                   string    `json:"notes"`
-	Status                  string    `json:"status"`
-	CreatedAt               time.Time `json:"created_at"`
-	UpdatedAt               time.Time `json:"updated_at"`
+	ID                      string     `json:"id"`
+	Source                  string     `json:"source"`
+	Title                   string     `json:"title"`
+	Location                string     `json:"location"`
+	ProjectValue            int64      `json:"project_value"`
+	GeneralContractor       string     `json:"general_contractor"`
+	Applicant               string     `json:"applicant"`
+	Contractor              string     `json:"contractor"`
+	SourceURL               string     `json:"source_url"`
+	ProjectType             string     `json:"project_type"`
+	EstimatedCrewSize       int        `json:"estimated_crew_size"`
+	EstimatedDurationMonths int        `json:"estimated_duration_months"`
+	OutOfTownCrewLikely     bool       `json:"out_of_town_crew_likely"`
+	PriorityScore           int        `json:"priority_score"`
+	PriorityReason          string     `json:"priority_reason"`
+	Rationale               string     `json:"rationale"`
+	SuggestedOutreachTiming string     `json:"suggested_outreach_timing"`
+	Notes                   string     `json:"notes"`
+	Owner                   string     `json:"owner"`
+	SnoozedUntil            *time.Time `json:"snoozed_until"`
+	Flagged                 bool       `json:"flagged"`
+	VerificationState       string     `json:"verification_state"`
+	Status                  string     `json:"status"`
+	CreatedAt               time.Time  `json:"created_at"`
+	UpdatedAt               time.Time  `json:"updated_at"`
+}
+
+type outreachEventResponse struct {
+	ID       string    `json:"id"`
+	LeadID   string    `json:"lead_id"`
+	Contact  string    `json:"contact"`
+	Channel  string    `json:"channel"`
+	Notes    string    `json:"notes"`
+	Outcome  string    `json:"outcome"`
+	LoggedAt time.Time `json:"logged_at"`
 }
 
 type auditMetadataResponse struct {
@@ -323,9 +644,25 @@ func leadDetail(lead storage.Lead) leadDetailResponse {
 		Rationale:               lead.Rationale,
 		SuggestedOutreachTiming: lead.SuggestedOutreachTiming,
 		Notes:                   lead.Notes,
+		Owner:                   lead.Owner,
+		SnoozedUntil:            lead.SnoozedUntil,
+		Flagged:                 lead.Flagged,
+		VerificationState:       lead.VerificationState,
 		Status:                  lead.Status,
 		CreatedAt:               lead.CreatedAt,
 		UpdatedAt:               lead.UpdatedAt,
+	}
+}
+
+func outreachEvent(event storage.OutreachEvent) outreachEventResponse {
+	return outreachEventResponse{
+		ID:       event.ID,
+		LeadID:   event.LeadID,
+		Contact:  event.Contact,
+		Channel:  event.Channel,
+		Notes:    event.Notes,
+		Outcome:  event.Outcome,
+		LoggedAt: event.LoggedAt,
 	}
 }
 

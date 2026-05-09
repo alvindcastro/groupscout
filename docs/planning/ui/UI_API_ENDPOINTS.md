@@ -17,6 +17,12 @@
 | `GET /api/leads/{id}` | Implemented Phase 35 | Lead detail with safe audit metadata and no raw payload body. |
 | `PATCH /api/leads/{id}` | Implemented Phase 35 | Updates `status` and `notes`; rejects unsafe or not-yet-schema-backed fields. |
 | `GET /api/leads/{id}/raw` | Implemented Phase 35 | Raw audit evidence alias requiring bearer auth when `API_TOKEN` is configured. |
+| `GET /api/leads/{id}/outreach` | Implemented Phase 36 | Lists outreach history newest-first. |
+| `POST /api/leads/{id}/outreach` | Implemented Phase 36 | Logs outreach attempts. |
+| `POST /api/pipeline/runs` | Implemented Phase 37 | Starts a persisted asynchronous pipeline run. |
+| `GET /api/pipeline/runs` | Implemented Phase 37 | Lists persisted run history with status, counts, and errors. |
+| `GET /api/stats` | Implemented Phase 37 | Returns status, source, score band, owner, week, and outreach outcome summaries. |
+| `GET /api/system` | Implemented Phase 37 | Returns UI-safe system health without browser-side `/metrics` parsing. |
 | `POST /slack/inventory` | Implemented in `alertd` | Slack slash-command endpoint, separate from the lead UI MVP. |
 
 ## Contract Principles
@@ -39,9 +45,9 @@
 | `GET /api/leads/{id}/outreach` | Outreach history | path ID, `limit`, `cursor` | `{items:[outreach_event], next_cursor}` |
 | `POST /api/leads/{id}/outreach` | Log outreach attempt | `{contact, channel, notes, outcome}` | `{outreach, lead}` |
 | `POST /api/pipeline/runs` | Browser-safe run trigger | `{sources?, bcbid_raw_input?, dry_run?}` | `{run_id, status, started_at}` |
-| `GET /api/pipeline/runs` | Run history | `status`, `limit`, `cursor` | `{items:[pipeline_run], next_cursor}` |
-| `GET /api/stats` | UI summaries | `window`, `group_by` | `{window, counts, series, score_bands}` |
-| `GET /api/system` | UI health summary | none | `{status, database, ollama, metrics_available, version?, last_pipeline_run?}` |
+| `GET /api/pipeline/runs` | Run history | `status`, `limit`, `cursor` | `{items:[pipeline_run], next_cursor, filters}` |
+| `GET /api/stats` | UI summaries | `window` | `{window, by_status, by_source, score_bands, by_owner, by_week, by_outcome}` |
+| `GET /api/system` | UI health summary | none | `{status, database, ollama, metrics_available, last_pipeline_run}` |
 
 ## Response Shape Notes
 
