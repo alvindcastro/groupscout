@@ -131,6 +131,10 @@
 ## Phase 10 — Ecosystem & UI 📋
 
 > Product and integration strategy: [UI_STRATEGY.md](./ui/UI_STRATEGY.md).
+> UI design adaptation: [UI_DESIGN_SYSTEM.md](./ui/UI_DESIGN_SYSTEM.md).
+> UI endpoint contracts: [UI_API_ENDPOINTS.md](./ui/UI_API_ENDPOINTS.md).
+> Strict TDD phase plan: [UI_TDD_PHASE_PLAN.md](./ui/UI_TDD_PHASE_PLAN.md).
+> Copy-paste prompts: [PROMPTS_PHASE31_UI.md](../prompts/PROMPTS_PHASE31_UI.md).
 
 - [ ] Operator UI foundation — TypeScript React SPA under a future `web/` app, backed by `/api/*` contracts and same-origin deployment
 - [ ] Lead inbox — filterable triage table by status, score, source, property, owner, and timing
