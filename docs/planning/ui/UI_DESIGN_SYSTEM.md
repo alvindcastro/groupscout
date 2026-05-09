@@ -3,6 +3,7 @@
 > GroupScout-specific interpretation of `/mnt/c/Users/alvin/WebstormProjects/groupscout-ui/DESIGN.md`.
 > This is a planning document for the future operator UI.
 > Phase 31 implementation contract: [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md).
+> Phase 32 app shell and routing contract: [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md).
 
 ## Source
 
@@ -45,6 +46,18 @@ GroupScout is an operational lead-review tool. The UI should feel dense, calm, a
 | Verification Queue | Review queue with confidence, contradiction, missing evidence, and raw audit access emphasized. |
 | Pipeline Monitor | Compact status list; do not parse Prometheus metrics directly in browser code. |
 | Settings | Sparse, grouped forms for properties, thresholds, session settings, and integration status. |
+
+## App Shell Guidance
+
+Phase 32 defines the shell contract in `UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md`. The first checked-in frontend package must test the shell before implementation:
+
+- left navigation for Today, Leads, Verification Queue, Pipeline, and Settings;
+- top utility bar for compact search, run/system state, and user/session utilities;
+- one main route outlet with stable headings and loading/error states;
+- right-rail capacity for lead evidence, activity, or system context;
+- responsive collapse for primary navigation and the detail/evidence rail.
+
+The shell must preserve the Phase 31 no-hero rule: the first viewport is the operator workspace, not a landing page.
 
 ## Evidence Design
 

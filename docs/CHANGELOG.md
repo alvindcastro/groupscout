@@ -1,3 +1,15 @@
+## 2026-05-09 — Phase 32 UI app shell and routing contract
+
+### groupscout-swx — Implement Phase 32 app shell routing contract
+
+- **What:** Added the Phase 32 app shell and routing implementation contract plus a dedicated Phase 32 prompt pack for strict TDD route, layout, responsive, build, component, and static-asset verification work.
+- **Where:** `docs/planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md`, `docs/prompts/PROMPTS_PHASE32_UI.md`, `docs/planning/ui/UI_TDD_PHASE_PLAN.md`, `docs/planning/ui/README.md`, `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/prompts/PROMPTS_PHASE31_UI.md`, `docs/planning/ROADMAP.md`, `docs/ARCHITECTURE.md`, `README.md`, and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** Phase 32 needed enforceable app-shell and routing acceptance criteria before a frontend package exists, so future UI code starts from failing tests for the operator workspace instead of untested shell scaffolding.
+- **How:** Documented the no-frontend current scope, route inventory for `/`, `/today`, `/leads`, `/leads/:leadId`, `/verification`, `/pipeline`, `/settings`, shell landmarks, right-rail capacity, responsive collapse rules, no-hero guardrails, build and static secret-scan expectations, then cross-linked the contract from the UI docs, roadmap, prompts, architecture, and README.
+
+---
+
 ## 2026-05-09 — Phase 31 UI design system contract
 
 ### groupscout-h80 — Implement Phase 31 UI design system adaptation docs

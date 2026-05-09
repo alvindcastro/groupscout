@@ -185,8 +185,10 @@ GQ5 review samples can be converted into review-only draft cases with the evalop
 *   [UI_STRATEGY.md](./docs/planning/ui/UI_STRATEGY.md) - Operator UI strategy, information architecture, and UI API plan.
 *   [UI_DESIGN_SYSTEM.md](./docs/planning/ui/UI_DESIGN_SYSTEM.md) - Operator UI visual rules and design-system adaptation.
 *   [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md) - Phase 31 token, primitive, component-test, accessibility, secret-safety, and no-hero contract.
+*   [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./docs/planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md) - Phase 32 operator shell, routes, responsive behavior, and build/component-test contract.
 *   [UI_TDD_PHASE_PLAN.md](./docs/planning/ui/UI_TDD_PHASE_PLAN.md) - Strict TDD phase checklist for operator UI and `/api/*` work.
 *   [PROMPTS_PHASE31_UI.md](./docs/prompts/PROMPTS_PHASE31_UI.md) - Copy-paste prompts for future UI and UI API TDD implementation tasks.
+*   [PROMPTS_PHASE32_UI.md](./docs/prompts/PROMPTS_PHASE32_UI.md) - Copy-paste prompts for Phase 32 route, app shell, responsive layout, build, and component-test implementation.
 *   [BACKEND_FOR_UI_TESTING.md](./docs/planning/ui/BACKEND_FOR_UI_TESTING.md) - Backend startup paths and API status for UI testing.
 *   [AI_QUALITY_EVALOPS.md](./docs/planning/AI_QUALITY_EVALOPS.md) - EvalOps plan for AI enrichment, scoring, outreach, and alert quality.
 *   [groupscout-case-schema.md](./docs/evals/groupscout-case-schema.md) - GQ1 schema for reusable JSONL eval fixtures in `data/evals/groupscout/`.

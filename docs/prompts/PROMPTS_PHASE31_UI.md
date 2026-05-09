@@ -8,7 +8,7 @@
 
 ## TDD Rules For Every Prompt
 
-- [ ] Read `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, and `docs/planning/ui/UI_TDD_PHASE_PLAN.md`.
+- [ ] Read `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md`, `docs/planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, and `docs/planning/ui/UI_TDD_PHASE_PLAN.md`.
 - [ ] Read existing tests near the target files before adding new tests.
 - [ ] Write the smallest failing test first.
 - [ ] Run the narrow test and capture the expected red failure.
@@ -54,6 +54,7 @@ Task 32-A1 - Operator shell
 
 Context:
 - The first UI screen is the operator workspace, not a landing page.
+- The app shell and route contract is `docs/planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md`.
 - The shell needs navigation for Today, Leads, Verification, Pipeline, and Settings.
 
 TDD steps:

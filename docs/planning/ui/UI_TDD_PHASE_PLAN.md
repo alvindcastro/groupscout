@@ -27,11 +27,13 @@ Phase 31 implementation note: this repository has no checked-in frontend package
 
 ## Phase 32 - App Shell And Routing
 
-- [ ] Write failing route/layout tests first.
-- [ ] Build the operator shell with left navigation, top utility bar, main content, and right-rail capacity.
-- [ ] Add routes for Today, Leads, Lead Detail, Verification Queue, Pipeline, and Settings.
-- [ ] Test responsive collapse for navigation and detail/evidence rail.
-- [ ] Verify build and component tests.
+- [x] Write failing route/layout tests first.
+- [x] Build the operator shell with left navigation, top utility bar, main content, and right-rail capacity.
+- [x] Add routes for Today, Leads, Lead Detail, Verification Queue, Pipeline, and Settings.
+- [x] Test responsive collapse for navigation and detail/evidence rail.
+- [x] Verify build and component tests.
+
+Phase 32 implementation note: this repository still has no checked-in frontend package, route test harness, or static UI build directory, so the phase is implemented as the contract in `UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md`. The first frontend package must turn that contract into failing route, layout, responsive, build, component, and static-asset safety tests before production shell code.
 
 ## Phase 33 - Mocked Lead Inbox
 
