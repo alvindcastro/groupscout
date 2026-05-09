@@ -19,6 +19,7 @@ type uiAPIConfig struct {
 	DB             *sql.DB
 	DSN            string
 	APIToken       string
+	AdminAuth      *adminAuthenticator
 	PipelineRunner pipelineRunner
 }
 
@@ -53,7 +54,13 @@ func newUIAPIHandlerWithDeps(cfg uiAPIConfig) http.Handler {
 		cfg.PipelineRunner = noopPipelineRunner{}
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/leads", func(w http.ResponseWriter, r *http.Request) {
+	if cfg.AdminAuth != nil {
+		mux.HandleFunc("/api/auth/status", cfg.AdminAuth.handleStatus)
+		mux.HandleFunc("/api/auth/login", cfg.AdminAuth.handleLogin)
+		mux.HandleFunc("/api/auth/me", cfg.AdminAuth.handleMe)
+	}
+	protected := http.NewServeMux()
+	protected.HandleFunc("/api/leads", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/leads" {
 			http.NotFound(w, r)
 			return
@@ -64,21 +71,22 @@ func newUIAPIHandlerWithDeps(cfg uiAPIConfig) http.Handler {
 		}
 		handleUILeadList(w, r, storage.NewLeadStoreWithDSN(cfg.DB, cfg.DSN))
 	})
-	mux.HandleFunc("/api/leads/", func(w http.ResponseWriter, r *http.Request) {
+	protected.HandleFunc("/api/leads/", func(w http.ResponseWriter, r *http.Request) {
 		handleUILeadResource(w, r, cfg.DB, cfg.DSN, cfg.APIToken)
 	})
-	mux.HandleFunc("/api/pipeline/runs", func(w http.ResponseWriter, r *http.Request) {
+	protected.HandleFunc("/api/pipeline/runs", func(w http.ResponseWriter, r *http.Request) {
 		handleUIPipelineRuns(w, r, cfg)
 	})
-	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
+	protected.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
 		handleUIStats(w, r, cfg)
 	})
-	mux.HandleFunc("/api/system", func(w http.ResponseWriter, r *http.Request) {
+	protected.HandleFunc("/api/system", func(w http.ResponseWriter, r *http.Request) {
 		handleUISystem(w, r, cfg)
 	})
-	mux.HandleFunc("/api/alerts", func(w http.ResponseWriter, r *http.Request) {
+	protected.HandleFunc("/api/alerts", func(w http.ResponseWriter, r *http.Request) {
 		handleUIAlerts(w, r)
 	})
+	mux.Handle("/api/", cfg.AdminAuth.requireSession(protected))
 	return mux
 }
 
@@ -531,7 +539,7 @@ func handleUIOutreachCreate(w http.ResponseWriter, r *http.Request, leadStore st
 }
 
 func handleUILeadRaw(w http.ResponseWriter, r *http.Request, leadStore storage.LeadStore, auditStore storage.AuditStore, leadID, apiToken string) {
-	if apiToken != "" {
+	if apiToken != "" && !requestHasAdminSession(r) {
 		authHeader := r.Header.Get("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") || strings.TrimPrefix(authHeader, "Bearer ") != apiToken {
 			writeJSONError(w, http.StatusUnauthorized, "unauthorized")

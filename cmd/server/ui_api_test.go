@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
@@ -215,5 +216,67 @@ func TestUIAPIRawLeadRequiresBearerToken(t *testing.T) {
 				t.Fatalf("body = %q, want raw payload", rec.Body.String())
 			}
 		})
+	}
+}
+
+func TestUIAPIAdminLoginExchangesSetupTokenForSession(t *testing.T) {
+	fx := newUIAPIFixture(t, "automation-token")
+	auth, err := newAdminAuthenticator(adminAuthConfig{
+		Enabled:    true,
+		SetupToken: "setup-token",
+		SessionTTL: time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("newAdminAuthenticator: %v", err)
+	}
+	fx.handler = newUIAPIHandlerWithDeps(uiAPIConfig{
+		DB:        fx.db,
+		DSN:       fx.dsn,
+		APIToken:  "automation-token",
+		AdminAuth: auth,
+	})
+
+	statusReq := httptest.NewRequest(http.MethodGet, "/api/auth/status", nil)
+	statusRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(statusRec, statusReq)
+	if statusRec.Code != http.StatusOK {
+		t.Fatalf("status endpoint = %d, want 200; body=%s", statusRec.Code, statusRec.Body.String())
+	}
+	if !strings.Contains(statusRec.Body.String(), `"auth_required":true`) {
+		t.Fatalf("status response does not require auth: %s", statusRec.Body.String())
+	}
+
+	blockedReq := httptest.NewRequest(http.MethodGet, "/api/leads", nil)
+	blockedRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(blockedRec, blockedReq)
+	if blockedRec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated leads status = %d, want 401", blockedRec.Code)
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"token":"setup-token"}`))
+	loginRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want 200; body=%s", loginRec.Code, loginRec.Body.String())
+	}
+	cookies := loginRec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != adminSessionCookieName || cookies[0].Value == "" || !cookies[0].HttpOnly {
+		t.Fatalf("login cookie = %#v, want HttpOnly %s cookie", cookies, adminSessionCookieName)
+	}
+
+	authedReq := httptest.NewRequest(http.MethodGet, "/api/leads", nil)
+	authedReq.AddCookie(cookies[0])
+	authedRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(authedRec, authedReq)
+	if authedRec.Code != http.StatusOK {
+		t.Fatalf("authenticated leads status = %d, want 200; body=%s", authedRec.Code, authedRec.Body.String())
+	}
+
+	rawReq := httptest.NewRequest(http.MethodGet, "/api/leads/"+fx.lead.ID+"/raw", nil)
+	rawReq.AddCookie(cookies[0])
+	rawRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(rawRec, rawReq)
+	if rawRec.Code != http.StatusOK {
+		t.Fatalf("admin raw status = %d, want 200; body=%s", rawRec.Code, rawRec.Body.String())
 	}
 }

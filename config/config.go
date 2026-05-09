@@ -34,6 +34,10 @@ type Config struct {
 	MinPermitValueCAD       int64
 	Port                    int
 	APIToken                string
+	AdminAuthEnabled        bool
+	AdminSetupToken         string
+	AdminSetupTokenFile     string
+	AdminSessionTTLHours    int
 	BaseURL                 string
 	DigestDay               string
 	DigestHour              int
@@ -88,6 +92,10 @@ func Load() (*Config, error) {
 		MinPermitValueCAD:       int64(getEnvInt("MIN_PERMIT_VALUE_CAD", 500_000)),
 		Port:                    getEnvInt("PORT", 8080),
 		APIToken:                os.Getenv("API_TOKEN"),
+		AdminAuthEnabled:        getEnv("ADMIN_AUTH_ENABLED", "true") == "true",
+		AdminSetupToken:         os.Getenv("ADMIN_SETUP_TOKEN"),
+		AdminSetupTokenFile:     getEnv("ADMIN_SETUP_TOKEN_FILE", "data/admin-setup-token"),
+		AdminSessionTTLHours:    getEnvInt("ADMIN_SESSION_TTL_HOURS", 24),
 		BaseURL:                 getEnv("BASE_URL", ""),
 		DigestDay:               getEnv("DIGEST_DAY", "monday"),
 		DigestHour:              getEnvInt("DIGEST_HOUR", 9),

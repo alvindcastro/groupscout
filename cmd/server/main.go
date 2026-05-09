@@ -129,12 +129,24 @@ func main() {
 	if cfg.APIToken == "" {
 		l.Warn("API_TOKEN not set; server will be insecure (all requests allowed)")
 	}
+	adminAuth, err := newAdminAuthenticator(adminAuthConfig{
+		Enabled:        cfg.AdminAuthEnabled,
+		SetupToken:     cfg.AdminSetupToken,
+		SetupTokenFile: cfg.AdminSetupTokenFile,
+		SessionTTL:     time.Duration(cfg.AdminSessionTTLHours) * time.Hour,
+		Logger:         l,
+	})
+	if err != nil {
+		l.Error("failed to initialize admin auth", "error", err)
+		os.Exit(1)
+	}
 
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/api/", newUIAPIHandlerWithDeps(uiAPIConfig{
 		DB:             db,
 		DSN:            cfg.DatabaseURL,
 		APIToken:       cfg.APIToken,
+		AdminAuth:      adminAuth,
 		PipelineRunner: serverPipelineRunner{cfg: cfg, db: db},
 	}))
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
