@@ -17,12 +17,15 @@ paths:
         '200':
           description: Server is healthy
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-                example: OK
+                $ref: '#/components/schemas/HealthStatus'
         '503':
           description: Database connection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
   /run:
     post:
       summary: Trigger pipeline
@@ -95,6 +98,136 @@ paths:
           description: Unauthorized
         '500':
           description: Failed to store lead
+  /api/leads:
+    get:
+      summary: List UI leads
+      description: Returns filtered lead summaries for the operator inbox.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: source
+          in: query
+          schema:
+            type: string
+        - name: min_score
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lead summaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadListResponse'
+        '400':
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Failed to list leads
+  /api/leads/{id}:
+    get:
+      summary: Get UI lead detail
+      description: Returns safe lead detail and audit metadata without raw payload bodies.
+      parameters:
+        - $ref: '#/components/parameters/LeadID'
+      responses:
+        '200':
+          description: Lead detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadDetailResponse'
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Failed to load lead detail
+    patch:
+      summary: Update safe UI lead fields
+      description: Updates current-schema operator fields. Phase 35 allows status and notes only.
+      parameters:
+        - $ref: '#/components/parameters/LeadID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadPatchRequest'
+      responses:
+        '200':
+          description: Lead updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadPatchResponse'
+        '400':
+          description: Invalid JSON body, invalid allowed field, or unsupported unsafe field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Failed to update lead
+  /api/leads/{id}/raw:
+    get:
+      summary: Get authenticated raw lead evidence
+      description: Returns raw audit payload bytes for a lead. Requires bearer auth when API_TOKEN is configured.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LeadID'
+      responses:
+        '200':
+          description: Raw audit payload
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Lead or raw audit payload not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Failed to load raw audit payload
   /slack/inventory:
     post:
       summary: Update room inventory (Slack Slash Command)
@@ -120,7 +253,237 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
+  parameters:
+    LeadID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
+    APIError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        database:
+          type: string
+          example: ok
+        ollama:
+          type: string
+          example: unavailable
+      required:
+        - status
+        - database
+        - ollama
+    LeadSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        source:
+          type: string
+        location:
+          type: string
+        project_value:
+          type: integer
+          format: int64
+        priority_score:
+          type: integer
+        priority_reason:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        has_raw:
+          type: boolean
+        audit_source_url:
+          type: string
+          format: uri
+      required:
+        - id
+        - title
+        - source
+        - location
+        - project_value
+        - priority_score
+        - priority_reason
+        - status
+        - created_at
+        - updated_at
+        - has_raw
+    LeadListFilters:
+      type: object
+      properties:
+        status:
+          type: string
+        source:
+          type: string
+        min_score:
+          type: integer
+        q:
+          type: string
+        limit:
+          type: integer
+        cursor:
+          type: string
+    LeadListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeadSummary'
+        next_cursor:
+          type: string
+        filters:
+          $ref: '#/components/schemas/LeadListFilters'
+      required:
+        - items
+        - next_cursor
+        - filters
+    LeadDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+        title:
+          type: string
+        location:
+          type: string
+        project_value:
+          type: integer
+          format: int64
+        general_contractor:
+          type: string
+        applicant:
+          type: string
+        contractor:
+          type: string
+        source_url:
+          type: string
+          format: uri
+        project_type:
+          type: string
+        estimated_crew_size:
+          type: integer
+        estimated_duration_months:
+          type: integer
+        out_of_town_crew_likely:
+          type: boolean
+        priority_score:
+          type: integer
+        priority_reason:
+          type: string
+        rationale:
+          type: string
+        suggested_outreach_timing:
+          type: string
+        notes:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AuditMetadata:
+      type: object
+      properties:
+        has_raw:
+          type: boolean
+        raw_link:
+          type: string
+        payload_type:
+          type: string
+        source_url:
+          type: string
+          format: uri
+        collector_name:
+          type: string
+        collected_at:
+          type: string
+          format: date-time
+      required:
+        - has_raw
+    OutreachSummary:
+      type: object
+      properties:
+        count:
+          type: integer
+        latest_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - count
+        - latest_at
+    LeadDetailResponse:
+      type: object
+      properties:
+        lead:
+          $ref: '#/components/schemas/LeadDetail'
+        audit:
+          $ref: '#/components/schemas/AuditMetadata'
+        outreach_summary:
+          $ref: '#/components/schemas/OutreachSummary'
+        activity:
+          type: array
+          items: {}
+      required:
+        - lead
+        - audit
+        - outreach_summary
+        - activity
+    LeadPatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+        notes:
+          type: string
+    LeadPatchResponse:
+      type: object
+      properties:
+        lead:
+          $ref: '#/components/schemas/LeadDetail'
+        changed_fields:
+          type: array
+          items:
+            type: string
+            enum:
+              - status
+              - notes
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - lead
+        - changed_fields
+        - updated_at
     Lead:
       type: object
       properties:

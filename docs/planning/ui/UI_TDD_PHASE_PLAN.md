@@ -57,12 +57,14 @@ Phase 34 implementation note: this repository still has no checked-in frontend p
 
 ## Phase 35 - UI API Contracts
 
-- [ ] Write failing storage tests for filtered lead listing.
-- [ ] Write failing HTTP tests for `GET /api/leads` and `GET /api/leads/{id}`.
-- [ ] Write failing tests for `PATCH /api/leads/{id}` with allowed fields and rejected unsafe fields.
-- [ ] Write failing tests for authenticated `GET /api/leads/{id}/raw`.
-- [ ] Update OpenAPI only after the expected failing tests define the contract.
-- [ ] Generate or maintain frontend types from the contract.
+- [x] Write failing storage tests for filtered lead listing.
+- [x] Write failing HTTP tests for `GET /api/leads` and `GET /api/leads/{id}`.
+- [x] Write failing tests for `PATCH /api/leads/{id}` with allowed fields and rejected unsafe fields.
+- [x] Write failing tests for authenticated `GET /api/leads/{id}/raw`.
+- [x] Update OpenAPI only after the expected failing tests define the contract.
+- [x] Generate or maintain frontend types from the contract.
+
+Phase 35 implementation note: `/api/leads`, `/api/leads/{id}`, `PATCH /api/leads/{id}`, and authenticated `/api/leads/{id}/raw` are implemented against the current lead and raw-audit schema. `PATCH` intentionally supports only `status` and `notes`; `owner`, `snoozed_until`, `verification_state`, and `corrections` remain blocked on migration-backed design work in `groupscout-bxt`. Frontend types are maintained in `UI_PHASE35_FRONTEND_TYPES.md` until a frontend package and generated client exist.
 
 ## Phase 36 - Outreach And Lead State Actions
 

@@ -73,23 +73,23 @@ The following URLs are polled by collectors to gather raw data.
 
 ---
 
-### 5. Planned UI-Facing API Namespace
+### 5. UI-Facing API Namespace
 
-The current API is optimized for automation triggers. The future operator UI should use a separate `/api/*` namespace so browser sessions, authorization, pagination, and response shapes can evolve without breaking n8n or other automation clients.
+The automation API remains optimized for n8n and server-to-server triggers. The operator UI uses a separate `/api/*` namespace so browser sessions, authorization, pagination, and response shapes can evolve without breaking automation clients.
 
 Do **not** expose `API_TOKEN` to browser JavaScript. It is intended for server-to-server automation. Use a cookie session, an auth proxy, or another server-side session boundary for the admin UI.
 
-| Planned Endpoint | Method | Purpose |
-|---|---|---|
-| `/api/leads` | `GET` | List leads with filters such as `status`, `source`, `min_score`, `q`, `limit`, and `cursor`. |
-| `/api/leads/{id}` | `GET` | Return lead detail, enrichment fields, status, notes, and audit metadata. |
-| `/api/leads/{id}` | `PATCH` | Update safe operator fields such as status, owner, notes, snooze date, and corrections. |
-| `/api/leads/{id}/raw` | `GET` | Authenticated UI alias for raw audit evidence. |
-| `/api/leads/{id}/outreach` | `GET` | List outreach attempts and outcomes for the lead. |
-| `/api/leads/{id}/outreach` | `POST` | Log an outreach attempt, channel, contact, notes, and outcome. |
-| `/api/pipeline/runs` | `POST` | Start a pipeline run asynchronously instead of blocking the browser for the full run. |
-| `/api/pipeline/runs` | `GET` | Show recent run history, status, counts, and failures. |
-| `/api/stats` | `GET` | Summaries by status, source, score band, owner, week, and outcome. |
-| `/api/system` | `GET` | UI-friendly health and integration summary derived from health/metrics/log signals. |
+| Endpoint | Method | Status | Purpose |
+|---|---|---|---|
+| `/api/leads` | `GET` | Implemented | List leads with filters such as `status`, `source`, `min_score`, `q`, `limit`, and `cursor`. |
+| `/api/leads/{id}` | `GET` | Implemented | Return lead detail, enrichment fields, status, notes, and audit metadata without raw payload bodies. |
+| `/api/leads/{id}` | `PATCH` | Implemented | Update safe current-schema operator fields: `status` and `notes`. Unsafe or not-yet-schema-backed fields are rejected. |
+| `/api/leads/{id}/raw` | `GET` | Implemented | Authenticated UI alias for raw audit evidence when `API_TOKEN` is configured. |
+| `/api/leads/{id}/outreach` | `GET` | Planned Phase 36 | List outreach attempts and outcomes for the lead. |
+| `/api/leads/{id}/outreach` | `POST` | Planned Phase 36 | Log an outreach attempt, channel, contact, notes, and outcome. |
+| `/api/pipeline/runs` | `POST` | Planned Phase 37 | Start a pipeline run asynchronously instead of blocking the browser for the full run. |
+| `/api/pipeline/runs` | `GET` | Planned Phase 37 | Show recent run history, status, counts, and failures. |
+| `/api/stats` | `GET` | Planned Phase 37 | Summaries by status, source, score band, owner, week, and outcome. |
+| `/api/system` | `GET` | Planned Phase 37 | UI-friendly health and integration summary derived from health/metrics/log signals. |
 
-See [UI_STRATEGY.md](./planning/ui/UI_STRATEGY.md) for the product flow and implementation sequence.
+See [UI_PHASE35_API_CONTRACT.md](./planning/ui/UI_PHASE35_API_CONTRACT.md) for the implemented lead API response shapes and [UI_STRATEGY.md](./planning/ui/UI_STRATEGY.md) for the product flow and implementation sequence.

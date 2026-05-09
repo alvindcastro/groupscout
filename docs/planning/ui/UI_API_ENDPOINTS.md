@@ -13,6 +13,10 @@
 | `POST /digest?to=` | Implemented | Bearer-token protected when `API_TOKEN` is set. Sends email digest. |
 | `POST /n8n/webhook` | Implemented | Bearer-token protected when `API_TOKEN` is set. Accepts a lead-shaped payload. |
 | `GET /leads/{id}/raw` | Implemented | Raw audit payload lookup. No UI auth/session wrapper yet. |
+| `GET /api/leads` | Implemented Phase 35 | Filtered lead inbox list with `status`, `source`, `min_score`, `q`, `limit`, and `cursor`. |
+| `GET /api/leads/{id}` | Implemented Phase 35 | Lead detail with safe audit metadata and no raw payload body. |
+| `PATCH /api/leads/{id}` | Implemented Phase 35 | Updates `status` and `notes`; rejects unsafe or not-yet-schema-backed fields. |
+| `GET /api/leads/{id}/raw` | Implemented Phase 35 | Raw audit evidence alias requiring bearer auth when `API_TOKEN` is configured. |
 | `POST /slack/inventory` | Implemented in `alertd` | Slack slash-command endpoint, separate from the lead UI MVP. |
 
 ## Contract Principles
@@ -28,10 +32,10 @@
 
 | Endpoint | Purpose | Request | Response |
 |---|---|---|---|
-| `GET /api/leads` | Lead inbox | `status`, `source`, `min_score`, `q`, `owner`, `verification`, `limit`, `cursor` query params | `{items:[lead_summary], next_cursor, total_estimate?, filters}` |
+| `GET /api/leads` | Lead inbox | `status`, `source`, `min_score`, `q`, `limit`, `cursor` query params | `{items:[lead_summary], next_cursor, filters}` |
 | `GET /api/leads/{id}` | Lead detail | path ID | `{lead, audit, outreach_summary, activity}` |
-| `PATCH /api/leads/{id}` | Safe lead update | `{status?, notes?, owner?, snoozed_until?, corrections?}` | `{lead, changed_fields, updated_at}` |
-| `GET /api/leads/{id}/raw` | Authenticated raw evidence alias | path ID, optional `mode=download|preview` | raw bytes or `{payload_type, source_url, collector_name, collected_at, payload_preview}` |
+| `PATCH /api/leads/{id}` | Safe lead update | `{status?, notes?}` | `{lead, changed_fields, updated_at}` |
+| `GET /api/leads/{id}/raw` | Authenticated raw evidence alias | path ID | raw bytes with stored content type |
 | `GET /api/leads/{id}/outreach` | Outreach history | path ID, `limit`, `cursor` | `{items:[outreach_event], next_cursor}` |
 | `POST /api/leads/{id}/outreach` | Log outreach attempt | `{contact, channel, notes, outcome}` | `{outreach, lead}` |
 | `POST /api/pipeline/runs` | Browser-safe run trigger | `{sources?, bcbid_raw_input?, dry_run?}` | `{run_id, status, started_at}` |
@@ -51,12 +55,12 @@
 - `priority_score`
 - `priority_reason`
 - `status`
-- `owner`
-- `verification_state`
 - `created_at`
 - `updated_at`
 - `has_raw`
 - `audit_source_url`
+
+Phase 35 implemented `lead_summary` without `owner` or `verification_state` because those fields are not schema-backed yet.
 
 `lead` should include full current storage fields plus UI-safe audit metadata. Do not include raw payload bodies by default. Phase 34 detail fixtures should mirror this as `{lead, audit, outreach_summary, activity}` where `audit` contains metadata such as `has_raw`, `raw_link`, `payload_type`, `source_url`, `collector_name`, and `collected_at`, never the raw `payload` body.
 

@@ -1,3 +1,25 @@
+## 2026-05-09 - Phase 35 UI API contracts
+
+### groupscout-pvx - Implement UI lead API contracts with strict TDD
+
+- **What:** Added the first implemented same-origin UI lead API contracts: filtered lead listing, lead detail with audit metadata, safe lead patching, authenticated raw audit access, OpenAPI updates, and temporary frontend type documentation.
+- **Where:** `internal/storage/leads.go`, `internal/storage/leads_test.go`, `cmd/server/ui_api.go`, `cmd/server/ui_api_test.go`, `cmd/server/main.go`, `api/swagger.yaml`, `docs/planning/ui/UI_PHASE35_API_CONTRACT.md`, `docs/planning/ui/UI_PHASE35_FRONTEND_TYPES.md`, `docs/prompts/PROMPTS_PHASE35_UI.md`, `docs/planning/ui/UI_TDD_PHASE_PLAN.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, `docs/planning/ui/README.md`, `docs/API_CONFIG.md`, `docs/guides/TESTING.md`, `README.md`, and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** Phase 35 needed live backend contracts for the planned operator UI so the Phase 33 inbox and Phase 34 detail boundaries can move from fixtures to typed `/api/*` data without exposing raw payload bodies or unsafe source-backed edits.
+- **How:** Wrote failing storage and HTTP tests first, implemented `LeadListFilter`/`ListFiltered`, added a testable `/api/leads` handler, mapped storage leads to snake_case safe response DTOs, allowed only `status` and `notes` in `PATCH`, required bearer auth for raw evidence when `API_TOKEN` is configured, updated OpenAPI after tests defined behavior, documented schema-backed limits for owner, snooze, verification, and correction fields, and filed `groupscout-al3` for Phase 36 outreach/state endpoints.
+
+---
+
+### groupscout-44x - Fix OpenAPI health response contract drift
+
+- **What:** Corrected the OpenAPI `/health` response contract from plain text to JSON.
+- **Where:** `api/swagger.yaml` and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** The implemented health handler returns JSON with `status`, `database`, and `ollama`, so generated clients should not expect a text/plain `OK` body.
+- **How:** Added the shared `HealthStatus` schema and documented both `200` and `503` health responses as `application/json`.
+
+---
+
 ## 2026-05-09 - Phase 34 lead detail and evidence review contract
 
 ### groupscout-ftx - Implement Phase 34 lead detail evidence review contract

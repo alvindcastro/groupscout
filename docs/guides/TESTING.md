@@ -16,6 +16,14 @@ make test
 go test -v ./internal/enrichment/...
 ```
 
+#### Run UI API Contract Tests
+```bash
+go test ./internal/storage
+go test ./cmd/server
+```
+
+These cover the Phase 35 filtered lead listing storage contract and the `/api/leads`, `/api/leads/{id}`, `PATCH /api/leads/{id}`, and authenticated `/api/leads/{id}/raw` HTTP contracts.
+
 #### Run Alertd Tests
 ```bash
 go test ./cmd/alertd/... ./internal/alert/...

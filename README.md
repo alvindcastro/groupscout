@@ -188,11 +188,14 @@ GQ5 review samples can be converted into review-only draft cases with the evalop
 *   [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./docs/planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md) - Phase 32 operator shell, routes, responsive behavior, and build/component-test contract.
 *   [UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md](./docs/planning/ui/UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md) - Phase 33 mocked lead inbox fixture, table, interaction, accessibility, and API-boundary contract.
 *   [UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md](./docs/planning/ui/UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md) - Phase 34 lead detail, evidence review, raw audit safety, outreach/activity, status action, and correction-control contract.
+*   [UI_PHASE35_API_CONTRACT.md](./docs/planning/ui/UI_PHASE35_API_CONTRACT.md) - Phase 35 implemented `/api/leads` list, detail, patch, raw evidence, and schema-gap contract.
+*   [UI_PHASE35_FRONTEND_TYPES.md](./docs/planning/ui/UI_PHASE35_FRONTEND_TYPES.md) - Temporary frontend type contract for the Phase 35 UI API responses.
 *   [UI_TDD_PHASE_PLAN.md](./docs/planning/ui/UI_TDD_PHASE_PLAN.md) - Strict TDD phase checklist for operator UI and `/api/*` work.
 *   [PROMPTS_PHASE31_UI.md](./docs/prompts/PROMPTS_PHASE31_UI.md) - Copy-paste prompts for future UI and UI API TDD implementation tasks.
 *   [PROMPTS_PHASE32_UI.md](./docs/prompts/PROMPTS_PHASE32_UI.md) - Copy-paste prompts for Phase 32 route, app shell, responsive layout, build, and component-test implementation.
 *   [PROMPTS_PHASE33_UI.md](./docs/prompts/PROMPTS_PHASE33_UI.md) - Copy-paste prompts for Phase 33 mocked lead inbox implementation.
 *   [PROMPTS_PHASE34_UI.md](./docs/prompts/PROMPTS_PHASE34_UI.md) - Copy-paste prompts for Phase 34 lead detail and evidence review implementation.
+*   [PROMPTS_PHASE35_UI.md](./docs/prompts/PROMPTS_PHASE35_UI.md) - Copy-paste prompts for Phase 35 UI API contract refinement.
 *   [BACKEND_FOR_UI_TESTING.md](./docs/planning/ui/BACKEND_FOR_UI_TESTING.md) - Backend startup paths and API status for UI testing.
 *   [AI_QUALITY_EVALOPS.md](./docs/planning/AI_QUALITY_EVALOPS.md) - EvalOps plan for AI enrichment, scoring, outreach, and alert quality.
 *   [groupscout-case-schema.md](./docs/evals/groupscout-case-schema.md) - GQ1 schema for reusable JSONL eval fixtures in `data/evals/groupscout/`.

@@ -10,6 +10,8 @@ This folder groups planning documents for the future GroupScout operator UI.
 - [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md) - Phase 32 app shell, route, responsive layout, build, and component-test implementation contract.
 - [UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md](./UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md) - Phase 33 mocked lead inbox fixture, table, interaction, accessibility, responsive, and replaceable API-boundary implementation contract.
 - [UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md](./UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md) - Phase 34 lead detail, evidence review, raw audit safety, outreach/activity, status action, and correction-control implementation contract.
+- [UI_PHASE35_API_CONTRACT.md](./UI_PHASE35_API_CONTRACT.md) - Phase 35 implemented `/api/leads` list, detail, patch, raw evidence, auth, and schema-gap contract.
+- [UI_PHASE35_FRONTEND_TYPES.md](./UI_PHASE35_FRONTEND_TYPES.md) - Temporary TypeScript type contract for the Phase 35 API until generated frontend client types exist.
 - [UI_API_ENDPOINTS.md](./UI_API_ENDPOINTS.md) - Brainstormed `/api/*` contracts for the future operator UI.
 - [UI_TDD_PHASE_PLAN.md](./UI_TDD_PHASE_PLAN.md) - Phase-by-phase strict TDD plan for UI and backend contract work.
 - [BACKEND_FOR_UI_TESTING.md](./BACKEND_FOR_UI_TESTING.md) - Runbook for starting the backend while developing or testing the UI.
@@ -17,6 +19,7 @@ This folder groups planning documents for the future GroupScout operator UI.
 - [PROMPTS_PHASE32_UI.md](../../prompts/PROMPTS_PHASE32_UI.md) - Copy-paste strict TDD prompts for Phase 32 route, shell, responsive, build, and component-test work.
 - [PROMPTS_PHASE33_UI.md](../../prompts/PROMPTS_PHASE33_UI.md) - Copy-paste strict TDD prompts for Phase 33 mocked lead inbox fixture, table, search, filter, sorting, keyboard, responsive, and build verification work.
 - [PROMPTS_PHASE34_UI.md](../../prompts/PROMPTS_PHASE34_UI.md) - Copy-paste strict TDD prompts for Phase 34 lead detail, evidence, raw audit safety, outreach/activity, status action, correction-control, responsive, and build verification work.
+- [PROMPTS_PHASE35_UI.md](../../prompts/PROMPTS_PHASE35_UI.md) - Copy-paste strict TDD prompts for Phase 35 UI API contract refinement, docs, and type maintenance.
 
 ## Rule
 

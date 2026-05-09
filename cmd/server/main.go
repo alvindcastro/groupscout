@@ -131,6 +131,7 @@ func main() {
 	}
 
 	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/api/", newUIAPIHandler(db, cfg.DatabaseURL, cfg.APIToken))
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		status := map[string]string{
 			"status":   "ok",
