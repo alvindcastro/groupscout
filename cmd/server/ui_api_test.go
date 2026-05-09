@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -278,5 +280,188 @@ func TestUIAPIAdminLoginExchangesSetupTokenForSession(t *testing.T) {
 	fx.handler.ServeHTTP(rawRec, rawReq)
 	if rawRec.Code != http.StatusOK {
 		t.Fatalf("admin raw status = %d, want 200; body=%s", rawRec.Code, rawRec.Body.String())
+	}
+
+	var loginBody struct {
+		SessionToken      string `json:"session_token"`
+		SetupTokenRotated bool   `json:"setup_token_rotated"`
+	}
+	if err := json.Unmarshal(loginRec.Body.Bytes(), &loginBody); err != nil {
+		t.Fatalf("decode login body: %v", err)
+	}
+	if loginBody.SessionToken == "" {
+		t.Fatalf("session_token must be returned for non-browser clients")
+	}
+	if loginBody.SetupTokenRotated {
+		t.Fatalf("env-backed setup token should not report rotation")
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
+	meReq.Header.Set("Authorization", "Bearer "+loginBody.SessionToken)
+	meRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(meRec, meReq)
+	if meRec.Code != http.StatusOK {
+		t.Fatalf("bearer session /me status = %d, want 200; body=%s", meRec.Code, meRec.Body.String())
+	}
+}
+
+func TestUIAPIAdminLoginRejectsInvalidSetupToken(t *testing.T) {
+	fx := newUIAPIFixture(t, "")
+	auth, err := newAdminAuthenticator(adminAuthConfig{
+		Enabled:    true,
+		SetupToken: "setup-token",
+		SessionTTL: time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("newAdminAuthenticator: %v", err)
+	}
+	fx.handler = newUIAPIHandlerWithDeps(uiAPIConfig{DB: fx.db, DSN: fx.dsn, AdminAuth: auth})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"token":"wrong"}`))
+	rec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("invalid login status = %d, want 401; body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUIAPIAdminLogoutRevokesSession(t *testing.T) {
+	fx := newUIAPIFixture(t, "")
+	auth, err := newAdminAuthenticator(adminAuthConfig{
+		Enabled:    true,
+		SetupToken: "setup-token",
+		SessionTTL: time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("newAdminAuthenticator: %v", err)
+	}
+	fx.handler = newUIAPIHandlerWithDeps(uiAPIConfig{DB: fx.db, DSN: fx.dsn, AdminAuth: auth})
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"token":"setup-token"}`))
+	loginRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want 200; body=%s", loginRec.Code, loginRec.Body.String())
+	}
+	cookie := loginRec.Result().Cookies()[0]
+
+	logoutReq := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
+	logoutReq.AddCookie(cookie)
+	logoutRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(logoutRec, logoutReq)
+	if logoutRec.Code != http.StatusOK {
+		t.Fatalf("logout status = %d, want 200; body=%s", logoutRec.Code, logoutRec.Body.String())
+	}
+	cleared := logoutRec.Result().Cookies()
+	if len(cleared) != 1 || cleared[0].Name != adminSessionCookieName || cleared[0].MaxAge != -1 {
+		t.Fatalf("logout cookie = %#v, want cleared %s cookie", cleared, adminSessionCookieName)
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
+	meReq.AddCookie(cookie)
+	meRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(meRec, meReq)
+	if meRec.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked /me status = %d, want 401; body=%s", meRec.Code, meRec.Body.String())
+	}
+}
+
+func TestUIAPIAdminSessionExpires(t *testing.T) {
+	fx := newUIAPIFixture(t, "")
+	base := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
+	auth, err := newAdminAuthenticator(adminAuthConfig{
+		Enabled:    true,
+		SetupToken: "setup-token",
+		SessionTTL: time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("newAdminAuthenticator: %v", err)
+	}
+	auth.now = func() time.Time { return base }
+	fx.handler = newUIAPIHandlerWithDeps(uiAPIConfig{DB: fx.db, DSN: fx.dsn, AdminAuth: auth})
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"token":"setup-token"}`))
+	loginRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want 200; body=%s", loginRec.Code, loginRec.Body.String())
+	}
+	cookie := loginRec.Result().Cookies()[0]
+	auth.now = func() time.Time { return base.Add(2 * time.Hour) }
+
+	meReq := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
+	meReq.AddCookie(cookie)
+	meRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(meRec, meReq)
+	if meRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expired /me status = %d, want 401; body=%s", meRec.Code, meRec.Body.String())
+	}
+}
+
+func TestUIAPIAdminLoginRotatesFileBackedSetupToken(t *testing.T) {
+	fx := newUIAPIFixture(t, "")
+	tokenPath := filepath.Join(t.TempDir(), "admin-setup-token")
+	if err := os.WriteFile(tokenPath, []byte("setup-token\n"), 0o600); err != nil {
+		t.Fatalf("write setup token: %v", err)
+	}
+	auth, err := newAdminAuthenticator(adminAuthConfig{
+		Enabled:        true,
+		SetupTokenFile: tokenPath,
+		SessionTTL:     time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("newAdminAuthenticator: %v", err)
+	}
+	fx.handler = newUIAPIHandlerWithDeps(uiAPIConfig{DB: fx.db, DSN: fx.dsn, AdminAuth: auth})
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"token":"setup-token"}`))
+	loginRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want 200; body=%s", loginRec.Code, loginRec.Body.String())
+	}
+	var body struct {
+		SetupTokenRotated bool `json:"setup_token_rotated"`
+	}
+	if err := json.Unmarshal(loginRec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode login body: %v", err)
+	}
+	if !body.SetupTokenRotated {
+		t.Fatalf("setup_token_rotated = false, want true")
+	}
+	rotated, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("read rotated token: %v", err)
+	}
+	if strings.TrimSpace(string(rotated)) == "setup-token" {
+		t.Fatalf("setup token was not rotated")
+	}
+
+	reuseReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"token":"setup-token"}`))
+	reuseRec := httptest.NewRecorder()
+	fx.handler.ServeHTTP(reuseRec, reuseReq)
+	if reuseRec.Code != http.StatusUnauthorized {
+		t.Fatalf("reused setup token status = %d, want 401; body=%s", reuseRec.Code, reuseRec.Body.String())
+	}
+}
+
+func TestLegacyRawLeadHandlerRequiresAuth(t *testing.T) {
+	fx := newUIAPIFixture(t, "automation-token")
+	handler := legacyRawLeadHandler(fx.db, fx.dsn, "automation-token", nil)
+
+	missingReq := httptest.NewRequest(http.MethodGet, "/leads/"+fx.lead.ID+"/raw", nil)
+	missingRec := httptest.NewRecorder()
+	handler.ServeHTTP(missingRec, missingReq)
+	if missingRec.Code != http.StatusUnauthorized {
+		t.Fatalf("missing auth status = %d, want 401; body=%s", missingRec.Code, missingRec.Body.String())
+	}
+
+	authedReq := httptest.NewRequest(http.MethodGet, "/leads/"+fx.lead.ID+"/raw", nil)
+	authedReq.Header.Set("Authorization", "Bearer automation-token")
+	authedRec := httptest.NewRecorder()
+	handler.ServeHTTP(authedRec, authedReq)
+	if authedRec.Code != http.StatusOK {
+		t.Fatalf("bearer auth status = %d, want 200; body=%s", authedRec.Code, authedRec.Body.String())
 	}
 }

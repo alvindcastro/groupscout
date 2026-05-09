@@ -31,6 +31,7 @@ type adminAuthenticator struct {
 	enabled        bool
 	setupTokenHash [32]byte
 	setupTokenFile string
+	setupTokenEnv  bool
 	sessionTTL     time.Duration
 	now            func() time.Time
 	log            *slog.Logger
@@ -52,6 +53,7 @@ func newAdminAuthenticator(cfg adminAuthConfig) (*adminAuthenticator, error) {
 	}
 
 	setupToken := strings.TrimSpace(cfg.SetupToken)
+	setupTokenEnv := setupToken != ""
 	if setupToken == "" {
 		token, err := readOrCreateSetupToken(cfg.SetupTokenFile)
 		if err != nil {
@@ -71,6 +73,7 @@ func newAdminAuthenticator(cfg adminAuthConfig) (*adminAuthenticator, error) {
 		enabled:        true,
 		setupTokenHash: sha256.Sum256([]byte(setupToken)),
 		setupTokenFile: cfg.SetupTokenFile,
+		setupTokenEnv:  setupTokenEnv,
 		sessionTTL:     cfg.SessionTTL,
 		now:            time.Now,
 		log:            cfg.Logger,
@@ -129,6 +132,12 @@ func (a *adminAuthenticator) handleLogin(w http.ResponseWriter, r *http.Request)
 		writeJSONError(w, http.StatusUnauthorized, "invalid setup token")
 		return
 	}
+	setupTokenRotated, err := a.rotateSetupTokenAfterLogin()
+	if err != nil {
+		a.log.Error("failed to rotate admin setup token", "error", err, "setup_token_file", a.setupTokenFile)
+		writeJSONError(w, http.StatusInternalServerError, "rotate setup token failed")
+		return
+	}
 	sessionToken, expiresAt, err := a.createSession()
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "create admin session failed")
@@ -143,11 +152,33 @@ func (a *adminAuthenticator) handleLogin(w http.ResponseWriter, r *http.Request)
 		SameSite: http.SameSiteLaxMode,
 	})
 	writeJSON(w, http.StatusOK, map[string]any{
-		"session_token": sessionToken,
-		"token_type":    "Bearer",
-		"expires_at":    expiresAt,
-		"user":          map[string]string{"role": "admin"},
+		"session_token":       sessionToken,
+		"token_type":          "Bearer",
+		"expires_at":          expiresAt,
+		"setup_token_rotated": setupTokenRotated,
+		"user":                map[string]string{"role": "admin"},
 	})
+}
+
+func (a *adminAuthenticator) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	token := a.requestSessionToken(r)
+	if token != "" {
+		a.revokeSession(token)
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     adminSessionCookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	writeJSON(w, http.StatusOK, map[string]any{"revoked": token != ""})
 }
 
 func (a *adminAuthenticator) handleMe(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +208,31 @@ func (a *adminAuthenticator) requireSession(next http.Handler) http.Handler {
 
 func (a *adminAuthenticator) validSetupToken(token string) bool {
 	candidate := sha256.Sum256([]byte(strings.TrimSpace(token)))
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	return subtle.ConstantTimeCompare(candidate[:], a.setupTokenHash[:]) == 1
+}
+
+func (a *adminAuthenticator) rotateSetupTokenAfterLogin() (bool, error) {
+	if a.setupTokenEnv {
+		a.log.Warn("admin setup token loaded from ADMIN_SETUP_TOKEN cannot be rotated automatically")
+		return false, nil
+	}
+	if strings.TrimSpace(a.setupTokenFile) == "" {
+		return false, nil
+	}
+	token, err := randomToken()
+	if err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(a.setupTokenFile, []byte(token+"\n"), 0o600); err != nil {
+		return false, fmt.Errorf("write rotated admin setup token: %w", err)
+	}
+	a.mu.Lock()
+	a.setupTokenHash = sha256.Sum256([]byte(token))
+	a.mu.Unlock()
+	a.log.Info("admin setup token rotated after successful login", "setup_token_file", a.setupTokenFile)
+	return true, nil
 }
 
 func (a *adminAuthenticator) createSession() (string, time.Time, error) {
@@ -196,13 +251,18 @@ func (a *adminAuthenticator) validRequestSession(r *http.Request) bool {
 	if a == nil || !a.enabled {
 		return true
 	}
+	return a.validSession(a.requestSessionToken(r))
+}
+
+func (a *adminAuthenticator) requestSessionToken(r *http.Request) string {
 	token := bearerToken(r.Header.Get("Authorization"))
-	if token == "" {
-		if cookie, err := r.Cookie(adminSessionCookieName); err == nil {
-			token = cookie.Value
-		}
+	if token != "" {
+		return token
 	}
-	return a.validSession(token)
+	if cookie, err := r.Cookie(adminSessionCookieName); err == nil {
+		return cookie.Value
+	}
+	return ""
 }
 
 func (a *adminAuthenticator) validSession(token string) bool {
@@ -220,6 +280,15 @@ func (a *adminAuthenticator) validSession(token string) bool {
 		return false
 	}
 	return true
+}
+
+func (a *adminAuthenticator) revokeSession(token string) {
+	if token == "" {
+		return
+	}
+	a.mu.Lock()
+	delete(a.sessions, token)
+	a.mu.Unlock()
 }
 
 func bearerToken(header string) string {

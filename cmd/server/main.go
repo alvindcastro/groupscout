@@ -317,53 +317,7 @@ func main() {
 		json.NewEncoder(w).Encode(map[string]string{"status": "success", "id": l.ID})
 	})
 
-	http.HandleFunc("/leads/", func(w http.ResponseWriter, r *http.Request) {
-		// Manual routing for /leads/{id}/raw
-		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-		if len(parts) != 3 || parts[0] != "leads" || parts[2] != "raw" {
-			http.NotFound(w, r)
-			return
-		}
-		leadID := parts[1]
-
-		ctx := r.Context()
-		leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
-		lead, err := leadStore.GetByID(ctx, leadID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if lead == nil {
-			http.NotFound(w, r)
-			return
-		}
-
-		if lead.RawInputID == "" {
-			http.Error(w, "Lead has no raw input associated", http.StatusNotFound)
-			return
-		}
-
-		rawInputID, err := uuid.Parse(lead.RawInputID)
-		if err != nil {
-			http.Error(w, "Invalid raw input ID", http.StatusInternalServerError)
-			return
-		}
-
-		auditStore := storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL)
-		raw, err := auditStore.GetByID(ctx, rawInputID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if raw == nil {
-			http.Error(w, "Raw input not found in audit store", http.StatusNotFound)
-			return
-		}
-
-		w.Header().Set("Content-Type", raw.PayloadType)
-		w.WriteHeader(http.StatusOK)
-		w.Write(raw.Payload)
-	})
+	http.HandleFunc("/leads/", legacyRawLeadHandler(db, cfg.DatabaseURL, cfg.APIToken, adminAuth))
 
 	addr := ":" + strconv.Itoa(cfg.Port)
 	l.Info("server listening", "addr", addr)
@@ -376,6 +330,48 @@ func main() {
 type serverPipelineRunner struct {
 	cfg *config.Config
 	db  *sql.DB
+}
+
+func legacyRawLeadHandler(db *sql.DB, dsn, apiToken string, adminAuth *adminAuthenticator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Manual routing for legacy GET /leads/{id}/raw.
+		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(parts) != 3 || parts[0] != "leads" || parts[2] != "raw" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if !validLegacyRawAuth(r, apiToken, adminAuth) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		leadID := parts[1]
+		leadStore := storage.NewLeadStoreWithDSN(db, dsn)
+		auditStore := storage.NewAuditStoreWithDSN(db, dsn)
+		raw, status, errMessage := leadRawInput(r.Context(), leadStore, auditStore, leadID)
+		if status != 0 {
+			http.Error(w, errMessage, status)
+			return
+		}
+
+		w.Header().Set("Content-Type", raw.PayloadType)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(raw.Payload)
+	}
+}
+
+func validLegacyRawAuth(r *http.Request, apiToken string, adminAuth *adminAuthenticator) bool {
+	if apiToken == "" && (adminAuth == nil || !adminAuth.enabled) {
+		return true
+	}
+	if apiToken != "" && bearerToken(r.Header.Get("Authorization")) == apiToken {
+		return true
+	}
+	return adminAuth != nil && adminAuth.validRequestSession(r)
 }
 
 func (r serverPipelineRunner) Run(ctx context.Context, req pipelineRunRequest) (pipelineRunResult, error) {

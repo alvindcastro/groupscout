@@ -57,6 +57,7 @@ func newUIAPIHandlerWithDeps(cfg uiAPIConfig) http.Handler {
 	if cfg.AdminAuth != nil {
 		mux.HandleFunc("/api/auth/status", cfg.AdminAuth.handleStatus)
 		mux.HandleFunc("/api/auth/login", cfg.AdminAuth.handleLogin)
+		mux.HandleFunc("/api/auth/logout", cfg.AdminAuth.handleLogout)
 		mux.HandleFunc("/api/auth/me", cfg.AdminAuth.handleMe)
 	}
 	protected := http.NewServeMux()

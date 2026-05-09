@@ -98,6 +98,87 @@ paths:
           description: Unauthorized
         '500':
           description: Failed to store lead
+  /api/auth/status:
+    get:
+      summary: Get admin auth status
+      description: Returns whether setup-token admin authentication is required and whether the current request has a valid admin session.
+      responses:
+        '200':
+          description: Admin auth status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthStatus'
+  /api/auth/login:
+    post:
+      summary: Create admin session from setup token
+      description: Exchanges the current setup token for a short-lived admin session cookie. File-backed setup tokens rotate after successful login.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: Admin session created
+          headers:
+            Set-Cookie:
+              description: HttpOnly groupscout_session cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+        '400':
+          description: Invalid JSON body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Invalid setup token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /api/auth/logout:
+    post:
+      summary: Revoke current admin session
+      description: Revokes the current admin session token when present and clears the browser session cookie.
+      responses:
+        '200':
+          description: Admin session revoked or already absent
+          headers:
+            Set-Cookie:
+              description: Expired groupscout_session cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLogoutResponse'
+  /api/auth/me:
+    get:
+      summary: Get current admin
+      description: Returns the current admin user for a valid groupscout_session cookie or bearer session token.
+      security:
+        - AdminSessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMeResponse'
+        '401':
+          description: Missing, invalid, or expired session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /api/leads:
     get:
       summary: List UI leads
@@ -201,8 +282,9 @@ paths:
   /api/leads/{id}/raw:
     get:
       summary: Get authenticated raw lead evidence
-      description: Returns raw audit payload bytes for a lead. Requires bearer auth when API_TOKEN is configured.
+      description: Returns raw audit payload bytes for a lead. Requires an admin session when admin auth is enabled, or the automation bearer token when API_TOKEN is configured.
       security:
+        - AdminSessionCookie: []
         - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/LeadID'
@@ -384,6 +466,10 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
+    AdminSessionCookie:
+      type: apiKey
+      in: cookie
+      name: groupscout_session
   parameters:
     LeadID:
       name: id
@@ -400,6 +486,70 @@ components:
           type: string
       required:
         - error
+    AdminAuthStatus:
+      type: object
+      properties:
+        auth_required:
+          type: boolean
+        authenticated:
+          type: boolean
+        setup_token_file:
+          type: string
+      required:
+        - auth_required
+        - authenticated
+    AdminLoginRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Current admin setup token.
+      required:
+        - token
+    AdminLoginResponse:
+      type: object
+      properties:
+        session_token:
+          type: string
+          description: Session token for non-browser clients. Browser clients should use the HttpOnly cookie.
+        token_type:
+          type: string
+          example: Bearer
+        expires_at:
+          type: string
+          format: date-time
+        setup_token_rotated:
+          type: boolean
+        user:
+          type: object
+          properties:
+            role:
+              type: string
+              example: admin
+      required:
+        - session_token
+        - token_type
+        - expires_at
+        - setup_token_rotated
+        - user
+    AdminLogoutResponse:
+      type: object
+      properties:
+        revoked:
+          type: boolean
+      required:
+        - revoked
+    AdminMeResponse:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            role:
+              type: string
+              example: admin
+      required:
+        - user
     HealthStatus:
       type: object
       properties:
