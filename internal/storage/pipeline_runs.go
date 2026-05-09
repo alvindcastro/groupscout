@@ -213,10 +213,18 @@ func scanPipelineRuns(rows *sql.Rows) ([]PipelineRun, error) {
 		if err := rows.Scan(&run.ID, &run.Status, &sources, &counts, &errorsJSON, &request, &run.StartedAt, &finishedAt, &run.CreatedAt, &run.UpdatedAt); err != nil {
 			return nil, err
 		}
-		_ = json.Unmarshal([]byte(sources), &run.Sources)
-		_ = json.Unmarshal([]byte(counts), &run.Counts)
-		_ = json.Unmarshal([]byte(errorsJSON), &run.Errors)
-		_ = json.Unmarshal([]byte(request), &run.Request)
+		if err := json.Unmarshal([]byte(sources), &run.Sources); err != nil {
+			return nil, fmt.Errorf("pipeline run %s sources: %w", run.ID, err)
+		}
+		if err := json.Unmarshal([]byte(counts), &run.Counts); err != nil {
+			return nil, fmt.Errorf("pipeline run %s counts: %w", run.ID, err)
+		}
+		if err := json.Unmarshal([]byte(errorsJSON), &run.Errors); err != nil {
+			return nil, fmt.Errorf("pipeline run %s errors: %w", run.ID, err)
+		}
+		if err := json.Unmarshal([]byte(request), &run.Request); err != nil {
+			return nil, fmt.Errorf("pipeline run %s request: %w", run.ID, err)
+		}
 		if finishedAt.Valid {
 			run.FinishedAt = &finishedAt.Time
 		}

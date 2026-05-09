@@ -31,4 +31,7 @@ func main() {
 		}
 		fmt.Printf("Source: %-15s | Status: %-10s | Score: %d | Title: %-30s | Loc: %s | Reason: %s\n", s, st, ps, t, l, pr)
 	}
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
 }

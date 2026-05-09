@@ -125,6 +125,9 @@ func migrateTable(sqliteDB, pgDB *sql.DB, tableName string, migrateFn func(*sql.
 			}
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
 
 	if !dryRun && len(batch) > 0 {
 		if err := execBatch(pgDB, query, batch); err != nil {

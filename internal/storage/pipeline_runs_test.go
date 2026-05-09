@@ -50,6 +50,25 @@ func TestPipelineRunStore_CreateCompleteAndList(t *testing.T) {
 	}
 }
 
+func TestPipelineRunStore_ListRejectsMalformedStoredJSON(t *testing.T) {
+	db, dsn := newTestSQLiteDB(t)
+	store := NewPipelineRunStoreWithDSN(db, dsn)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	_, err := db.ExecContext(ctx, Rebind(dsn, `
+		INSERT INTO pipeline_runs (id, status, sources, counts, errors, request, started_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`), "run-bad-json", "running", "[", "{}", "[]", "{}", now, now, now)
+	if err != nil {
+		t.Fatalf("insert malformed run: %v", err)
+	}
+
+	if _, _, err := store.List(ctx, PipelineRunListFilter{}); err == nil {
+		t.Fatal("List error = nil, want malformed sources JSON error")
+	}
+}
+
 func TestStatsStore_SummarizesSupportedLeadFields(t *testing.T) {
 	db, dsn := newTestSQLiteDB(t)
 	leadStore := NewLeadStoreWithDSN(db, dsn)

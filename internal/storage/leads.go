@@ -88,6 +88,13 @@ type sqliteLeadStore struct {
 	dsn string
 }
 
+const leadSelectColumns = `id, raw_project_id, raw_input_id, source, title, location, project_value,
+		       general_contractor, applicant, contractor, source_url, project_type,
+		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
+		       priority_score, priority_reason, rationale, suggested_outreach_timing,
+		       notes, owner, snoozed_until, flagged, verification_state, status,
+		       created_at, updated_at`
+
 // NewLeadStore returns a LeadStore.
 func NewLeadStore(db *sql.DB) LeadStore {
 	// We don't have the DSN here easily, but we can't easily change the signature
@@ -148,13 +155,7 @@ func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
 }
 
 func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
-	query := `
-		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
-		       general_contractor, applicant, contractor, source_url, project_type,
-		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, rationale, suggested_outreach_timing,
-		       notes, owner, snoozed_until, flagged, verification_state, status,
-		       created_at, updated_at
+	query := `SELECT ` + leadSelectColumns + `
 		FROM leads
 		WHERE status = 'new'
 		ORDER BY priority_score DESC, created_at DESC
@@ -165,30 +166,7 @@ func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
 	}
 	defer rows.Close()
 
-	var leads []Lead
-	for rows.Next() {
-		var l Lead
-		var rawProjectID sql.NullString
-		var rawInputID sql.NullString
-		var snoozedUntil sql.NullTime
-		if err := rows.Scan(
-			&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
-			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
-			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-			&l.Notes, &l.Owner, &snoozedUntil, &l.Flagged, &l.VerificationState,
-			&l.Status, &l.CreatedAt, &l.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		l.RawProjectID = rawProjectID.String
-		l.RawInputID = rawInputID.String
-		if snoozedUntil.Valid {
-			l.SnoozedUntil = &snoozedUntil.Time
-		}
-		leads = append(leads, l)
-	}
-	return leads, rows.Err()
+	return scanLeads(rows)
 }
 
 func (s *sqliteLeadStore) ListFiltered(ctx context.Context, filter LeadListFilter) ([]Lead, string, error) {
@@ -208,13 +186,7 @@ func (s *sqliteLeadStore) ListFiltered(ctx context.Context, filter LeadListFilte
 		offset = parsed
 	}
 
-	query := `
-		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
-		       general_contractor, applicant, contractor, source_url, project_type,
-		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, rationale, suggested_outreach_timing,
-		       notes, owner, snoozed_until, flagged, verification_state, status,
-		       created_at, updated_at
+	query := `SELECT ` + leadSelectColumns + `
 		FROM leads
 	`
 	var where []string
@@ -261,13 +233,7 @@ func (s *sqliteLeadStore) ListFiltered(ctx context.Context, filter LeadListFilte
 }
 
 func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
-	query := `
-		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
-		       general_contractor, applicant, contractor, source_url, project_type,
-		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, rationale, suggested_outreach_timing,
-		       notes, owner, snoozed_until, flagged, verification_state, status,
-		       created_at, updated_at
+	query := `SELECT ` + leadSelectColumns + `
 		FROM leads
 		WHERE (status = 'notified' OR status = 'new')
 		  AND created_at >= ?
@@ -279,30 +245,7 @@ func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
 	}
 	defer rows.Close()
 
-	var leads []Lead
-	for rows.Next() {
-		var l Lead
-		var rawProjectID sql.NullString
-		var rawInputID sql.NullString
-		var snoozedUntil sql.NullTime
-		if err := rows.Scan(
-			&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
-			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
-			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-			&l.Notes, &l.Owner, &snoozedUntil, &l.Flagged, &l.VerificationState,
-			&l.Status, &l.CreatedAt, &l.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		l.RawProjectID = rawProjectID.String
-		l.RawInputID = rawInputID.String
-		if snoozedUntil.Valid {
-			l.SnoozedUntil = &snoozedUntil.Time
-		}
-		leads = append(leads, l)
-	}
-	return leads, rows.Err()
+	return scanLeads(rows)
 }
 
 func (s *sqliteLeadStore) UpdateStatus(ctx context.Context, id, status string) error {
@@ -499,63 +442,56 @@ func isTerminalLeadStatus(status string) bool {
 }
 
 func (s *sqliteLeadStore) GetByID(ctx context.Context, id string) (*Lead, error) {
-	query := `
-		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
-		       general_contractor, applicant, contractor, source_url, project_type,
-		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, rationale, suggested_outreach_timing,
-		       notes, owner, snoozed_until, flagged, verification_state, status,
-		       created_at, updated_at
+	query := `SELECT ` + leadSelectColumns + `
 		FROM leads
 		WHERE id = ?
 	`
-	var l Lead
-	var rawProjectID sql.NullString
-	var rawInputID sql.NullString
-	var snoozedUntil sql.NullTime
-	err := s.db.QueryRowContext(ctx, Rebind(s.dsn, query), id).Scan(
-		&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
-		&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
-		&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-		&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-		&l.Notes, &l.Owner, &snoozedUntil, &l.Flagged, &l.VerificationState,
-		&l.Status, &l.CreatedAt, &l.UpdatedAt,
-	)
+	l, err := scanLead(s.db.QueryRowContext(ctx, Rebind(s.dsn, query), id))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
+	return &l, nil
+}
+
+type leadScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanLead(scanner leadScanner) (Lead, error) {
+	var l Lead
+	var rawProjectID sql.NullString
+	var rawInputID sql.NullString
+	var owner sql.NullString
+	var snoozedUntil sql.NullTime
+	err := scanner.Scan(
+		&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
+		&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
+		&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
+		&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
+		&l.Notes, &owner, &snoozedUntil, &l.Flagged, &l.VerificationState,
+		&l.Status, &l.CreatedAt, &l.UpdatedAt,
+	)
+	if err != nil {
+		return Lead{}, err
+	}
 	l.RawProjectID = rawProjectID.String
 	l.RawInputID = rawInputID.String
+	l.Owner = owner.String
 	if snoozedUntil.Valid {
 		l.SnoozedUntil = &snoozedUntil.Time
 	}
-	return &l, nil
+	return l, nil
 }
 
 func scanLeads(rows *sql.Rows) ([]Lead, error) {
 	var leads []Lead
 	for rows.Next() {
-		var l Lead
-		var rawProjectID sql.NullString
-		var rawInputID sql.NullString
-		var snoozedUntil sql.NullTime
-		if err := rows.Scan(
-			&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
-			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
-			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-			&l.Notes, &l.Owner, &snoozedUntil, &l.Flagged, &l.VerificationState,
-			&l.Status, &l.CreatedAt, &l.UpdatedAt,
-		); err != nil {
+		l, err := scanLead(rows)
+		if err != nil {
 			return nil, err
-		}
-		l.RawProjectID = rawProjectID.String
-		l.RawInputID = rawInputID.String
-		if snoozedUntil.Valid {
-			l.SnoozedUntil = &snoozedUntil.Time
 		}
 		leads = append(leads, l)
 	}
