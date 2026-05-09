@@ -1,3 +1,15 @@
+## 2026-05-09 - Phase 33 mocked lead inbox contract
+
+### groupscout-aaf - Implement Phase 33 mocked lead inbox contract
+
+- **What:** Added the Phase 33 mocked lead inbox implementation contract plus a dedicated Phase 33 prompt pack for strict TDD fixture, table, search, filter, sorting, keyboard, responsive, build, and static-asset verification work.
+- **Where:** `docs/planning/ui/UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md`, `docs/prompts/PROMPTS_PHASE33_UI.md`, `docs/planning/ui/UI_TDD_PHASE_PLAN.md`, `docs/planning/ui/README.md`, `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/prompts/PROMPTS_PHASE31_UI.md`, `docs/planning/ROADMAP.md`, `docs/ARCHITECTURE.md`, `README.md`, and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** Phase 33 needed enforceable lead inbox acceptance criteria before a frontend package or live `GET /api/leads` route exists, so future UI work starts from failing tests and deterministic fixtures instead of untested browser code or accidental automation endpoint coupling.
+- **How:** Documented the fixture-only data boundary, required lead summary fields, table columns, loading/empty/error/populated states, search and filter behavior, default sorting, keyboard navigation, accessible controls, replaceable `/api/leads` client boundary, raw-audit exclusion, and static secret-scan expectations, then cross-linked the new contract from the UI docs, prompt docs, architecture, roadmap, README, and TDD phase plan.
+
+---
+
 ## 2026-05-09 — Phase 32 UI app shell and routing contract
 
 ### groupscout-swx — Implement Phase 32 app shell routing contract

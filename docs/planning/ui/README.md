@@ -8,11 +8,13 @@ This folder groups planning documents for the future GroupScout operator UI.
 - [UI_DESIGN_SYSTEM.md](./UI_DESIGN_SYSTEM.md) - GroupScout adaptation of the external design reference for operator UI surfaces.
 - [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md) - Phase 31 token, primitive, component test, accessibility, secret-safety, and no-hero implementation contract.
 - [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md) - Phase 32 app shell, route, responsive layout, build, and component-test implementation contract.
+- [UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md](./UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md) - Phase 33 mocked lead inbox fixture, table, interaction, accessibility, responsive, and replaceable API-boundary implementation contract.
 - [UI_API_ENDPOINTS.md](./UI_API_ENDPOINTS.md) - Brainstormed `/api/*` contracts for the future operator UI.
 - [UI_TDD_PHASE_PLAN.md](./UI_TDD_PHASE_PLAN.md) - Phase-by-phase strict TDD plan for UI and backend contract work.
 - [BACKEND_FOR_UI_TESTING.md](./BACKEND_FOR_UI_TESTING.md) - Runbook for starting the backend while developing or testing the UI.
 - [BACKEND_FRONTEND_DOCKER_E2E.md](./BACKEND_FRONTEND_DOCKER_E2E.md) - Smoke runbook for running the backend Compose stack with the separate UI Docker image.
 - [PROMPTS_PHASE32_UI.md](../../prompts/PROMPTS_PHASE32_UI.md) - Copy-paste strict TDD prompts for Phase 32 route, shell, responsive, build, and component-test work.
+- [PROMPTS_PHASE33_UI.md](../../prompts/PROMPTS_PHASE33_UI.md) - Copy-paste strict TDD prompts for Phase 33 mocked lead inbox fixture, table, search, filter, sorting, keyboard, responsive, and build verification work.
 
 ## Rule
 

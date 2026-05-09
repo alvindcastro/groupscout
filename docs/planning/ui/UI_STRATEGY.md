@@ -83,6 +83,8 @@ The first UI should serve sales reps and managers. `alertd` can appear later as 
 
 Dense operational table. Default sort should put urgent, unowned, high-score leads at the top.
 
+Phase 33 keeps this route mocked until `GET /api/leads` exists. The first frontend implementation should load deterministic lead summary fixtures through a replaceable data adapter that mirrors the planned `/api/leads` query and response shape. Do not wire the inbox to automation endpoints, direct database reads, or raw audit payload bodies.
+
 Expected columns:
 
 - Score

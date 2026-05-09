@@ -4,6 +4,7 @@
 > This is a planning document for the future operator UI.
 > Phase 31 implementation contract: [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md).
 > Phase 32 app shell and routing contract: [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md).
+> Phase 33 mocked lead inbox contract: [UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md](./UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md).
 
 ## Source
 
@@ -73,6 +74,18 @@ Every AI claim that affects a sales action should sit near source evidence:
 - reviewer correction and note history.
 
 Use rows and definition-list style layouts instead of bulky cards. The operator should be able to compare source-backed facts and AI output quickly.
+
+## Lead Inbox Guidance
+
+Phase 33 defines the mocked lead inbox contract in `UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md`. The first checked-in frontend package must test the inbox before implementation:
+
+- mocked lead summary fixtures only until `GET /api/leads` exists;
+- a table-first route with score, lead, status, source, owner, verification, created date, timing, and row actions;
+- status and verification as separate visual and semantic concepts;
+- loading, empty, error, populated, searching, filtering, sorting, keyboard navigation, and row selection states;
+- a replaceable data adapter that can later become a generated or typed `/api/leads` client.
+
+The inbox must preserve the Phase 31 and Phase 32 guardrails: dense operator workspace, visible focus states, no marketing hero patterns, no static secrets, and responsive controls that do not overlap text or hide missing evidence, weak confidence, or contradiction states by default.
 
 ## Interaction Rules
 

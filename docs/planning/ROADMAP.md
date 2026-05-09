@@ -133,9 +133,10 @@
 > Product and integration strategy: [UI_STRATEGY.md](./ui/UI_STRATEGY.md).
 > UI design adaptation: [UI_DESIGN_SYSTEM.md](./ui/UI_DESIGN_SYSTEM.md).
 > UI shell/routing contract: [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md).
+> UI mocked lead inbox contract: [UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md](./ui/UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md).
 > UI endpoint contracts: [UI_API_ENDPOINTS.md](./ui/UI_API_ENDPOINTS.md).
 > Strict TDD phase plan: [UI_TDD_PHASE_PLAN.md](./ui/UI_TDD_PHASE_PLAN.md).
-> Copy-paste prompts: [PROMPTS_PHASE31_UI.md](../prompts/PROMPTS_PHASE31_UI.md) and [PROMPTS_PHASE32_UI.md](../prompts/PROMPTS_PHASE32_UI.md).
+> Copy-paste prompts: [PROMPTS_PHASE31_UI.md](../prompts/PROMPTS_PHASE31_UI.md), [PROMPTS_PHASE32_UI.md](../prompts/PROMPTS_PHASE32_UI.md), and [PROMPTS_PHASE33_UI.md](../prompts/PROMPTS_PHASE33_UI.md).
 
 - [ ] Operator UI foundation — TypeScript React SPA under a future `web/` app, backed by `/api/*` contracts and same-origin deployment
 - [ ] Lead inbox — filterable triage table by status, score, source, property, owner, and timing

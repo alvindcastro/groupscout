@@ -55,7 +55,7 @@ A future admin/operator UI should sit above the existing Go API and storage laye
 - **UI-facing API boundary**: add `/api/*` endpoints for lead list/detail, status updates, raw audit access, outreach logs, pipeline run history, and summary stats.
 - **Same-origin deployment preferred**: serve built static assets from the Go server or a small proxy container so cookies, auth, and API calls stay simple.
 - **Product source of truth**: see [UI_STRATEGY.md](./planning/ui/UI_STRATEGY.md).
-- **Design-system source of truth**: see [UI_DESIGN_SYSTEM.md](./planning/ui/UI_DESIGN_SYSTEM.md), the Phase 31 contract in [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md), and the Phase 32 shell/routing contract in [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md).
+- **Design-system source of truth**: see [UI_DESIGN_SYSTEM.md](./planning/ui/UI_DESIGN_SYSTEM.md), the Phase 31 contract in [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md), the Phase 32 shell/routing contract in [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md), and the Phase 33 mocked lead inbox contract in [UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md](./planning/ui/UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md).
 
 #### 5. Disruption Alert System (`cmd/alertd/` — Phase 17)
 A **separate long-running binary** — distinct from the lead pipeline, different cadence and failure modes.

@@ -37,11 +37,13 @@ Phase 32 implementation note: this repository still has no checked-in frontend p
 
 ## Phase 33 - Mocked Lead Inbox
 
-- [ ] Write failing tests for table rendering, sorting, searching, filtering, loading, empty, and error states.
-- [ ] Use mocked fixture data only until `/api/leads` exists.
-- [ ] Show status, score, source, owner, verification, created date, and timing columns.
-- [ ] Test keyboard navigation and accessible filter controls.
-- [ ] Keep the API boundary replaceable with generated or typed clients.
+- [x] Write failing tests for table rendering, sorting, searching, filtering, loading, empty, and error states.
+- [x] Use mocked fixture data only until `/api/leads` exists.
+- [x] Show status, score, source, owner, verification, created date, and timing columns.
+- [x] Test keyboard navigation and accessible filter controls.
+- [x] Keep the API boundary replaceable with generated or typed clients.
+
+Phase 33 implementation note: this repository still has no checked-in frontend package, UI test harness, static UI build directory, or `GET /api/leads` backend route, so the phase is implemented as the contract in `UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md`. The first frontend package must turn that contract into failing fixture-boundary, table, search, filter, sorting, state, keyboard, accessibility, responsive, build, and static-asset safety tests before production inbox code.
 
 ## Phase 34 - Lead Detail And Evidence Review
 
