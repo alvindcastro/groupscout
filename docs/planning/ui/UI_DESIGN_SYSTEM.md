@@ -1,7 +1,8 @@
 # UI Design System Adaptation
 
 > GroupScout-specific interpretation of `/mnt/c/Users/alvin/WebstormProjects/groupscout-ui/DESIGN.md`.
-> This is a planning document for the future operator UI, not implementation output.
+> This is a planning document for the future operator UI.
+> Phase 31 implementation contract: [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md).
 
 ## Source
 
@@ -67,3 +68,14 @@ Use rows and definition-list style layouts instead of bulky cards. The operator 
 - Invalid transitions should be disabled or rejected with specific error copy.
 - Browser code must use relative `/api/*` paths only.
 - Do not expose `API_TOKEN`, database URLs, Slack tokens, email provider keys, LLM provider keys, or session secrets in static assets.
+
+## Phase 31 Implementation Notes
+
+The current repository has no checked-in frontend package or component test harness. Phase 31 is therefore implemented as a design-system contract in `UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md` so the first frontend slice can start from failing token, primitive, component, accessibility, no-hero, and static-asset safety tests.
+
+The contract is binding for the future `web/` app or equivalent frontend package:
+
+- Token exports must cover typography, colors, spacing, radii, semantic statuses, and focus states.
+- Primitive tests must cover buttons, badges, inputs, tabs, tables, evidence blocks, and code/raw-data blocks before production UI code.
+- Operator screens must use dense workspace surfaces and must not import the source design's marketing hero, gradient, cloud, rocket, or oversized display patterns.
+- Static build verification must fail if browser-visible assets contain automation tokens, database URLs, Slack/email/LLM provider keys, session secrets, or real `.env` values.

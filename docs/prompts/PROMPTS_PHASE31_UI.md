@@ -8,7 +8,7 @@
 
 ## TDD Rules For Every Prompt
 
-- [ ] Read `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, and `docs/planning/ui/UI_TDD_PHASE_PLAN.md`.
+- [ ] Read `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, and `docs/planning/ui/UI_TDD_PHASE_PLAN.md`.
 - [ ] Read existing tests near the target files before adding new tests.
 - [ ] Write the smallest failing test first.
 - [ ] Run the narrow test and capture the expected red failure.
@@ -27,18 +27,24 @@ Task 31-A1 - Design tokens and primitives
 Context:
 - The UI design reference is `/mnt/c/Users/alvin/WebstormProjects/groupscout-ui/DESIGN.md`.
 - GroupScout should use the dense docs/product surface language, not marketing hero patterns.
+- The implementation contract is `docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md`.
+- If this repository still has no checked-in frontend package, do not invent untested UI code; create the frontend harness first, then make the contract tests fail before implementing components.
 
 TDD steps:
 1. Write failing tests for token availability: typography, colors, spacing, radii, focus states, and semantic statuses.
-2. Write failing component tests for Button, Badge, Input, Tabs, Table, and EvidenceBlock.
-3. Run the narrow tests and confirm the expected red failures.
-4. Implement the smallest token/component layer needed to pass.
-5. Verify no browser-visible config exposes secrets.
+2. Write failing component tests for Button, Badge, Input, Tabs, Table, EvidenceBlock, and raw-data code blocks.
+3. Write failing accessibility tests for labels, keyboard tab order, focus-visible treatment, selected tab state, icon-button names, and status labels that do not rely on color alone.
+4. Write a failing no-hero-pattern test proving the operator workspace does not render marketing hero classes, atmospheric gradients, cloud/rocket imagery, decorative orbs, or oversized hero display type.
+5. Run the narrow tests and confirm the expected red failures.
+6. Implement the smallest token/component layer needed to pass.
+7. Verify no browser-visible config exposes secrets with a static asset scan after build.
 
 Acceptance:
 - Components are compact and operations-friendly.
 - Evidence and code-like content can use mono styling.
 - Mint green is reserved for active, focused, verified, or confirmation states.
+- Browser-visible assets do not contain `API_TOKEN`, database URLs, Slack/email/LLM provider keys, session secrets, or real `.env` values.
+- Marketing hero patterns remain out of the operator workspace.
 ```
 
 ## Phase 32 - App Shell And Routing

@@ -5,6 +5,10 @@ This folder groups planning documents for the future GroupScout operator UI.
 ## Documents
 
 - [UI_STRATEGY.md](./UI_STRATEGY.md) - Product flow, information architecture, screen map, API boundaries, and MVP sequence.
+- [UI_DESIGN_SYSTEM.md](./UI_DESIGN_SYSTEM.md) - GroupScout adaptation of the external design reference for operator UI surfaces.
+- [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md) - Phase 31 token, primitive, component test, accessibility, secret-safety, and no-hero implementation contract.
+- [UI_API_ENDPOINTS.md](./UI_API_ENDPOINTS.md) - Brainstormed `/api/*` contracts for the future operator UI.
+- [UI_TDD_PHASE_PLAN.md](./UI_TDD_PHASE_PLAN.md) - Phase-by-phase strict TDD plan for UI and backend contract work.
 - [BACKEND_FOR_UI_TESTING.md](./BACKEND_FOR_UI_TESTING.md) - Runbook for starting the backend while developing or testing the UI.
 - [BACKEND_FRONTEND_DOCKER_E2E.md](./BACKEND_FRONTEND_DOCKER_E2E.md) - Smoke runbook for running the backend Compose stack with the separate UI Docker image.
 

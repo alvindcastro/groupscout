@@ -17,11 +17,13 @@
 
 ## Phase 31 - UI Design System Adaptation
 
-- [ ] Translate `groupscout-ui/DESIGN.md` into GroupScout operator UI tokens and rules.
-- [ ] Write failing component/token tests before implementing UI code.
-- [ ] Cover buttons, badges, inputs, tabs, tables, evidence blocks, focus states, and semantic statuses.
-- [ ] Verify static frontend assets do not expose secrets.
-- [ ] Keep marketing hero patterns out of the operator workspace.
+- [x] Translate `groupscout-ui/DESIGN.md` into GroupScout operator UI tokens and rules.
+- [x] Write failing component/token tests before implementing UI code.
+- [x] Cover buttons, badges, inputs, tabs, tables, evidence blocks, focus states, and semantic statuses.
+- [x] Verify static frontend assets do not expose secrets.
+- [x] Keep marketing hero patterns out of the operator workspace.
+
+Phase 31 implementation note: this repository has no checked-in frontend package or component test harness today, so the phase is implemented as the contract in `UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md`. The first frontend package must turn that contract into failing tests before production UI code.
 
 ## Phase 32 - App Shell And Routing
 

@@ -263,8 +263,13 @@ Out of scope for the first UI:
 | Doc | Ownership |
 |---|---|
 | `docs/planning/ui/UI_STRATEGY.md` | Product flow, screen map, frontend architecture, and UI API plan. |
+| `docs/planning/ui/UI_DESIGN_SYSTEM.md` | Visual and interaction adaptation of the external `groupscout-ui/DESIGN.md` reference. |
+| `docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md` | Phase 31 token, primitive, component-test, accessibility, static-asset safety, and no-marketing-hero contract. |
+| `docs/planning/ui/UI_API_ENDPOINTS.md` | Brainstormed browser-facing `/api/*` endpoint contracts and schema gaps. |
+| `docs/planning/ui/UI_TDD_PHASE_PLAN.md` | Phase-by-phase strict TDD checklist for UI and backend contract implementation. |
 | `docs/planning/ui/BACKEND_FOR_UI_TESTING.md` | Backend startup paths, current endpoint status, and frontend proxy notes for UI testing. |
 | `docs/planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md` | Current Docker smoke path for running the backend stack with the separate UI D4 static/proxy image. |
+| `docs/prompts/PROMPTS_PHASE31_UI.md` | Copy-paste TDD prompts for future UI and `/api/*` implementation slices. |
 | `docs/planning/PHASES.md` | Atomic implementation checklist. |
 | `docs/planning/ROADMAP.md` | Big-picture milestones and sequencing. |
 | `docs/DATA_FLOW.md` | System and human workflow diagram. |
