@@ -76,6 +76,9 @@ func newUIAPIHandlerWithDeps(cfg uiAPIConfig) http.Handler {
 	mux.HandleFunc("/api/system", func(w http.ResponseWriter, r *http.Request) {
 		handleUISystem(w, r, cfg)
 	})
+	mux.HandleFunc("/api/alerts", func(w http.ResponseWriter, r *http.Request) {
+		handleUIAlerts(w, r)
+	})
 	return mux
 }
 
@@ -246,6 +249,35 @@ func handleUISystem(w http.ResponseWriter, r *http.Request, cfg uiAPIConfig) {
 		"metrics_available": true,
 		"last_pipeline_run": latest,
 		"note":              fmt.Sprintf("metrics_available is a server capability flag; browser UI does not parse /metrics"),
+	})
+}
+
+func handleUIAlerts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	filter := alertListFilter{
+		State:    r.URL.Query().Get("state"),
+		Property: r.URL.Query().Get("property"),
+		Cursor:   r.URL.Query().Get("cursor"),
+	}
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		limit, err := strconv.Atoi(rawLimit)
+		if err != nil || limit < 1 || limit > 100 {
+			writeJSONError(w, http.StatusBadRequest, "invalid limit")
+			return
+		}
+		filter.Limit = limit
+	}
+
+	alerts := []alertResponse{}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"alerts":      alerts,
+		"items":       alerts,
+		"next_cursor": nil,
+		"read_only":   true,
+		"filters":     filter,
 	})
 }
 
@@ -596,6 +628,49 @@ type outreachEventResponse struct {
 	Notes    string    `json:"notes"`
 	Outcome  string    `json:"outcome"`
 	LoggedAt time.Time `json:"logged_at"`
+}
+
+type alertListFilter struct {
+	State    string `json:"state"`
+	Property string `json:"property"`
+	Limit    int    `json:"limit"`
+	Cursor   string `json:"cursor"`
+}
+
+type alertResponse struct {
+	ID            string               `json:"id"`
+	Property      string               `json:"property"`
+	SPS           int                  `json:"sps"`
+	State         string               `json:"state"`
+	Impact        string               `json:"impact"`
+	UpdatedAt     time.Time            `json:"updated_at"`
+	Evidence      []alertEvidence      `json:"evidence"`
+	RoomInventory alertRoomInventory   `json:"room_inventory"`
+	ActionHistory []alertActionHistory `json:"action_history"`
+}
+
+type alertEvidence struct {
+	Type       string    `json:"type"`
+	Label      string    `json:"label"`
+	Value      string    `json:"value"`
+	SourceURL  string    `json:"source_url"`
+	ObservedAt time.Time `json:"observed_at"`
+}
+
+type alertRoomInventory struct {
+	Total        int       `json:"total"`
+	Unavailable  int       `json:"unavailable"`
+	Available    int       `json:"available"`
+	OutOfService int       `json:"out_of_service"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type alertActionHistory struct {
+	Actor     string    `json:"actor"`
+	Action    string    `json:"action"`
+	Channel   string    `json:"channel"`
+	Note      string    `json:"note"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type auditMetadataResponse struct {

@@ -328,6 +328,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemStatus'
+  /api/alerts:
+    get:
+      summary: Read-only alert console compatibility list
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: property
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Read-only alert list. Empty until alertd writes alert state to shared storage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertListResponse'
+        '400':
+          description: Invalid limit
   /slack/inventory:
     post:
       summary: Update room inventory (Slack Slash Command)
@@ -696,6 +727,96 @@ components:
           type: boolean
         last_pipeline_run:
           nullable: true
+    AlertListResponse:
+      type: object
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        items:
+          type: array
+          description: Compatibility alias for smoke contracts that expect collection responses to expose items.
+          items:
+            $ref: '#/components/schemas/Alert'
+        next_cursor:
+          type: string
+          nullable: true
+        read_only:
+          type: boolean
+        filters:
+          type: object
+          properties:
+            state:
+              type: string
+            property:
+              type: string
+            limit:
+              type: integer
+            cursor:
+              type: string
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+        property:
+          type: string
+        sps:
+          type: integer
+        state:
+          type: string
+        impact:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        evidence:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              label:
+                type: string
+              value:
+                type: string
+              source_url:
+                type: string
+              observed_at:
+                type: string
+                format: date-time
+        room_inventory:
+          type: object
+          properties:
+            total:
+              type: integer
+            unavailable:
+              type: integer
+            available:
+              type: integer
+            out_of_service:
+              type: integer
+            updated_at:
+              type: string
+              format: date-time
+        action_history:
+          type: array
+          items:
+            type: object
+            properties:
+              actor:
+                type: string
+              action:
+                type: string
+              channel:
+                type: string
+              note:
+                type: string
+              created_at:
+                type: string
+                format: date-time
     LeadDetailResponse:
       type: object
       properties:

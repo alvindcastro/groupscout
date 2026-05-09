@@ -97,3 +97,48 @@ func TestUIAPIListPipelineRunsAndStatsAndSystem(t *testing.T) {
 		})
 	}
 }
+
+func TestUIAPIListAlertsReadOnlyCompatibility(t *testing.T) {
+	fx := newUIAPIFixture(t, "")
+	req := httptest.NewRequest(http.MethodGet, "/api/alerts?state=active&property=Riverside+Hotel&limit=20&cursor=cursor_1", nil)
+	rec := httptest.NewRecorder()
+
+	fx.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Alerts     []map[string]any `json:"alerts"`
+		Items      []map[string]any `json:"items"`
+		NextCursor *string          `json:"next_cursor"`
+		ReadOnly   bool             `json:"read_only"`
+		Filters    struct {
+			State    string `json:"state"`
+			Property string `json:"property"`
+			Limit    int    `json:"limit"`
+			Cursor   string `json:"cursor"`
+		} `json:"filters"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Alerts == nil {
+		t.Fatalf("alerts field must be present: %s", rec.Body.String())
+	}
+	if body.Items == nil {
+		t.Fatalf("items compatibility field must be present: %s", rec.Body.String())
+	}
+	if len(body.Alerts) != 0 || len(body.Items) != 0 {
+		t.Fatalf("read-only alert endpoint should start empty until alertd has a shared store: %s", rec.Body.String())
+	}
+	if body.NextCursor != nil {
+		t.Fatalf("next_cursor = %v, want null", *body.NextCursor)
+	}
+	if !body.ReadOnly {
+		t.Fatal("read_only = false, want true")
+	}
+	if body.Filters.State != "active" || body.Filters.Property != "Riverside Hotel" || body.Filters.Limit != 20 || body.Filters.Cursor != "cursor_1" {
+		t.Fatalf("filters were not echoed correctly: %#v", body.Filters)
+	}
+}

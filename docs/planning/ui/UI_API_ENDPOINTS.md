@@ -23,6 +23,7 @@
 | `GET /api/pipeline/runs` | Implemented Phase 37 | Lists persisted run history with status, counts, and errors. |
 | `GET /api/stats` | Implemented Phase 37 | Returns status, source, score band, owner, week, and outreach outcome summaries. |
 | `GET /api/system` | Implemented Phase 37 | Returns UI-safe system health without browser-side `/metrics` parsing. |
+| `GET /api/alerts` | Implemented compatibility route | Read-only alert-console endpoint; returns an empty collection until `alertd` writes alert state to shared storage. |
 | `POST /slack/inventory` | Implemented in `alertd` | Slack slash-command endpoint, separate from the lead UI MVP. |
 
 ## Contract Principles
@@ -48,6 +49,7 @@
 | `GET /api/pipeline/runs` | Run history | `status`, `limit`, `cursor` | `{items:[pipeline_run], next_cursor, filters}` |
 | `GET /api/stats` | UI summaries | `window` | `{window, by_status, by_source, score_bands, by_owner, by_week, by_outcome}` |
 | `GET /api/system` | UI health summary | none | `{status, database, ollama, metrics_available, last_pipeline_run}` |
+| `GET /api/alerts` | Read-only alert console compatibility | `state`, `property`, `limit`, `cursor` | `{alerts:[], items:[], next_cursor, read_only, filters}` |
 
 ## Response Shape Notes
 
@@ -89,6 +91,20 @@ Phase 35 implemented `lead_summary` without `owner` or `verification_state` beca
 - `sources`
 - `counts`
 - `errors`
+
+`alert` should include the frontend Phase 10 read-only fields when a shared alert store exists:
+
+- `id`
+- `property`
+- `sps`
+- `state`
+- `impact`
+- `updated_at`
+- `evidence`
+- `room_inventory`
+- `action_history`
+
+The current backend compatibility route returns empty `alerts` and `items` arrays because `alertd` still keeps runtime alert state outside the lead API database.
 
 ## Schema Gaps To Handle Explicitly
 

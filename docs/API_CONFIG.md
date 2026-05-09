@@ -91,5 +91,6 @@ Do **not** expose `API_TOKEN` to browser JavaScript. It is intended for server-t
 | `/api/pipeline/runs` | `GET` | Implemented | Show recent run history, status, counts, and failures. |
 | `/api/stats` | `GET` | Implemented | Summaries by status, source, score band, owner, week, and outcome. |
 | `/api/system` | `GET` | Implemented | UI-friendly health and integration summary without browser-side Prometheus parsing. |
+| `/api/alerts` | `GET` | Implemented | Read-only alert-console compatibility endpoint. Returns an empty collection until `alertd` has a shared persistent alert store. |
 
 See [UI_PHASE35_API_CONTRACT.md](./planning/ui/UI_PHASE35_API_CONTRACT.md) for the implemented lead API response shapes and [UI_STRATEGY.md](./planning/ui/UI_STRATEGY.md) for the product flow and implementation sequence.

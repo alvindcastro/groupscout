@@ -94,7 +94,7 @@ curl -i http://localhost:8080/health
 curl -i http://localhost:${GROUPSCOUT_UI_HOST_PORT:-3001}/healthz
 ```
 
-The `groupscout-ui` Compose service is the D3 health harness. It proves the UI container can build, join the backend network, and expose `/healthz`; it does not serve product static assets and does not proxy `/api/*`.
+The `groupscout-ui` Compose service is the D3 product dev server. It proves the UI container can build, join the backend network, serve product assets, and expose `/healthz`. Use the D4 production container for the same-origin production proxy smoke.
 
 For the current same-origin UI runtime, build and run the D4 production image on the backend Compose network:
 
@@ -112,11 +112,12 @@ curl -i http://localhost:3002/healthz
 curl -i http://localhost:3002/
 curl -i http://localhost:3002/assets/app.js
 curl -i http://localhost:3002/api/system
+curl -i http://localhost:3002/api/alerts?limit=1
 
 docker stop groupscout-ui-production-smoke
 ```
 
-`GET /healthz`, `GET /`, and `GET /assets/app.js` should return `200` from the UI container. `GET /api/system` may return backend `404` until the planned UI `/api/*` routes are implemented; that means the proxy reached the backend. A `502` means the UI container could not reach `UI_API_PROXY_TARGET`.
+`GET /healthz`, `GET /`, `GET /assets/app.js`, `GET /api/system`, and `GET /api/alerts?limit=1` should return `200` through the UI container. A `502` means the UI container could not reach `UI_API_PROXY_TARGET`.
 
 ## API Calls Useful During UI Work
 
@@ -161,7 +162,7 @@ Example Vite-style proxy target:
 /api/* -> http://localhost:8080/api/*
 ```
 
-The `/api/*` routes above are the planned UI contract. Today, only the non-`/api` endpoints listed in this document are implemented.
+The `/api/*` routes above are the live UI contract. They stay separate from the automation endpoints so browser response shapes and session boundaries can evolve without exposing `API_TOKEN`.
 
 ## Current UI Contract Status
 
@@ -174,12 +175,6 @@ Implemented today:
 | `POST /run` | Manual pipeline trigger behind Bearer auth. |
 | `POST /digest` | Manual digest trigger behind Bearer auth. |
 | `POST /n8n/webhook` | External lead ingestion behind Bearer auth. |
-| `GET /leads/{id}/raw` | Raw audit evidence lookup when a lead ID is known. |
-
-Still needed before a live lead inbox can replace mocks:
-
-| Planned endpoint | Purpose |
-|---|---|
 | `GET /api/leads` | Lead inbox with filters and pagination. |
 | `GET /api/leads/{id}` | Lead detail. |
 | `PATCH /api/leads/{id}` | Status, owner, notes, snooze, and safe corrections. |
@@ -188,6 +183,7 @@ Still needed before a live lead inbox can replace mocks:
 | `GET/POST /api/pipeline/runs` | Run history and async pipeline controls. |
 | `GET /api/stats` | UI summaries by status, source, score band, owner, and week. |
 | `GET /api/system` | UI-friendly system health summary. |
+| `GET /api/alerts` | Read-only alert-console compatibility endpoint. |
 
 ## Troubleshooting
 
@@ -198,5 +194,4 @@ Still needed before a live lead inbox can replace mocks:
 | `/health` returns database error | Check `DATABASE_URL`; for local SQLite use a writable `.db` path, for Postgres verify `docker compose ps postgres`. |
 | Docker startup is slow | `ollama-init` is likely pulling models. Use the local backend path for UI-only work. |
 | Browser requests fail from a UI dev server | Add a dev proxy or same-origin wrapper; do not rely on CORS being enabled in the Go server. |
-| `localhost:3001` only serves `/healthz` | That is expected. Port `3001` is the UI D3 health harness, not the D4 static/proxy runtime. |
-| D4 `/api/system` returns `404` | The proxy reached the backend, but the current backend does not expose that UI-modeled `/api/*` route yet. |
+| D4 `/api/system` or `/api/alerts` returns `404` | Check that the backend image includes the current UI API routes and was rebuilt before starting the smoke. |

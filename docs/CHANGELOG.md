@@ -1,3 +1,15 @@
+## 2026-05-09 - Frontend Docker contract compatibility
+
+### groupscout-ehq - Review frontend UI docs and Docker contracts
+
+- **What:** Added backend compatibility for the frontend-documented read-only `GET /api/alerts` route and tightened the backend-owned UI Docker smoke expectations now that `/api/system` is implemented.
+- **Where:** `cmd/server/ui_api.go`, `cmd/server/ui_api_phase37_test.go`, `scripts/smoke-ui-docker-e2e.sh`, `internal/smoke/ui_docker_script_test.go`, `api/swagger.yaml`, `docs/API_CONFIG.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, `docs/planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md`, `docs/planning/ui/BACKEND_FOR_UI_TESTING.md`, `docs/planning/ui/UI_PHASE38_DOCKER_SMOKE_CONTRACT.md`, `docs/guides/TESTING.md`, and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** The external `groupscout-ui` markdown and Docker files model `/api/alerts` as a same-origin read-only route, while the backend only exposed leads, outreach, pipeline runs, stats, and system routes. The Docker smoke also still allowed old `/api/system` route drift.
+- **How:** Inspected the UI repo Dockerfile, Compose override, API client docs, and alert client tests; wrote a failing backend HTTP test for `/api/alerts`; implemented an empty read-only compatibility response with `alerts` plus `items` arrays; added `/api/alerts` to OpenAPI/docs; and updated the Docker smoke script to require `/api/system` and `/api/alerts` through the UI production proxy.
+
+---
+
 ## 2026-05-09 - Phases 36-38 UI API and Docker smoke contracts
 
 ### groupscout-al3 - Implement Phase 36 outreach and lead state API contracts

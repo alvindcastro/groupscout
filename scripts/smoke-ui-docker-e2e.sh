@@ -71,17 +71,8 @@ expect_status "http://localhost:${GROUPSCOUT_UI_PROD_PORT}/healthz" "200" "produ
 expect_status "http://localhost:${GROUPSCOUT_UI_PROD_PORT}/" "200" "production UI root"
 expect_status "http://localhost:${GROUPSCOUT_UI_PROD_PORT}/assets/app.js" "200" "production UI static asset"
 expect_status "http://localhost:${GROUPSCOUT_UI_PROD_PORT}/api/leads?limit=1" "200" "same-origin /api/leads proxy"
-
-system_status="$(curl -sS -o /tmp/groupscout-smoke-system -w '%{http_code}' "http://localhost:${GROUPSCOUT_UI_PROD_PORT}/api/system" || true)"
-if [[ "$system_status" == "404" ]]; then
-  echo "ok: backend 404 reached through proxy for /api/system"
-elif [[ "$system_status" == "200" ]]; then
-  echo "ok: backend /api/system is implemented and reached through proxy"
-else
-  echo "unexpected /api/system status through good proxy: $system_status" >&2
-  cat /tmp/groupscout-smoke-system >&2 || true
-  exit 1
-fi
+expect_status "http://localhost:${GROUPSCOUT_UI_PROD_PORT}/api/system" "200" "same-origin /api/system proxy"
+expect_status "http://localhost:${GROUPSCOUT_UI_PROD_PORT}/api/alerts?limit=1" "200" "same-origin /api/alerts proxy"
 
 docker run --rm -d \
   --name "$BAD_CONTAINER" \
@@ -104,4 +95,3 @@ if grep -RIn 'http://groupscout:8080' "$GROUPSCOUT_UI_REPO/web/dist"; then
 fi
 
 echo "Phase 38 UI Docker smoke passed"
-

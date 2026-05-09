@@ -24,7 +24,7 @@ go test ./cmd/server
 
 These cover the Phase 35 filtered lead listing storage contract and the `/api/leads`, `/api/leads/{id}`, `PATCH /api/leads/{id}`, and authenticated `/api/leads/{id}/raw` HTTP contracts.
 
-Phase 36 and 37 extend the same package tests with outreach logging, lead actions, pipeline run persistence, stats, and `/api/system`.
+Phase 36 and 37 extend the same package tests with outreach logging, lead actions, pipeline run persistence, stats, `/api/system`, and the read-only `/api/alerts` compatibility route.
 
 #### Run UI Docker Smoke Contract Tests
 ```bash
@@ -180,14 +180,15 @@ curl -i http://localhost:3002/healthz
 curl -i http://localhost:3002/
 curl -i http://localhost:3002/assets/app.js
 curl -i http://localhost:3002/api/system
+curl -i http://localhost:3002/api/alerts?limit=1
 ```
 
 Expected current results:
 
 - Backend `GET /health` returns `200`.
 - UI D3 `GET /healthz` on port `3001` returns `200`.
-- UI D4 `GET /healthz`, `GET /`, and `GET /assets/app.js` on port `3002` return `200`.
-- UI D4 `GET /api/system` may return backend `404` until backend UI `/api/*` routes exist. Treat `404` as route drift and `502` as a Docker/proxy reachability failure.
+- UI D4 `GET /healthz`, `GET /`, `GET /assets/app.js`, `GET /api/system`, and `GET /api/alerts?limit=1` on port `3002` return `200`.
+- A `502` from `/api/*` is a Docker/proxy reachability failure.
 
 ### 5. Collector Test Pattern
 When adding a new collector, follow the pattern used in `internal/collector/richmond_test.go`:
