@@ -76,6 +76,48 @@ Service URLs:
 
 The `groupscout` compose service depends on Postgres, Ollama, and `ollama-init`. First boot can take several minutes because `ollama-init` pulls models.
 
+## Backend Plus UI Docker Smoke
+
+For a single backend-plus-frontend Docker smoke path, see [BACKEND_FRONTEND_DOCKER_E2E.md](./BACKEND_FRONTEND_DOCKER_E2E.md).
+
+Short version from the UI repo:
+
+```bash
+cd /mnt/c/Users/alvin/WebstormProjects/groupscout-ui
+
+docker compose -p groupscout \
+  -f /mnt/c/Users/alvin/GolandProjects/groupscout/docker-compose.yml \
+  -f compose.dev.yml \
+  up -d --build groupscout groupscout-ui
+
+curl -i http://localhost:8080/health
+curl -i http://localhost:${GROUPSCOUT_UI_HOST_PORT:-3001}/healthz
+```
+
+The `groupscout-ui` Compose service is the D3 health harness. It proves the UI container can build, join the backend network, and expose `/healthz`; it does not serve product static assets and does not proxy `/api/*`.
+
+For the current same-origin UI runtime, build and run the D4 production image on the backend Compose network:
+
+```bash
+docker build --target production -t groupscout-ui-production .
+
+docker run --rm -d \
+  --name groupscout-ui-production-smoke \
+  --network groupscout_groupscout_net \
+  -p 3002:3000 \
+  -e UI_API_PROXY_TARGET=http://groupscout:8080 \
+  groupscout-ui-production
+
+curl -i http://localhost:3002/healthz
+curl -i http://localhost:3002/
+curl -i http://localhost:3002/assets/app.js
+curl -i http://localhost:3002/api/system
+
+docker stop groupscout-ui-production-smoke
+```
+
+`GET /healthz`, `GET /`, and `GET /assets/app.js` should return `200` from the UI container. `GET /api/system` may return backend `404` until the planned UI `/api/*` routes are implemented; that means the proxy reached the backend. A `502` means the UI container could not reach `UI_API_PROXY_TARGET`.
+
 ## API Calls Useful During UI Work
 
 Health check:
@@ -156,3 +198,5 @@ Still needed before a live lead inbox can replace mocks:
 | `/health` returns database error | Check `DATABASE_URL`; for local SQLite use a writable `.db` path, for Postgres verify `docker compose ps postgres`. |
 | Docker startup is slow | `ollama-init` is likely pulling models. Use the local backend path for UI-only work. |
 | Browser requests fail from a UI dev server | Add a dev proxy or same-origin wrapper; do not rely on CORS being enabled in the Go server. |
+| `localhost:3001` only serves `/healthz` | That is expected. Port `3001` is the UI D3 health harness, not the D4 static/proxy runtime. |
+| D4 `/api/system` returns `404` | The proxy reached the backend, but the current backend does not expose that UI-modeled `/api/*` route yet. |

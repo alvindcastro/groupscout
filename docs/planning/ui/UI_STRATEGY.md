@@ -177,6 +177,8 @@ Recommended implementation:
 - Keep all database access behind Go storage APIs. The browser never queries Postgres/SQLite directly.
 - Do not expose `API_TOKEN` to browser JavaScript. It is for automation clients such as n8n, not end-user sessions.
 
+Current separate UI repo note: `/mnt/c/Users/alvin/WebstormProjects/groupscout-ui` now has a D4 lightweight Node production server that serves `web/dist` and proxies `/api/*` server-side to `http://groupscout:8080`. The product renderer and backend `/api/*` implementations are still planned, so this is a same-origin runtime boundary, not a completed operator UI.
+
 Suggested config when implemented:
 
 | Setting | Purpose |
@@ -262,6 +264,7 @@ Out of scope for the first UI:
 |---|---|
 | `docs/planning/ui/UI_STRATEGY.md` | Product flow, screen map, frontend architecture, and UI API plan. |
 | `docs/planning/ui/BACKEND_FOR_UI_TESTING.md` | Backend startup paths, current endpoint status, and frontend proxy notes for UI testing. |
+| `docs/planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md` | Current Docker smoke path for running the backend stack with the separate UI D4 static/proxy image. |
 | `docs/planning/PHASES.md` | Atomic implementation checklist. |
 | `docs/planning/ROADMAP.md` | Big-picture milestones and sequencing. |
 | `docs/DATA_FLOW.md` | System and human workflow diagram. |

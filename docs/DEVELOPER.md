@@ -13,6 +13,14 @@ The `Makefile` is the central hub for common development tasks. Run `make help` 
 - `make docker-up`: Start the full Docker stack.
 - `make clean`: Remove build artifacts.
 
+### Backend Plus UI Docker Smoke
+
+The separate UI repo lives at `/mnt/c/Users/alvin/WebstormProjects/groupscout-ui`.
+
+Use [BACKEND_FRONTEND_DOCKER_E2E.md](./planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md) when you want the backend Compose stack and the UI Docker image running together. The current flow starts backend service `groupscout`, validates the UI D3 health harness on port `3001`, then runs the UI D4 production static/proxy container on port `3002` attached to `groupscout_groupscout_net`.
+
+Important distinction: UI port `3001` is health-only. The production static/proxy smoke is the D4 container on `3002`.
+
 ## 🏗 Project Architecture
 
 GroupScout consists of two primary Go binaries:
@@ -136,6 +144,7 @@ See [docs/guides/SUBAGENTS.md](./docs/guides/SUBAGENTS.md) for a list of availab
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design and data flow.
 - [CHANGELOG.md](./docs/CHANGELOG.md) - Plain-English record of all changes.
 - [DOCKER.md](./docs/guides/DOCKER.md) - Running and troubleshooting Docker.
+- [BACKEND_FRONTEND_DOCKER_E2E.md](./planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md) - Current backend plus separate UI Docker smoke path.
 - [SUBAGENTS.md](./docs/guides/SUBAGENTS.md) - How to use specialized Junie agents.
 - [TROUBLESHOOTING.md](./docs/guides/TROUBLESHOOTING.md) - Pipeline and missing lead troubleshooting.
 - [SETUP.md](./docs/guides/SETUP.md) - Detailed environment and dependency setup.

@@ -53,6 +53,55 @@ If the filters are too strict, you can relax them in your `.env` file or environ
 
 ---
 
+## 🖥 Backend Plus UI Docker Troubleshooting
+
+Use [Backend And Frontend Docker E2E](../planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md) for the full current smoke runbook.
+
+### `compose.dev.yml` Fails By Itself
+
+The UI repo's `compose.dev.yml` is an override for the backend Compose file. It expects backend service `groupscout` and network `groupscout_net`.
+
+Run it merged with the backend file:
+
+```bash
+cd /mnt/c/Users/alvin/WebstormProjects/groupscout-ui
+
+docker compose -p groupscout \
+  -f /mnt/c/Users/alvin/GolandProjects/groupscout/docker-compose.yml \
+  -f compose.dev.yml \
+  config --quiet
+```
+
+### `localhost:3001` Does Not Serve The UI
+
+That is expected. Port `3001` is the UI D3 health harness and only serves `/healthz`.
+
+Use the D4 production UI container on port `3002` for static assets and `/api/*` proxy smoke checks.
+
+### Port `3000` Is Busy
+
+The backend Compose stack publishes Grafana on host port `3000`. Use `3001` for the D3 health harness and `3002` for the D4 production UI smoke container.
+
+### D4 Proxy Returns `502`
+
+The UI production container cannot reach the backend target.
+
+Check:
+
+- The container was started with `--network groupscout_groupscout_net`.
+- `UI_API_PROXY_TARGET=http://groupscout:8080`.
+- Backend service `groupscout` is running: `docker compose -p groupscout -f /mnt/c/Users/alvin/GolandProjects/groupscout/docker-compose.yml ps groupscout`.
+
+### D4 Proxy Returns `404`
+
+The proxy reached the backend, but the route does not exist. This is currently expected for UI-modeled routes such as `/api/system` and `/api/leads` until backend `/api/*` endpoints are implemented.
+
+### UI Container Has Backend Secrets
+
+Do not pass backend `.env` files into UI containers. The browser-visible UI must not receive `API_TOKEN`, provider keys, Slack tokens, email-provider keys, database URLs, Ollama endpoints, or `UI_SESSION_SECRET`.
+
+---
+
 ## ❓ FAQ
 
 ### Why is there only 1 lead?

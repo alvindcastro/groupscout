@@ -135,6 +135,39 @@ docker compose logs groupscout --tail=50
 docker compose logs -f groupscout
 ```
 
+### Backend Plus UI Docker Smoke Checks
+
+Use this when you want to verify that the backend Compose stack and the separate UI Docker image can run together. The canonical runbook is [Backend And Frontend Docker E2E](../planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md).
+
+From the UI repo:
+
+```bash
+cd /mnt/c/Users/alvin/WebstormProjects/groupscout-ui
+
+docker compose -p groupscout \
+  -f /mnt/c/Users/alvin/GolandProjects/groupscout/docker-compose.yml \
+  -f compose.dev.yml \
+  up -d --build groupscout groupscout-ui
+
+curl -i http://localhost:8080/health
+curl -i http://localhost:${GROUPSCOUT_UI_HOST_PORT:-3001}/healthz
+
+docker build --target production -t groupscout-ui-production .
+docker run --rm -d --name groupscout-ui-production-smoke --network groupscout_groupscout_net -p 3002:3000 -e UI_API_PROXY_TARGET=http://groupscout:8080 groupscout-ui-production
+
+curl -i http://localhost:3002/healthz
+curl -i http://localhost:3002/
+curl -i http://localhost:3002/assets/app.js
+curl -i http://localhost:3002/api/system
+```
+
+Expected current results:
+
+- Backend `GET /health` returns `200`.
+- UI D3 `GET /healthz` on port `3001` returns `200`.
+- UI D4 `GET /healthz`, `GET /`, and `GET /assets/app.js` on port `3002` return `200`.
+- UI D4 `GET /api/system` may return backend `404` until backend UI `/api/*` routes exist. Treat `404` as route drift and `502` as a Docker/proxy reachability failure.
+
 ### 5. Collector Test Pattern
 When adding a new collector, follow the pattern used in `internal/collector/richmond_test.go`:
 1. Define a `sampleLines` or `sampleHTML` variable with representative raw data.

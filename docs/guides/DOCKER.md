@@ -82,6 +82,45 @@ To completely reset the environment and run one pipeline pass to verify the flow
 make start-fresh
 ```
 
+## 🖥 Frontend UI Docker Smoke
+
+The operator UI lives in a separate repo at:
+
+```bash
+/mnt/c/Users/alvin/WebstormProjects/groupscout-ui
+```
+
+For the current backend-plus-frontend Docker runbook, see [Backend And Frontend Docker E2E](../planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md).
+
+Key points:
+
+- Backend Compose service `groupscout` publishes `http://localhost:8080` and joins `groupscout_net`.
+- Grafana uses host port `3000`, so UI examples use `3001` for the development health harness and `3002` for the production static/proxy smoke container.
+- The UI repo's `compose.dev.yml` is an override, not a standalone Compose file.
+- The UI D3 Compose service only serves `/healthz`; use the UI D4 production image when you need static assets and server-side `/api/*` proxying.
+- First backend boot can be slow because `groupscout` depends on `ollama` and `ollama-init`.
+
+Minimal smoke sequence:
+
+```bash
+cd /mnt/c/Users/alvin/WebstormProjects/groupscout-ui
+
+docker compose -p groupscout \
+  -f /mnt/c/Users/alvin/GolandProjects/groupscout/docker-compose.yml \
+  -f compose.dev.yml \
+  up -d --build groupscout groupscout-ui
+
+curl -i http://localhost:8080/health
+curl -i http://localhost:${GROUPSCOUT_UI_HOST_PORT:-3001}/healthz
+
+docker build --target production -t groupscout-ui-production .
+docker run --rm -d --name groupscout-ui-production-smoke --network groupscout_groupscout_net -p 3002:3000 -e UI_API_PROXY_TARGET=http://groupscout:8080 groupscout-ui-production
+curl -i http://localhost:3002/healthz
+curl -i http://localhost:3002/
+curl -i http://localhost:3002/assets/app.js
+curl -i http://localhost:3002/api/system
+```
+
 ## 🧠 Ollama Model Management
 
 Models are stored in a persistent volume (`groupscout_ollama_data`).
