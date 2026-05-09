@@ -109,6 +109,8 @@ Expected controls:
 
 The detail view is where AI output becomes reviewable evidence.
 
+Phase 34 keeps this route mocked until `GET /api/leads/{id}` exists. The first frontend implementation should load deterministic detail fixtures through a replaceable adapter that mirrors the planned `{lead, audit, outreach_summary, activity}` response shape. The default detail load must not include raw payload bodies; raw audit access stays a deliberate link to the existing `GET /leads/{id}/raw` behavior or its future authenticated `/api/leads/{id}/raw` alias.
+
 Required sections:
 
 - Summary: title, score, timing, room-night signal, property fit.
@@ -268,12 +270,16 @@ Out of scope for the first UI:
 | `docs/planning/ui/UI_DESIGN_SYSTEM.md` | Visual and interaction adaptation of the external `groupscout-ui/DESIGN.md` reference. |
 | `docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md` | Phase 31 token, primitive, component-test, accessibility, static-asset safety, and no-marketing-hero contract. |
 | `docs/planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md` | Phase 32 app shell, route map, responsive navigation, right-rail capacity, build, and component-test contract. |
+| `docs/planning/ui/UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md` | Phase 33 mocked lead inbox fixture, table, interaction, accessibility, responsive, and replaceable API-boundary contract. |
+| `docs/planning/ui/UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md` | Phase 34 lead detail, evidence review, raw audit safety, outreach/activity, status action, and correction-control contract. |
 | `docs/planning/ui/UI_API_ENDPOINTS.md` | Brainstormed browser-facing `/api/*` endpoint contracts and schema gaps. |
 | `docs/planning/ui/UI_TDD_PHASE_PLAN.md` | Phase-by-phase strict TDD checklist for UI and backend contract implementation. |
 | `docs/planning/ui/BACKEND_FOR_UI_TESTING.md` | Backend startup paths, current endpoint status, and frontend proxy notes for UI testing. |
 | `docs/planning/ui/BACKEND_FRONTEND_DOCKER_E2E.md` | Current Docker smoke path for running the backend stack with the separate UI D4 static/proxy image. |
 | `docs/prompts/PROMPTS_PHASE31_UI.md` | Copy-paste TDD prompts for future UI and `/api/*` implementation slices. |
 | `docs/prompts/PROMPTS_PHASE32_UI.md` | Copy-paste TDD prompts for Phase 32 route, app shell, responsive layout, build, and component-test implementation. |
+| `docs/prompts/PROMPTS_PHASE33_UI.md` | Copy-paste TDD prompts for Phase 33 mocked lead inbox implementation. |
+| `docs/prompts/PROMPTS_PHASE34_UI.md` | Copy-paste TDD prompts for Phase 34 lead detail and evidence review implementation. |
 | `docs/planning/PHASES.md` | Atomic implementation checklist. |
 | `docs/planning/ROADMAP.md` | Big-picture milestones and sequencing. |
 | `docs/DATA_FLOW.md` | System and human workflow diagram. |

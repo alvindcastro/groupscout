@@ -5,6 +5,7 @@
 > Phase 31 implementation contract: [UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md](./UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md).
 > Phase 32 app shell and routing contract: [UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md](./UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md).
 > Phase 33 mocked lead inbox contract: [UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md](./UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md).
+> Phase 34 lead detail and evidence review contract: [UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md](./UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md).
 
 ## Source
 
@@ -86,6 +87,19 @@ Phase 33 defines the mocked lead inbox contract in `UI_PHASE33_MOCKED_LEAD_INBOX
 - a replaceable data adapter that can later become a generated or typed `/api/leads` client.
 
 The inbox must preserve the Phase 31 and Phase 32 guardrails: dense operator workspace, visible focus states, no marketing hero patterns, no static secrets, and responsive controls that do not overlap text or hide missing evidence, weak confidence, or contradiction states by default.
+
+## Lead Detail Guidance
+
+Phase 34 defines the lead detail and evidence review contract in `UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md`. The first checked-in frontend package must test the detail route before implementation:
+
+- mocked lead detail fixtures only until `GET /api/leads/{id}` exists;
+- summary, source evidence, AI rationale, raw audit metadata/link, outreach summary, activity, and status-action regions;
+- source evidence adjacent to AI claims that affect outreach decisions;
+- missing evidence, weak confidence, and contradiction states visible by default;
+- correction controls disabled or mocked until backend correction storage exists;
+- raw payload bodies excluded from the default detail response and loaded only through a deliberate future raw audit route.
+
+The detail route should feel like a review bench: dense comparison rows, clear action capacity, and an activity rail. It should not present unsupported model output as fact or hide raw-audit availability behind visual decoration.
 
 ## Interaction Rules
 

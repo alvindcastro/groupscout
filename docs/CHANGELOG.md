@@ -1,3 +1,15 @@
+## 2026-05-09 - Phase 34 lead detail and evidence review contract
+
+### groupscout-ftx - Implement Phase 34 lead detail evidence review contract
+
+- **What:** Added the Phase 34 lead detail and evidence review implementation contract plus a dedicated Phase 34 prompt pack for strict TDD detail fixture, summary, source evidence, AI rationale, raw audit safety, outreach/activity, status action, correction-control, responsive, build, and static-asset verification work.
+- **Where:** `docs/planning/ui/UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md`, `docs/prompts/PROMPTS_PHASE34_UI.md`, `docs/planning/ui/UI_TDD_PHASE_PLAN.md`, `docs/planning/ui/README.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, `docs/prompts/PROMPTS_PHASE31_UI.md`, `docs/planning/ROADMAP.md`, `docs/ARCHITECTURE.md`, `README.md`, and `docs/CHANGELOG.md`.
+- **When:** 2026-05-09.
+- **Why:** Phase 34 needed enforceable lead detail and evidence-review acceptance criteria before a frontend package or live `GET /api/leads/{id}` route exists, so future UI work starts from failing tests and deterministic fixtures instead of untested detail screens or accidental raw-payload loading.
+- **How:** Documented the fixture-only detail boundary, required detail and audit metadata fields, source-evidence adjacency rules, missing-evidence/weak-confidence/contradiction states, disabled or mocked correction controls, fixture-only outreach/activity and status actions, raw audit link behavior without default payload bodies, accessibility/responsive expectations, replaceable `/api/leads/{id}` client boundary, and static secret-scan expectations, then cross-linked the new contract from the UI docs, prompt docs, architecture, roadmap, README, and TDD phase plan.
+
+---
+
 ## 2026-05-09 - Phase 33 mocked lead inbox contract
 
 ### groupscout-aaf - Implement Phase 33 mocked lead inbox contract

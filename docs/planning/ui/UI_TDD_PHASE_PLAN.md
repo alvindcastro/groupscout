@@ -47,11 +47,13 @@ Phase 33 implementation note: this repository still has no checked-in frontend p
 
 ## Phase 34 - Lead Detail And Evidence Review
 
-- [ ] Write failing tests for summary, source evidence, AI rationale, raw audit link, outreach activity, and status actions.
-- [ ] Keep source evidence adjacent to AI claims.
-- [ ] Represent missing evidence, weak confidence, and contradictory data states.
-- [ ] Keep correction controls disabled or mocked until backend correction storage exists.
-- [ ] Verify no raw payload body loads into the default detail response.
+- [x] Write failing tests for summary, source evidence, AI rationale, raw audit link, outreach activity, and status actions.
+- [x] Keep source evidence adjacent to AI claims.
+- [x] Represent missing evidence, weak confidence, and contradictory data states.
+- [x] Keep correction controls disabled or mocked until backend correction storage exists.
+- [x] Verify no raw payload body loads into the default detail response.
+
+Phase 34 implementation note: this repository still has no checked-in frontend package, UI test harness, static UI build directory, or `GET /api/leads/{id}` backend route, so the phase is implemented as the contract in `UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md`. The first frontend package must turn that contract into failing detail fixture-boundary, summary, source evidence, AI rationale, raw audit link, outreach activity, status action, correction-control, accessibility, responsive, build, and static-asset safety tests before production detail code.
 
 ## Phase 35 - UI API Contracts
 

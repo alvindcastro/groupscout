@@ -8,7 +8,7 @@
 
 ## TDD Rules For Every Prompt
 
-- [ ] Read `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md`, `docs/planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md`, `docs/planning/ui/UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, and `docs/planning/ui/UI_TDD_PHASE_PLAN.md`.
+- [ ] Read `docs/planning/ui/UI_STRATEGY.md`, `docs/planning/ui/UI_DESIGN_SYSTEM.md`, `docs/planning/ui/UI_PHASE31_DESIGN_SYSTEM_CONTRACT.md`, `docs/planning/ui/UI_PHASE32_APP_SHELL_ROUTING_CONTRACT.md`, `docs/planning/ui/UI_PHASE33_MOCKED_LEAD_INBOX_CONTRACT.md`, `docs/planning/ui/UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md`, `docs/planning/ui/UI_API_ENDPOINTS.md`, and `docs/planning/ui/UI_TDD_PHASE_PLAN.md`.
 - [ ] Read existing tests near the target files before adding new tests.
 - [ ] Write the smallest failing test first.
 - [ ] Run the narrow test and capture the expected red failure.
@@ -97,12 +97,15 @@ Acceptance:
 
 ## Phase 34 - Lead Detail And Evidence Review
 
+> Detailed Phase 34 prompt pack: [PROMPTS_PHASE34_UI.md](./PROMPTS_PHASE34_UI.md).
+
 ```text
 Task 34-A1 - Lead detail and source evidence
 
 Context:
 - AI output must be reviewable beside source evidence.
 - Raw audit payloads should not load by default in the detail response.
+- The implementation contract is `docs/planning/ui/UI_PHASE34_LEAD_DETAIL_EVIDENCE_CONTRACT.md`.
 
 TDD steps:
 1. Write failing tests for summary, score, timing, source metadata, AI rationale, raw audit link, notes, and activity sections.

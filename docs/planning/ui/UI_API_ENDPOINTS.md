@@ -58,7 +58,7 @@
 - `has_raw`
 - `audit_source_url`
 
-`lead` should include full current storage fields plus UI-safe audit metadata. Do not include raw payload bodies by default.
+`lead` should include full current storage fields plus UI-safe audit metadata. Do not include raw payload bodies by default. Phase 34 detail fixtures should mirror this as `{lead, audit, outreach_summary, activity}` where `audit` contains metadata such as `has_raw`, `raw_link`, `payload_type`, `source_url`, `collector_name`, and `collected_at`, never the raw `payload` body.
 
 `outreach_event` should include:
 
