@@ -125,7 +125,7 @@ The application operates in two modes:
 Runs a persistent HTTP server that listens for remote triggers (ideal for n8n/cron automation).
 
 **Endpoints:**
-- `GET /health`: Health check.
+- `GET /health`: JSON health check with API, database, and Ollama status.
 - `POST /run`: Trigger the full collect→enrich→notify pipeline.
 - `POST /digest?to=email@example.com`: Send a weekly summary digest.
 - `POST /n8n/webhook`: Receive a lead manually from external automation.

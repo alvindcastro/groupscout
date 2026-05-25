@@ -12,17 +12,32 @@ paths:
   /health:
     get:
       summary: Health check
-      description: Returns the status of the server and database connection.
+      description: Returns the status of the server, database connection, and Ollama availability.
       responses:
         '200':
           description: Server is healthy
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-                example: OK
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  value:
+                    status: ok
+                    database: ok
+                    ollama: unavailable
         '503':
           description: Database connection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                databaseError:
+                  value:
+                    status: error
+                    database: error
+                    ollama: unavailable
   /run:
     post:
       summary: Trigger pipeline
@@ -190,6 +205,25 @@ components:
       type: http
       scheme: bearer
   schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - database
+        - ollama
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+          description: Overall API health.
+        database:
+          type: string
+          enum: [ok, error]
+          description: Database ping result.
+        ollama:
+          type: string
+          enum: [ok, degraded, unavailable]
+          description: Ollama health when enabled, or unavailable when disabled.
     IngestProject:
       type: object
       required:
