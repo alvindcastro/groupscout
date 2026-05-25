@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -121,4 +122,60 @@ func TestAuditStore_GetNonExistent(t *testing.T) {
 	gotByHash, err := store.GetByHash(ctx, "non-existent-hash")
 	assert.NoError(t, err)
 	assert.Nil(t, gotByHash)
+}
+
+func TestAuditStore_PurgeOlderThan_PostgresPreservesReferencedRawInputs(t *testing.T) {
+	db, dsn := newTestDB(t)
+	store := NewAuditStoreWithDSN(db, dsn)
+	leadStore := NewLeadStoreWithDSN(db, dsn)
+	ctx := context.Background()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	cutoff := now.Add(-30 * 24 * time.Hour)
+	old := cutoff.Add(-time.Hour)
+	recent := cutoff.Add(time.Hour)
+
+	referencedID, err := store.Store(ctx, RawInput{
+		Hash:      "postgres-old-referenced",
+		Payload:   []byte("referenced"),
+		CreatedAt: old,
+	})
+	require.NoError(t, err)
+
+	_, err = store.Store(ctx, RawInput{
+		Hash:      "postgres-old-unreferenced",
+		Payload:   []byte("unreferenced"),
+		CreatedAt: old,
+	})
+	require.NoError(t, err)
+
+	_, err = store.Store(ctx, RawInput{
+		Hash:      "postgres-recent-unreferenced",
+		Payload:   []byte("recent"),
+		CreatedAt: recent,
+	})
+	require.NoError(t, err)
+
+	err = leadStore.Insert(ctx, &Lead{
+		ID:         uuid.New().String(),
+		Source:     "test",
+		Title:      "Referenced Raw Input",
+		RawInputID: referencedID.String(),
+		Status:     "new",
+	})
+	require.NoError(t, err)
+
+	deleted, err := store.PurgeOlderThan(ctx, cutoff)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
+
+	for hash, wantExists := range map[string]bool{
+		"postgres-old-referenced":      true,
+		"postgres-old-unreferenced":    false,
+		"postgres-recent-unreferenced": true,
+	} {
+		exists, err := store.ExistsByHash(ctx, hash)
+		require.NoError(t, err)
+		assert.Equalf(t, wantExists, exists, "hash %s", hash)
+	}
 }

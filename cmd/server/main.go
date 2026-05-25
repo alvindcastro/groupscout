@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/alvindcastro/groupscout/config"
+	"github.com/alvindcastro/groupscout/internal/auditretention"
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/collector/events"
 	"github.com/alvindcastro/groupscout/internal/collector/news"
@@ -49,6 +50,11 @@ func main() {
 	// Audit CLI subcommand
 	if flag.NArg() > 0 && flag.Arg(0) == "audit" {
 		handleAuditCommand(cfg)
+		return
+	}
+
+	if flag.NArg() > 0 && flag.Arg(0) == "audit-retention" {
+		handleAuditRetentionCommand(cfg)
 		return
 	}
 
@@ -124,6 +130,8 @@ func main() {
 		}
 		return
 	}
+
+	startAuditRetentionWorker(cfg, db)
 
 	// Server mode
 	if cfg.APIToken == "" {
@@ -483,6 +491,34 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	return nil
 }
 
+func startAuditRetentionWorker(cfg *config.Config, db *sql.DB) {
+	if !cfg.AuditRetentionEnabled {
+		return
+	}
+
+	worker, err := auditretention.New(
+		storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL),
+		auditretention.Policy{
+			RetentionDays: cfg.AuditRetentionDays,
+			Interval:      time.Duration(cfg.AuditRetentionIntervalH) * time.Hour,
+			RunOnStart:    cfg.AuditRetentionRunOnStart,
+		},
+		logger.Log,
+	)
+	if err != nil {
+		logger.Log.Error("invalid audit retention configuration", "error", err)
+		os.Exit(1)
+	}
+
+	go worker.Run(context.Background())
+	logger.Log.Info(
+		"audit retention worker started",
+		"retention_days", cfg.AuditRetentionDays,
+		"interval_hours", cfg.AuditRetentionIntervalH,
+		"run_on_start", cfg.AuditRetentionRunOnStart,
+	)
+}
+
 func handleOllamaCommands(cfg *config.Config) {
 	if flag.NArg() < 2 {
 		fmt.Println("Usage: ollama [push-models | list-models]")
@@ -617,5 +653,48 @@ func handleAuditCommand(cfg *config.Config) {
 	} else {
 		os.Stdout.Write(raw.Payload)
 		fmt.Println()
+	}
+}
+
+func handleAuditRetentionCommand(cfg *config.Config) {
+	retentionCmd := flag.NewFlagSet("audit-retention", flag.ExitOnError)
+	days := retentionCmd.Int("days", cfg.AuditRetentionDays, "delete unreferenced raw inputs older than this many days")
+
+	args := flag.Args()[1:]
+	if len(args) < 1 || args[0] != "purge" {
+		fmt.Println("Usage: groupscout audit-retention purge [--days N]")
+		os.Exit(1)
+	}
+	retentionCmd.Parse(args[1:])
+
+	db, err := storage.Open(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("database: %v", err)
+	}
+	defer db.Close()
+
+	if err := storage.Migrate(db, cfg.DatabaseURL); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+
+	worker, err := auditretention.New(
+		storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL),
+		auditretention.Policy{
+			RetentionDays: *days,
+			Interval:      24 * time.Hour,
+		},
+		logger.Log,
+	)
+	if err != nil {
+		log.Fatalf("audit retention config: %v", err)
+	}
+
+	result, err := worker.PurgeOnce(context.Background())
+	if err != nil {
+		log.Fatalf("audit retention purge: %v", err)
+	}
+
+	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+		log.Fatalf("encode result: %v", err)
 	}
 }
