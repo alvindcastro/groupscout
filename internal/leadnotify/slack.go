@@ -103,6 +103,7 @@ func dividerBlock() map[string]any {
 
 // leadBlock renders one Lead as a Slack section block.
 func (s *SlackNotifier) leadBlock(l storage.Lead) map[string]any {
+	displayScore := displayPriorityScore(l.PriorityScore)
 	contactLine := ""
 	if l.Contractor != "" || l.Applicant != "" {
 		contactLine = "\n📞"
@@ -134,7 +135,7 @@ func (s *SlackNotifier) leadBlock(l storage.Lead) map[string]any {
 		"🕐 *Outreach:* %s\n"+
 		"📝 %s%s%s",
 		l.Title,
-		scoreEmoji(l.PriorityScore), l.PriorityScore,
+		scoreEmoji(displayScore), displayScore,
 		l.Location,
 		formatCAD(l.ProjectValue),
 		l.GeneralContractor,

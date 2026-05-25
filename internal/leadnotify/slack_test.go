@@ -167,6 +167,22 @@ func TestLeadBlock_containsScore(t *testing.T) {
 	}
 }
 
+func TestLeadBlock_clampsDisplayScore(t *testing.T) {
+	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
+	lead := sampleLead
+	lead.PriorityScore = 98
+	block := s.leadBlock(lead)
+
+	text := block["text"].(map[string]any)
+	content, _ := text["text"].(string)
+	if !strings.Contains(content, "10/10") {
+		t.Errorf("leadBlock text does not contain clamped score '10/10'\ngot: %s", content)
+	}
+	if strings.Contains(content, "98/10") {
+		t.Errorf("leadBlock text contains unclamped score '98/10'\ngot: %s", content)
+	}
+}
+
 func TestLeadBlock_hasFields(t *testing.T) {
 	s := NewSlackNotifier("http://example.com/webhook", "http://example.com")
 	block := s.leadBlock(sampleLead)

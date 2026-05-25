@@ -319,6 +319,9 @@ components:
           type: boolean
         PriorityScore:
           type: integer
+          minimum: 0
+          maximum: 10
+          description: Relevance score on the Slack/internal 0-10 scale. Legacy 0-100 webhook inputs are normalized before storage and Slack delivery.
         PriorityReason:
           type: string
         SuggestedOutreachTiming:

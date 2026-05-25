@@ -109,9 +109,29 @@ func generateDigestHTML(leads []storage.Lead) (string, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := t.Execute(&buf, leads); err != nil {
+	if err := t.Execute(&buf, displayLeads(leads)); err != nil {
 		return "", err
 	}
 
 	return buf.String(), nil
+}
+
+func displayLeads(leads []storage.Lead) []storage.Lead {
+	out := make([]storage.Lead, len(leads))
+	copy(out, leads)
+	for i := range out {
+		out[i].PriorityScore = displayPriorityScore(out[i].PriorityScore)
+	}
+	return out
+}
+
+func displayPriorityScore(score int) int {
+	switch {
+	case score < 0:
+		return 0
+	case score > 10:
+		return 10
+	default:
+		return score
+	}
 }

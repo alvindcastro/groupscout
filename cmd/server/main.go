@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -283,53 +284,11 @@ func main() {
 	http.HandleFunc("/ingest", handleIngest(cfg, func() singleProjectProcessor {
 		return buildEnricher(cfg, db, nil)
 	}))
-	http.HandleFunc("/n8n/webhook", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		// Auth check
-		if cfg.APIToken != "" {
-			authHeader := r.Header.Get("Authorization")
-			if !strings.HasPrefix(authHeader, "Bearer ") || strings.TrimPrefix(authHeader, "Bearer ") != cfg.APIToken {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-		}
-
-		var l storage.Lead
-		if err := json.NewDecoder(r.Body).Decode(&l); err != nil {
-			logger.Log.Error("failed to decode n8n lead", "error", err)
-			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
-			return
-		}
-
-		if l.Source == "" {
-			l.Source = "n8n"
-		}
-		if l.ID == "" {
-			l.ID = storage.NewUUID()
-		}
-
-		leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
-		if err := leadStore.Insert(context.Background(), &l); err != nil {
-			logger.Log.Error("failed to insert n8n lead", "error", err)
-			http.Error(w, fmt.Sprintf("Failed to store lead: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		logger.Log.Info("lead received from n8n", "source", l.Source, "title", l.Title)
-
-		// Optionally notify Slack immediately
-		notifier := leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL)
-		if err := notifier.Send(context.Background(), []storage.Lead{l}); err != nil {
-			logger.Log.Warn("failed to notify Slack for n8n lead", "error", err)
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]string{"status": "success", "id": l.ID})
-	})
+	http.HandleFunc("/n8n/webhook", handleN8NWebhook(
+		cfg,
+		storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL),
+		leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL),
+	))
 
 	http.HandleFunc("/leads/", func(w http.ResponseWriter, r *http.Request) {
 		// Manual routing for /leads/{id}/raw
@@ -384,6 +343,67 @@ func main() {
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		l.Error("server failed", "error", err)
 		os.Exit(1)
+	}
+}
+
+func handleN8NWebhook(cfg *config.Config, leadStore storage.LeadStore, notifier leadnotify.Notifier) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if !authorized(r, cfg.APIToken) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		var l storage.Lead
+		if err := json.NewDecoder(r.Body).Decode(&l); err != nil {
+			logger.Log.Error("failed to decode n8n lead", "error", err)
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		normalizeWebhookLead(&l)
+
+		if err := leadStore.Insert(r.Context(), &l); err != nil {
+			logger.Log.Error("failed to insert n8n lead", "error", err)
+			http.Error(w, fmt.Sprintf("Failed to store lead: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		logger.Log.Info("lead received from n8n", "source", l.Source, "title", l.Title)
+
+		if err := notifier.Send(r.Context(), []storage.Lead{l}); err != nil {
+			logger.Log.Warn("failed to notify Slack for n8n lead", "error", err)
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"status": "success", "id": l.ID})
+	}
+}
+
+func normalizeWebhookLead(l *storage.Lead) {
+	if l.Source == "" {
+		l.Source = "n8n"
+	}
+	if l.ID == "" {
+		l.ID = storage.NewUUID()
+	}
+	l.PriorityScore = normalizeExternalPriorityScore(l.PriorityScore)
+}
+
+func normalizeExternalPriorityScore(score int) int {
+	switch {
+	case score < 0:
+		return 0
+	case score <= 10:
+		return score
+	case score <= 100:
+		return int(math.Round(float64(score) / 10))
+	default:
+		return 10
 	}
 }
 
