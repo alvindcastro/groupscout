@@ -1,0 +1,31 @@
+meta {
+  name: "Ingest Project"
+  type: "http"
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/ingest
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{api_token}}
+}
+
+body:json {
+  {
+    "source": "bruno",
+    "external_id": "bruno-ingest-001",
+    "title": "Richmond warehouse infrastructure",
+    "location": "Richmond BC",
+    "project_value": 12000000,
+    "description": "Civil warehouse expansion with likely travelling crews.",
+    "source_url": "https://example.com/project",
+    "raw_data": "{\"title\":\"Richmond warehouse infrastructure\"}",
+    "raw_type": "application/json",
+    "metadata": {
+      "applicant": "Example Applicant"
+    }
+  }
+}

@@ -83,6 +83,37 @@ paths:
           description: Unauthorized
         '500':
           description: Pipeline execution failed
+  /ingest:
+    post:
+      summary: Ingest and enrich one project
+      description: Accepts one normalized event payload from n8n or another external source, stores the raw audit payload, runs the single-item enrichment pipeline, and deduplicates by payload hash.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestProject'
+      responses:
+        '201':
+          description: Project accepted and a lead record was inserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+        '200':
+          description: Project was accepted but skipped as a duplicate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+        '400':
+          description: Invalid JSON body or empty project payload
+        '401':
+          description: Unauthorized
+        '500':
+          description: Ingest enrichment failed
   /digest:
     post:
       summary: Trigger weekly digest
@@ -159,6 +190,65 @@ components:
       type: http
       scheme: bearer
   schemas:
+    IngestProject:
+      type: object
+      required:
+        - title
+      properties:
+        source:
+          type: string
+          description: External source name. Defaults to api.
+          example: n8n
+        external_id:
+          type: string
+          description: Stable ID from the upstream system.
+          example: evt-123
+        title:
+          type: string
+          description: Project title or lead headline.
+          example: Richmond warehouse infrastructure
+        location:
+          type: string
+          example: Richmond BC
+        value:
+          type: integer
+          format: int64
+          description: Project value in CAD.
+        project_value:
+          type: integer
+          format: int64
+          description: Alias for value.
+        description:
+          type: string
+          description: Text sent to the enrichment model when raw_data is omitted.
+        issued_at:
+          type: string
+          format: date-time
+        source_url:
+          type: string
+          format: uri
+        raw_data:
+          type: string
+          description: Original upstream payload or extracted source text to preserve in the audit trail.
+        raw_type:
+          type: string
+          description: MIME type for raw_data. Defaults to text/plain.
+          example: application/json
+        metadata:
+          type: object
+          additionalProperties: true
+    IngestResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [created, duplicate]
+        inserted:
+          type: boolean
+        source:
+          type: string
+        external_id:
+          type: string
     Lead:
       type: object
       properties:

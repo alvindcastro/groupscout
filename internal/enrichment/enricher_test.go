@@ -2,6 +2,7 @@ package enrichment
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -342,5 +343,91 @@ func TestEnricher_processProject_linksIDToSkippedLead(t *testing.T) {
 	}
 	if insertedLead.RawInputID != rawID.String() {
 		t.Errorf("RawInputID = %q, want %q", insertedLead.RawInputID, rawID.String())
+	}
+}
+
+func TestEnricher_EnrichOne_normalizesHashFromRawData(t *testing.T) {
+	rawID := uuid.New()
+	rawPayload := []byte("warehouse infrastructure project")
+	expectedHash := storage.HashPayload(rawPayload)
+
+	audit := &mockAuditStore{
+		store: func(raw storage.RawInput) (uuid.UUID, error) { return rawID, nil },
+	}
+
+	var checkedHash string
+	var insertedRaw *collector.RawProject
+	raw := &mockRawStore{
+		existsByHash: func(hash string) (bool, error) {
+			checkedHash = hash
+			return false, nil
+		},
+		insert: func(p *collector.RawProject) error {
+			insertedRaw = p
+			return nil
+		},
+	}
+	leads := &mockLeadStore{
+		insert: func(l *storage.Lead) error { return nil },
+	}
+	ai := &mockAI{
+		enrich: func(p collector.RawProject) (*EnrichedLead, error) {
+			return &EnrichedLead{PriorityScore: 7}, nil
+		},
+	}
+
+	e := NewEnricher(nil, raw, audit, leads, ai, NewScorer(1), 0, nil, nil, false, false)
+
+	inserted, err := e.EnrichOne(context.Background(), collector.RawProject{
+		Source:   "api",
+		Title:    "Richmond warehouse infrastructure",
+		RawData:  rawPayload,
+		RawType:  "text/plain",
+		Metadata: map[string]any{},
+	})
+
+	if err != nil {
+		t.Fatalf("EnrichOne: %v", err)
+	}
+	if !inserted {
+		t.Fatalf("inserted = false, want true")
+	}
+	if checkedHash != expectedHash {
+		t.Fatalf("checked hash = %q, want %q", checkedHash, expectedHash)
+	}
+	if insertedRaw == nil || insertedRaw.Hash != expectedHash {
+		t.Fatalf("inserted raw hash = %#v, want %q", insertedRaw, expectedHash)
+	}
+}
+
+func TestEnricher_EnrichOne_ReturnsEnrichmentError(t *testing.T) {
+	raw := &mockRawStore{
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		insert:       func(p *collector.RawProject) error { return nil },
+	}
+	audit := &mockAuditStore{
+		store: func(raw storage.RawInput) (uuid.UUID, error) { return uuid.New(), nil },
+	}
+	ai := &mockAI{
+		enrich: func(p collector.RawProject) (*EnrichedLead, error) {
+			return nil, errors.New("model unavailable")
+		},
+	}
+
+	e := NewEnricher(nil, raw, audit, &mockLeadStore{}, ai, NewScorer(1), 0, nil, nil, false, false)
+
+	inserted, err := e.EnrichOne(context.Background(), collector.RawProject{
+		Source:   "api",
+		Title:    "Richmond warehouse infrastructure",
+		RawData:  []byte("raw"),
+		RawType:  "text/plain",
+		Location: "Richmond BC",
+	})
+
+	if err == nil {
+		t.Fatal("expected enrichment error")
+	}
+	if inserted {
+		t.Fatal("inserted = true, want false")
 	}
 }

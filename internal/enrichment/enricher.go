@@ -63,6 +63,27 @@ func NewEnricher(
 	}
 }
 
+// EnrichOne processes a single normalized project through the same dedup,
+// audit, scoring, enrichment, and lead storage path used by collectors.
+func (e *Enricher) EnrichOne(ctx context.Context, p collector.RawProject) (bool, error) {
+	return e.processProjectWithOptions(ctx, normalizeRawProject(p), processProjectOptions{
+		failOnEnrichmentError: true,
+	})
+}
+
+func normalizeRawProject(p collector.RawProject) collector.RawProject {
+	if p.RawData == nil {
+		p.RawData = []byte(p.Description)
+	}
+	if p.RawType == "" {
+		p.RawType = "text/plain"
+	}
+	if p.Hash == "" {
+		p.Hash = storage.HashPayload(p.RawData)
+	}
+	return p
+}
+
 // Run executes the full pipeline for every registered collector.
 // It returns the number of new leads inserted.
 // Collector-level and enrichment-level errors are logged and skipped so a
@@ -102,7 +123,7 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 
 	var newLeads int
 	for _, p := range projects {
-		inserted, err := e.processProject(ctx, p)
+		inserted, err := e.processProjectWithOptions(ctx, normalizeRawProject(p), processProjectOptions{})
 		if err != nil {
 			return newLeads, fmt.Errorf("enricher: %s: %w", c.Name(), err)
 		}
@@ -120,6 +141,14 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 // processProject deduplicates, enriches, and stores a single RawProject.
 // Returns true if a new lead was inserted.
 func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (bool, error) {
+	return e.processProjectWithOptions(ctx, p, processProjectOptions{})
+}
+
+type processProjectOptions struct {
+	failOnEnrichmentError bool
+}
+
+func (e *Enricher) processProjectWithOptions(ctx context.Context, p collector.RawProject, opts processProjectOptions) (bool, error) {
 	l := logger.Log.With("project", p.ExternalID, "source", p.Source)
 
 	// Dedup check — skip if we've seen this permit before
@@ -207,6 +236,9 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	if err != nil {
 		// Log and skip — don't fail the run over a single API error
 		l.Error("enrichment failed", "title", p.Title, "error", err)
+		if opts.failOnEnrichmentError {
+			return false, fmt.Errorf("enrich project: %w", err)
+		}
 		return false, nil
 	}
 
