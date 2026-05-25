@@ -157,7 +157,7 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 	// 1. Ollama Extraction (Phase 2)
 	if e.ollamaExtractionEnabled && e.ollamaExtractor != nil {
 		signal, err := e.ollamaExtractor.Extract(ctx, p.Description)
-		if err == nil {
+		if err == nil && signal != nil {
 			if e.Verbose {
 				l.Info("ollama extraction successful", "org", signal.OrgName, "type", signal.ProjectType)
 			}
@@ -173,6 +173,10 @@ func (e *Enricher) processProject(ctx context.Context, p collector.RawProject) (
 				p.Metadata = make(map[string]any)
 			}
 			p.Metadata["ollama_signal"] = signal
+		} else if err == nil {
+			if e.Verbose {
+				l.Info("ollama extraction returned no signal; continuing with original data")
+			}
 		} else {
 			l.Warn("ollama extraction failed; continuing with original data", "error", err)
 		}

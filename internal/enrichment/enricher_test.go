@@ -2,6 +2,7 @@ package enrichment
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -210,6 +211,60 @@ func TestEnricher_processProject_storesAllAuditFields(t *testing.T) {
 	}
 	if capturedRaw.CollectorName != "richmond_permits" {
 		t.Errorf("CollectorName = %q, want %q", capturedRaw.CollectorName, "richmond_permits")
+	}
+}
+
+func TestEnricher_processProject_continuesWhenOllamaExtractionReturnsNilSignal(t *testing.T) {
+	rawID := uuid.New()
+	audit := &mockAuditStore{
+		store: func(raw storage.RawInput) (uuid.UUID, error) { return rawID, nil },
+	}
+	raw := &mockRawStore{
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		insert:       func(p *collector.RawProject) error { return nil },
+	}
+
+	var insertedLead *storage.Lead
+	leads := &mockLeadStore{
+		insert: func(l *storage.Lead) error {
+			insertedLead = l
+			return nil
+		},
+	}
+	ai := &mockAI{
+		enrich: func(p collector.RawProject) (*EnrichedLead, error) {
+			return &EnrichedLead{PriorityScore: 6}, nil
+		},
+	}
+	extractor := NewExtractor(&mockLLMClient{
+		chatCompleteFunc: func(ctx context.Context, system, user string) (string, error) {
+			return "", errors.New("ollama unavailable")
+		},
+	})
+
+	e := NewEnricher(nil, raw, audit, leads, ai, NewScorer(0), 0, extractor, nil, true, false)
+
+	p := collector.RawProject{
+		Hash:        "ollama-nil-signal",
+		Source:      "test-source",
+		Title:       "Richmond industrial project",
+		Description: "warehouse expansion in Richmond",
+		RawData:     []byte("test payload"),
+	}
+
+	inserted, err := e.processProject(context.Background(), p)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !inserted {
+		t.Fatalf("expected inserted=true")
+	}
+	if insertedLead == nil {
+		t.Fatal("lead was not inserted")
+	}
+	if insertedLead.RawInputID != rawID.String() {
+		t.Errorf("RawInputID = %q, want %q", insertedLead.RawInputID, rawID.String())
 	}
 }
 
