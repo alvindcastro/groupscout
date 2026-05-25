@@ -1,4 +1,4 @@
-.PHONY: help build test lint run run-once docker-up docker-down docker-logs ollama-pull ollama-push db-migrate doctor clean fmt vet
+.PHONY: help build test lint run run-once docker-up docker-down docker-logs smoke-ui-docker-e2e ollama-pull ollama-push db-migrate doctor clean fmt vet
 
 # Default target: help
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "docker-up        - Start all services using Docker Compose"
 	@echo "docker-down      - Stop all services using Docker Compose"
 	@echo "docker-logs      - Follow Docker Compose logs"
+	@echo "smoke-ui-docker-e2e - Run backend plus production UI Docker E2E smoke"
 	@echo "ollama-pull      - Pull required LLM models to local Ollama"
 	@echo "ollama-push      - Push persona Modelfiles to local Ollama"
 	@echo "db-migrate       - Run database migrations (Postgres)"
@@ -61,6 +62,9 @@ docker-down:
 
 docker-logs:
 	docker compose logs -f
+
+smoke-ui-docker-e2e:
+	./scripts/smoke-ui-docker-e2e.sh
 
 ollama-pull:
 	ollama pull mistral
