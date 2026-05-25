@@ -38,6 +38,7 @@ type Lead struct {
 type LeadStore interface {
 	Insert(ctx context.Context, l *Lead) error
 	ListNew(ctx context.Context) ([]Lead, error)
+	ListDeliveryCandidates(ctx context.Context, limit int) ([]Lead, error)
 	UpdateStatus(ctx context.Context, id, status string) error
 	ListForDigest(ctx context.Context) ([]Lead, error)
 	GetByID(ctx context.Context, id string) (*Lead, error)
@@ -151,6 +152,52 @@ func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
 		ORDER BY priority_score DESC, created_at DESC
 	`
 	rows, err := s.db.QueryContext(ctx, Rebind(s.dsn, query), time.Now().Add(-7*24*time.Hour))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var leads []Lead
+	for rows.Next() {
+		var l Lead
+		var rawProjectID sql.NullString
+		var rawInputID sql.NullString
+		if err := rows.Scan(
+			&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
+			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
+			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
+			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
+			&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		l.RawProjectID = rawProjectID.String
+		l.RawInputID = rawInputID.String
+		leads = append(leads, l)
+	}
+	return leads, rows.Err()
+}
+
+func (s *sqliteLeadStore) ListDeliveryCandidates(ctx context.Context, limit int) ([]Lead, error) {
+	if limit <= 0 {
+		limit = 1
+	}
+	query := `
+		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
+		       general_contractor, applicant, contractor, source_url, project_type,
+		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
+		       priority_score, priority_reason, rationale, suggested_outreach_timing,
+		       notes, status, created_at, updated_at
+		FROM leads
+		WHERE status IN ('new', 'notified')
+		  AND id NOT IN (SELECT lead_id FROM lead_deliveries WHERE status = 'sent' AND lead_id IS NOT NULL)
+		ORDER BY
+		  CASE WHEN status = 'new' THEN 0 ELSE 1 END,
+		  priority_score DESC,
+		  created_at DESC
+		LIMIT ?
+	`
+	rows, err := s.db.QueryContext(ctx, Rebind(s.dsn, query), limit)
 	if err != nil {
 		return nil, err
 	}

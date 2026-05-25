@@ -80,6 +80,29 @@ CREATE TABLE IF NOT EXISTS outreach_log (
     outcome   TEXT,
     logged_at DATETIME NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS lead_deliveries (
+    id              TEXT PRIMARY KEY,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    schedule_key    TEXT NOT NULL,
+    lead_id         TEXT REFERENCES leads(id),
+    channel         TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    result          TEXT,
+    sent_at         DATETIME,
+    created_at      DATETIME NOT NULL,
+    updated_at      DATETIME NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_lead_deliveries_lead_status
+    ON lead_deliveries (lead_id, status);
+
+CREATE TABLE IF NOT EXISTS delivery_locks (
+    name        TEXT PRIMARY KEY,
+    owner       TEXT NOT NULL,
+    acquired_at DATETIME NOT NULL,
+    expires_at  DATETIME NOT NULL
+);
 `
 
 // Open opens the database at dsn (a file path for SQLite local dev,

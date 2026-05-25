@@ -26,7 +26,7 @@ paths:
   /run:
     post:
       summary: Trigger pipeline
-      description: Manually triggers the collect-enrich-notify pipeline.
+      description: Manually triggers the collect-enrich-notify pipeline. When guarantee_one_lead is true, the backend sends or deduplicates exactly one eligible cadence lead.
       security:
         - BearerAuth: []
       requestBody:
@@ -38,9 +38,47 @@ paths:
                 bcbid_raw_input:
                   type: string
                   description: Optional raw input for BC Bid collector.
+                guarantee_one_lead:
+                  type: boolean
+                  description: Send exactly one eligible lead for a scheduled cadence.
+                delivery_mode:
+                  type: string
+                  enum: [one_lead, exactly_one]
+                cadence_key:
+                  type: string
+                  description: Stable cadence key, for example lead-cadence:2026-05-27:wednesday.
+                idempotency_key:
+                  type: string
+                  description: Stable retry key; defaults to cadence_key when omitted.
+                schedule_key:
+                  type: string
+                  description: Optional display/audit key for the scheduled cadence.
       responses:
         '200':
           description: Pipeline completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  new_leads:
+                    type: integer
+                  notified_leads:
+                    type: integer
+                  delivery_status:
+                    type: string
+                    enum: [sent, duplicate, no_eligible_lead, locked, failed]
+                  delivered_lead_id:
+                    type: string
+                  idempotency_key:
+                    type: string
+                  schedule_key:
+                    type: string
+                  delivery_duplicate:
+                    type: boolean
         '401':
           description: Unauthorized
         '500':

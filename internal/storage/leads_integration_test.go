@@ -22,7 +22,14 @@ func newTestDB(t *testing.T) (*sql.DB, string) {
 	if err := Migrate(db, dsn); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
+	db.Exec("DELETE FROM delivery_locks")
+	db.Exec("DELETE FROM lead_deliveries")
+	db.Exec("DELETE FROM leads")
+	db.Exec("DELETE FROM raw_projects")
+	db.Exec("DELETE FROM raw_inputs")
 	t.Cleanup(func() {
+		db.Exec("DELETE FROM delivery_locks")
+		db.Exec("DELETE FROM lead_deliveries")
 		db.Exec("DELETE FROM leads")
 		db.Exec("DELETE FROM raw_projects")
 		db.Exec("DELETE FROM raw_inputs")
@@ -186,7 +193,7 @@ func TestLeadStore_GetByID(t *testing.T) {
 	}
 
 	// Test non-existent
-	got, err = store.GetByID(ctx, "non-existent")
+	got, err = store.GetByID(ctx, NewUUID())
 	if err != nil {
 		t.Fatalf("GetByID (non-existent): %v", err)
 	}

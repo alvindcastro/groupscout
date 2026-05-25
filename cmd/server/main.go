@@ -123,7 +123,7 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
-		if err := runPipeline(ctx, cfg, db); err != nil {
+		if _, err := runPipeline(ctx, cfg, db, PipelineRunOptions{}); err != nil {
 			l.Error("pipeline failed", "error", err)
 			sentry.CaptureException(err)
 			os.Exit(1)
@@ -193,23 +193,44 @@ func main() {
 
 		// Extract BC Bid raw input if provided in JSON body
 		type runRequest struct {
-			BCBidRawInput string `json:"bcbid_raw_input"`
+			BCBidRawInput    string `json:"bcbid_raw_input"`
+			GuaranteeOneLead bool   `json:"guarantee_one_lead"`
+			DeliveryMode     string `json:"delivery_mode"`
+			CadenceKey       string `json:"cadence_key"`
+			IdempotencyKey   string `json:"idempotency_key"`
+			ScheduleKey      string `json:"schedule_key"`
 		}
 		var req runRequest
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		if req.BCBidRawInput != "" {
 			ctx = context.WithValue(ctx, "bcbid_raw_input", req.BCBidRawInput)
 		}
+		if req.IdempotencyKey == "" {
+			req.IdempotencyKey = r.Header.Get("Idempotency-Key")
+		}
+		if req.ScheduleKey == "" {
+			req.ScheduleKey = req.CadenceKey
+		}
+		if req.IdempotencyKey == "" {
+			req.IdempotencyKey = req.CadenceKey
+		}
 
-		if err := runPipeline(ctx, cfg, db); err != nil {
+		deliveryMode := strings.ToLower(req.DeliveryMode)
+		result, err := runPipeline(ctx, cfg, db, PipelineRunOptions{
+			GuaranteeOneLead: req.GuaranteeOneLead || deliveryMode == "one_lead" || deliveryMode == "exactly_one",
+			IdempotencyKey:   req.IdempotencyKey,
+			ScheduleKey:      req.ScheduleKey,
+		})
+		if err != nil {
 			l.Error("pipeline failed", "error", err)
 			sentry.CaptureException(err)
 			http.Error(w, fmt.Sprintf("Pipeline failed: %v", err), http.StatusInternalServerError)
 			return
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "Pipeline completed successfully")
+		json.NewEncoder(w).Encode(result)
 	})
 
 	http.HandleFunc("/digest", func(w http.ResponseWriter, r *http.Request) {
@@ -363,11 +384,64 @@ func main() {
 	}
 }
 
-func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
+type PipelineRunOptions struct {
+	GuaranteeOneLead bool
+	IdempotencyKey   string
+	ScheduleKey      string
+}
+
+type PipelineRunResult struct {
+	Status            string `json:"status"`
+	NewLeads          int    `json:"new_leads"`
+	NotifiedLeads     int    `json:"notified_leads"`
+	DeliveryStatus    string `json:"delivery_status,omitempty"`
+	DeliveredLeadID   string `json:"delivered_lead_id,omitempty"`
+	IdempotencyKey    string `json:"idempotency_key,omitempty"`
+	ScheduleKey       string `json:"schedule_key,omitempty"`
+	DeliveryDuplicate bool   `json:"delivery_duplicate,omitempty"`
+}
+
+func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts PipelineRunOptions) (PipelineRunResult, error) {
 	l := logger.Log
 	rawStore := storage.NewRawProjectStoreWithDSN(db, cfg.DatabaseURL)
 	auditStore := storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL)
 	leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
+	deliveryStore := storage.NewDeliveryStore(db, cfg.DatabaseURL)
+
+	result := PipelineRunResult{Status: "success"}
+	if opts.GuaranteeOneLead {
+		opts = normalizeDeliveryOptions(opts, time.Now())
+		result.IdempotencyKey = opts.IdempotencyKey
+		result.ScheduleKey = opts.ScheduleKey
+
+		owner := storage.NewUUID()
+		locked, err := deliveryStore.TryAcquireRunLock(ctx, "lead-delivery", owner, 15*time.Minute)
+		if err != nil {
+			return result, fmt.Errorf("acquire delivery lock: %w", err)
+		}
+		if !locked {
+			result.Status = "locked"
+			result.DeliveryStatus = "locked"
+			return result, nil
+		}
+		defer func() {
+			if err := deliveryStore.ReleaseRunLock(context.Background(), "lead-delivery", owner); err != nil {
+				logger.Log.Warn("failed to release delivery lock", "error", err)
+			}
+		}()
+
+		existing, err := deliveryStore.GetByIdempotencyKey(ctx, opts.IdempotencyKey)
+		if err != nil {
+			return result, fmt.Errorf("load delivery by idempotency key: %w", err)
+		}
+		if existing != nil && existing.Status == "sent" {
+			result.NotifiedLeads = 1
+			result.DeliveredLeadID = existing.LeadID
+			result.DeliveryStatus = "duplicate"
+			result.DeliveryDuplicate = true
+			return result, nil
+		}
+	}
 
 	var ai enrichment.EnricherAI
 	if cfg.AIProvider == "gemini" {
@@ -462,25 +536,47 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 	l.Info("running pipeline...")
 	n, err := e.Run(ctx)
 	if err != nil {
-		return fmt.Errorf("enricher run: %w", err)
+		return result, fmt.Errorf("enricher run: %w", err)
 	}
 	l.Info("enrichment complete", "new_leads", n)
+	result.NewLeads = n
+
+	if opts.GuaranteeOneLead {
+		delivery, err := deliverGuaranteedLead(ctx, leadStore, deliveryStore, leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL), opts)
+		if err != nil {
+			_ = deliveryStore.UpsertResult(ctx, storage.LeadDelivery{
+				IdempotencyKey: opts.IdempotencyKey,
+				ScheduleKey:    opts.ScheduleKey,
+				Channel:        "slack",
+				Status:         "failed",
+				Result:         err.Error(),
+			})
+			return result, fmt.Errorf("guaranteed lead delivery: %w", err)
+		}
+		result.DeliveryStatus = delivery.Status
+		result.DeliveredLeadID = delivery.LeadID
+		if delivery.Status == "sent" {
+			result.NotifiedLeads = 1
+		}
+		return result, nil
+	}
 
 	leads, err := leadStore.ListNew(ctx)
 	if err != nil {
-		return fmt.Errorf("list leads: %w", err)
+		return result, fmt.Errorf("list leads: %w", err)
 	}
 
 	if len(leads) == 0 {
 		l.Info("no new leads to notify")
-		return nil
+		return result, nil
 	}
 
 	notifier := leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL)
 	if err := notifier.Send(ctx, leads); err != nil {
-		return fmt.Errorf("slack notify: %w", err)
+		return result, fmt.Errorf("slack notify: %w", err)
 	}
 	l.Info("sent leads to Slack", "count", len(leads))
+	result.NotifiedLeads = len(leads)
 
 	// Mark leads as notified so they don't re-appear in the next run's digest.
 	for _, l := range leads {
@@ -488,7 +584,70 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB) error {
 			logger.Log.Warn("failed to update status for lead", "id", l.ID, "error", err)
 		}
 	}
-	return nil
+	return result, nil
+}
+
+func normalizeDeliveryOptions(opts PipelineRunOptions, now time.Time) PipelineRunOptions {
+	if opts.ScheduleKey == "" {
+		opts.ScheduleKey = cadenceKey(now)
+	}
+	if opts.IdempotencyKey == "" {
+		opts.IdempotencyKey = opts.ScheduleKey
+	}
+	return opts
+}
+
+func cadenceKey(now time.Time) string {
+	loc, err := time.LoadLocation("America/Vancouver")
+	if err == nil {
+		now = now.In(loc)
+	}
+	weekday := strings.ToLower(now.Weekday().String())
+	return fmt.Sprintf("lead-cadence:%s:%s", now.Format("2006-01-02"), weekday)
+}
+
+func deliverGuaranteedLead(ctx context.Context, leadStore storage.LeadStore, deliveryStore storage.DeliveryStore, notifier leadnotify.Notifier, opts PipelineRunOptions) (storage.LeadDelivery, error) {
+	candidates, err := leadStore.ListDeliveryCandidates(ctx, 1)
+	if err != nil {
+		return storage.LeadDelivery{}, fmt.Errorf("list delivery candidates: %w", err)
+	}
+	if len(candidates) == 0 {
+		delivery := storage.LeadDelivery{
+			IdempotencyKey: opts.IdempotencyKey,
+			ScheduleKey:    opts.ScheduleKey,
+			Channel:        "slack",
+			Status:         "no_eligible_lead",
+			Result:         "no eligible new or backlog lead available",
+		}
+		if err := deliveryStore.UpsertResult(ctx, delivery); err != nil {
+			return delivery, fmt.Errorf("record no eligible lead: %w", err)
+		}
+		return delivery, nil
+	}
+
+	lead := candidates[0]
+	if err := notifier.Send(ctx, []storage.Lead{lead}); err != nil {
+		return storage.LeadDelivery{LeadID: lead.ID, Status: "failed"}, err
+	}
+	if lead.Status == "new" {
+		if err := leadStore.UpdateStatus(ctx, lead.ID, "notified"); err != nil {
+			return storage.LeadDelivery{LeadID: lead.ID, Status: "failed"}, fmt.Errorf("mark lead notified: %w", err)
+		}
+	}
+
+	delivery := storage.LeadDelivery{
+		IdempotencyKey: opts.IdempotencyKey,
+		ScheduleKey:    opts.ScheduleKey,
+		LeadID:         lead.ID,
+		Channel:        "slack",
+		Status:         "sent",
+		Result:         "sent one lead to slack",
+		SentAt:         time.Now().UTC(),
+	}
+	if err := deliveryStore.UpsertResult(ctx, delivery); err != nil {
+		return delivery, fmt.Errorf("record sent delivery: %w", err)
+	}
+	return delivery, nil
 }
 
 func startAuditRetentionWorker(cfg *config.Config, db *sql.DB) {
