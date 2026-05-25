@@ -320,76 +320,22 @@ func (s *sqliteLeadStore) ApplyAction(ctx context.Context, id string, action Lea
 		return nil, fmt.Errorf("%w: %s", ErrLeadNotFound, id)
 	}
 
-	normalized := normalizeLeadAction(action.Action)
-	if normalized == "" {
-		return nil, fmt.Errorf("%w: unsupported action %q", ErrInvalidLeadTransition, action.Action)
-	}
-	if isTerminalLeadStatus(lead.Status) && normalized != "reopen" {
-		return nil, fmt.Errorf("%w: cannot %s from %s", ErrInvalidLeadTransition, normalized, lead.Status)
-	}
-
-	nextStatus := lead.Status
-	owner := lead.Owner
-	snoozedUntil := lead.SnoozedUntil
-	flagged := lead.Flagged
-	var changed []string
-
-	switch normalized {
-	case "claim":
-		if strings.TrimSpace(action.Owner) == "" {
-			return nil, fmt.Errorf("%w: claim requires owner", ErrInvalidLeadTransition)
-		}
-		nextStatus = "claimed"
-		owner = strings.TrimSpace(action.Owner)
-		changed = append(changed, "status", "owner")
-	case "dismiss":
-		nextStatus = "dismissed"
-		changed = append(changed, "status")
-	case "snooze":
-		if action.SnoozedUntil == nil || !action.SnoozedUntil.After(time.Now().UTC()) {
-			return nil, fmt.Errorf("%w: snooze requires future snoozed_until", ErrInvalidLeadTransition)
-		}
-		nextStatus = "snoozed"
-		snoozedUntil = action.SnoozedUntil
-		changed = append(changed, "status", "snoozed_until")
-	case "flag":
-		nextStatus = "flagged"
-		flagged = true
-		changed = append(changed, "status", "flagged")
-	case "contacted":
-		nextStatus = "contacted"
-		changed = append(changed, "status")
-	case "won":
-		nextStatus = "won"
-		changed = append(changed, "status")
-	case "lost":
-		nextStatus = "lost"
-		changed = append(changed, "status")
-	case "no_response":
-		nextStatus = "no_response"
-		changed = append(changed, "status")
-	case "reopen":
-		nextStatus = "new"
-		flagged = false
-		snoozedUntil = nil
-		changed = append(changed, "status", "flagged", "snoozed_until")
-	}
-	if action.Notes != nil {
-		lead.Notes = *action.Notes
-		changed = append(changed, "notes")
-	}
-
 	now := time.Now().UTC()
+	update, err := buildLeadActionUpdate(*lead, action, now)
+	if err != nil {
+		return nil, err
+	}
+
 	var snoozedArg any
-	if snoozedUntil != nil {
-		snoozedArg = *snoozedUntil
+	if update.SnoozedUntil != nil {
+		snoozedArg = *update.SnoozedUntil
 	}
 	query := `
 		UPDATE leads
 		SET status = ?, owner = ?, snoozed_until = ?, flagged = ?, notes = ?, updated_at = ?
 		WHERE id = ?
 	`
-	res, err := s.db.ExecContext(ctx, Rebind(s.dsn, query), nextStatus, owner, snoozedArg, flagged, lead.Notes, now, id)
+	res, err := s.db.ExecContext(ctx, Rebind(s.dsn, query), update.Status, update.Owner, snoozedArg, update.Flagged, update.Notes, now, id)
 	if err != nil {
 		return nil, err
 	}
@@ -404,41 +350,7 @@ func (s *sqliteLeadStore) ApplyAction(ctx context.Context, id string, action Lea
 	if updated == nil {
 		return nil, fmt.Errorf("%w: %s", ErrLeadNotFound, id)
 	}
-	return &LeadPatchResult{Lead: *updated, ChangedFields: changed, UpdatedAt: now}, nil
-}
-
-func normalizeLeadAction(action string) string {
-	switch strings.TrimSpace(strings.ToLower(action)) {
-	case "claim":
-		return "claim"
-	case "dismiss":
-		return "dismiss"
-	case "snooze":
-		return "snooze"
-	case "flag":
-		return "flag"
-	case "contacted":
-		return "contacted"
-	case "won":
-		return "won"
-	case "lost":
-		return "lost"
-	case "no-response", "no_response":
-		return "no_response"
-	case "reopen":
-		return "reopen"
-	default:
-		return ""
-	}
-}
-
-func isTerminalLeadStatus(status string) bool {
-	switch status {
-	case "won", "lost", "dismissed":
-		return true
-	default:
-		return false
-	}
+	return &LeadPatchResult{Lead: *updated, ChangedFields: update.Changed, UpdatedAt: now}, nil
 }
 
 func (s *sqliteLeadStore) GetByID(ctx context.Context, id string) (*Lead, error) {
