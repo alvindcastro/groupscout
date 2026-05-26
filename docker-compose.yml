@@ -89,6 +89,10 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
       - WEBHOOK_URL=http://localhost:5678/
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - GROUPSCOUT_API_BASE_URL=http://groupscout:8080
+      - GROUPSCOUT_API_TOKEN=${API_TOKEN}
+      - GROUPSCOUT_OPS_SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
     restart: unless-stopped
 
   prometheus:
