@@ -2,8 +2,21 @@ package collector
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
+
+// SourceDriftError is returned by a Collector when the source URL returns an HTTP
+// error that indicates the page structure or URL has changed (e.g. 404, 410).
+// Callers can use errors.As to distinguish drift from transient network failures.
+type SourceDriftError struct {
+	URL        string
+	StatusCode int
+}
+
+func (e *SourceDriftError) Error() string {
+	return fmt.Sprintf("collector source URL drifted (HTTP %d): %s", e.StatusCode, e.URL)
+}
 
 // RawProject is the normalized output from any data source before enrichment.
 // Every Collector returns a slice of these.

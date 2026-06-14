@@ -6,7 +6,9 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/alvindcastro/groupscout/internal/collector"
 )
@@ -39,8 +41,18 @@ func (s *sqliteRawStore) Insert(ctx context.Context, p *collector.RawProject) er
 		ON CONFLICT (hash) DO NOTHING
 	`
 	_, err := s.db.ExecContext(ctx, Rebind(s.dsn, query),
-		NewUUID(), p.Source, p.ExternalID, p.RawData, p.RawType, time.Now().UTC(), p.Hash)
+		NewUUID(), sanitizeText(p.Source), sanitizeText(p.ExternalID), p.RawData, sanitizeText(p.RawType), time.Now().UTC(), p.Hash)
 	return err
+}
+
+// sanitizeText replaces invalid UTF-8 sequences with the replacement character.
+// Postgres TEXT columns require valid UTF-8; pdftotext can emit non-UTF-8 bytes
+// when PDFs use non-standard font encodings.
+func sanitizeText(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "�")
 }
 
 func (s *sqliteRawStore) ExistsByHash(ctx context.Context, hash string) (bool, error) {

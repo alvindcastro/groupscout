@@ -2,6 +2,7 @@ package enrichment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/alvindcastro/groupscout/internal/collector"
@@ -111,9 +112,14 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 	}
 	projects, err := c.Collect(ctx)
 	if err != nil {
-		// Log and skip — don't abort the whole run for one collector
-		l.Error("collection failed", "error", err)
-		sentry.CaptureException(err)
+		var driftErr *collector.SourceDriftError
+		if errors.As(err, &driftErr) {
+			l.Warn("collector source URL drifted — update or disable this collector",
+				"url", driftErr.URL, "status_code", driftErr.StatusCode, "source_drift", true)
+		} else {
+			l.Error("collection failed", "error", err)
+			sentry.CaptureException(err)
+		}
 		return 0, nil
 	}
 

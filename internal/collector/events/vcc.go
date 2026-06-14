@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -52,8 +53,11 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]collector.RawProject, err
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+		return nil, &collector.SourceDriftError{URL: c.url, StatusCode: resp.StatusCode}
+	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code: %d for %s", resp.StatusCode, c.url)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -117,14 +121,17 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]collector.RawProject, err
 			link = "https://www.vancouverconventioncentre.com" + link
 		}
 
+		eventID := c.slugify(title + " " + dateStr)
+		eventHash := fmt.Sprintf("%x", sha256.Sum256([]byte("vcc_events|"+eventID)))
 		project := collector.RawProject{
 			Source:      c.Name(),
-			ExternalID:  c.slugify(title + " " + dateStr),
+			ExternalID:  eventID,
 			Title:       title,
 			Description: fmt.Sprintf("Category: %s | Date: %s", category, dateStr),
 			SourceURL:   link,
 			RawData:     body,
 			RawType:     "text/html",
+			Hash:        eventHash,
 		}
 		projects = append(projects, project)
 	})
