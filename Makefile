@@ -1,4 +1,4 @@
-.PHONY: help build test lint run run-once docker-up docker-down docker-logs ollama-pull ollama-push db-migrate doctor clean fmt vet
+.PHONY: help build test lint run run-once docker-up docker-down docker-logs ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
 
 # Default target: help
 help:
@@ -8,6 +8,9 @@ help:
 	@echo "test             - Run all Go tests"
 	@echo "fmt              - Format all Go files"
 	@echo "vet              - Run go vet"
+	@echo "eval-quality     - Run Go eval harness against golden fixtures (no live APIs)"
+	@echo "eval-gate        - Run release gate: exit non-zero on critical failures"
+	@echo "eval-target      - Start the local eval target HTTP server on :18080 for Promptfoo"
 	@echo "lint             - Run golangci-lint (if installed)"
 	@echo "run              - Run the lead generation server"
 	@echo "run-alertd       - Run the alertd service"
@@ -22,6 +25,7 @@ help:
 	@echo "clean            - Remove built binaries and temporary files"
 	@echo "clear            - Clear all database data, Docker volumes and builds"
 	@echo "start-fresh      - Reset everything and run one pipeline pass"
+	@echo "smoke-ui-docker-e2e - Run backend + UI Docker E2E smoke (requires both Compose stacks)"
 
 build:
 	go build -o build/server ./cmd/server
@@ -52,6 +56,15 @@ run-alertd:
 
 run-once:
 	go run cmd/server/main.go --run-once
+
+eval-quality:
+	go test -v ./internal/evalops/... -count=1
+
+eval-gate:
+	go test ./internal/evalops/... -count=1 -run "TestRunGate|TestLoadCases_FixtureDir|TestScoreLeadCase_FixtureCases|TestScoreAlertCase_FixtureCases"
+
+eval-target:
+	go run cmd/evaltarget/main.go
 
 docker-up:
 	docker compose up -d
@@ -90,6 +103,10 @@ clear:
 	rm -f groupscout.db
 	rm -rf build/
 	@echo "Data cleared."
+
+smoke-ui-docker-e2e:
+	@chmod +x scripts/smoke-ui-docker-e2e.sh
+	@./scripts/smoke-ui-docker-e2e.sh
 
 # start-fresh: Clears everything, starts services, and runs one pipeline pass
 start-fresh: clear docker-up
