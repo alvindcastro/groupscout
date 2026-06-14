@@ -1,0 +1,111 @@
+# GroupScout EvalOps — Promptfoo Configuration
+#
+# This config lets Promptfoo call the local Go eval target at http://localhost:18080/eval/run.
+# Start the target first: make eval-target
+#
+# Then run:  promptfoo eval -c evals/promptfoo/groupscout.yaml
+#
+# The eval target returns:
+#   output     - human-readable decision summary
+#   trace_id   - propagated trace identifier
+#   scores     - lead_quality/alert_quality/lead_score/sps_score
+#   sources    - case type and ID
+#
+# No live Anthropic, Slack, Resend, Sentry, or external APIs are called.
+# Fixture cases live in data/evals/groupscout/*.jsonl
+
+description: GroupScout AI quality eval — lead relevance, alert thresholds, enrichment completeness
+
+providers:
+  - id: http
+    config:
+      url: http://localhost:18080/eval/run
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: '{"case_id": "{{case_id}}", "trace_id": "promptfoo-{{$timestamp}}"}'
+
+prompts:
+  - id: eval-case
+    raw: '{{case_id}}'
+
+tests:
+  # Lead cases — construction permits
+  - vars:
+      case_id: lead-001
+    assert:
+      - type: javascript
+        value: output.includes('decision=keep')
+      - type: javascript
+        value: JSON.parse(body).scores.lead_quality === 1.0
+
+  - vars:
+      case_id: lead-002
+    assert:
+      - type: javascript
+        value: output.includes('decision=drop')
+
+  - vars:
+      case_id: lead-003
+    assert:
+      - type: javascript
+        value: output.includes('decision=drop')
+
+  # Film production
+  - vars:
+      case_id: lead-004
+    assert:
+      - type: javascript
+        value: output.includes('decision=keep')
+
+  # Conference event
+  - vars:
+      case_id: lead-005
+    assert:
+      - type: javascript
+        value: output.includes('decision=keep')
+
+  # Consumer event — must drop
+  - vars:
+      case_id: lead-006
+    assert:
+      - type: javascript
+        value: output.includes('decision=drop')
+
+  # BCBid contract
+  - vars:
+      case_id: lead-007
+    assert:
+      - type: javascript
+        value: output.includes('decision=keep')
+
+  # Alert cases
+  - vars:
+      case_id: alert-001
+    assert:
+      - type: javascript
+        value: output.includes('decision=hard_alert')
+
+  - vars:
+      case_id: alert-002
+    assert:
+      - type: javascript
+        value: output.includes('decision=ignore')
+
+  - vars:
+      case_id: alert-004
+    assert:
+      - type: javascript
+        value: output.includes('stale=true')
+
+  # Adversarial cases — must drop injection
+  - vars:
+      case_id: adv-002
+    assert:
+      - type: javascript
+        value: output.includes('decision=drop')
+
+thresholds:
+  # All release-blocking fixture cases must pass with quality score 1.0
+  # Promptfoo score >= 1.0 means all assertions passed
+  score: 1.0
