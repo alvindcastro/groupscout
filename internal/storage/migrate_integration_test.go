@@ -56,7 +56,7 @@ func TestMigrate_postgres_column_types(t *testing.T) {
 		{"leads", "out_of_town_crew_likely", "boolean"},
 		{"leads", "created_at", "timestamp with time zone"},
 		{"leads", "project_value", "bigint"},
-		{"raw_projects", "raw_data", "jsonb"},
+		{"raw_projects", "raw_data", "bytea"},
 		{"raw_projects", "raw_type", "text"},
 		{"raw_inputs", "payload", "bytea"},
 	}

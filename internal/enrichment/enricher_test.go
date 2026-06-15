@@ -142,11 +142,19 @@ func (m *mockRawStore) Insert(ctx context.Context, p *collector.RawProject) erro
 
 type mockLeadStore struct {
 	storage.LeadStore
-	insert func(l *storage.Lead) error
+	insert              func(l *storage.Lead) error
+	existsBySourceTitle func(source, title string) (bool, error)
 }
 
 func (m *mockLeadStore) Insert(ctx context.Context, l *storage.Lead) error {
 	return m.insert(l)
+}
+
+func (m *mockLeadStore) ExistsBySourceTitle(ctx context.Context, source, title string) (bool, error) {
+	if m.existsBySourceTitle == nil {
+		return false, nil
+	}
+	return m.existsBySourceTitle(source, title)
 }
 
 type mockAI struct {
@@ -429,5 +437,53 @@ func TestEnricher_EnrichOne_ReturnsEnrichmentError(t *testing.T) {
 	}
 	if inserted {
 		t.Fatal("inserted = true, want false")
+	}
+}
+
+func TestEnricher_processProject_skipsDuplicateLeadBySourceAndTitle(t *testing.T) {
+	rawID := uuid.New()
+	audit := &mockAuditStore{
+		store: func(raw storage.RawInput) (uuid.UUID, error) { return rawID, nil },
+	}
+	raw := &mockRawStore{
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		insert:       func(p *collector.RawProject) error { return nil },
+	}
+	var insertCalled bool
+	leads := &mockLeadStore{
+		existsBySourceTitle: func(source, title string) (bool, error) {
+			if source != "announcements" || title != "Pattullo Bridge Replacement Project" {
+				t.Fatalf("duplicate check = (%q, %q), want announcements/Pattullo Bridge Replacement Project", source, title)
+			}
+			return true, nil
+		},
+		insert: func(l *storage.Lead) error {
+			insertCalled = true
+			return nil
+		},
+	}
+	ai := &mockAI{
+		enrich: func(p collector.RawProject) (*EnrichedLead, error) {
+			return &EnrichedLead{PriorityScore: 9}, nil
+		},
+	}
+	e := NewEnricher(nil, raw, audit, leads, ai, NewScorer(1), 0, nil, nil, false, false)
+
+	inserted, err := e.processProject(context.Background(), collector.RawProject{
+		Hash:    "raw-project-insert-failed-last-run",
+		Source:  "announcements",
+		Title:   "Pattullo Bridge Replacement Project",
+		RawData: []byte("<html>bcib projects</html>"),
+		RawType: "text/html",
+	})
+
+	if err != nil {
+		t.Fatalf("processProject: %v", err)
+	}
+	if inserted {
+		t.Fatal("inserted = true, want false for duplicate lead")
+	}
+	if insertCalled {
+		t.Fatal("lead insert called for duplicate")
 	}
 }

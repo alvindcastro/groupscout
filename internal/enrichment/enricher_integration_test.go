@@ -121,3 +121,43 @@ func TestEnricher_RawInputDeduplication(t *testing.T) {
 	expectedPayloadHash := fmt.Sprintf("%x", sha256.Sum256(commonRawData))
 	assert.Equal(t, expectedPayloadHash, storedHash, "Stored hash should be the payload hash")
 }
+
+func TestEnricher_PostgresSkipsDuplicateLeadWhenRawProjectDedupMisses(t *testing.T) {
+	db, dsn := newTestDB(t)
+	ctx := context.Background()
+
+	rawStore := storage.NewRawProjectStoreWithDSN(db, dsn)
+	auditStore := storage.NewAuditStoreWithDSN(db, dsn)
+	leadStore := storage.NewLeadStoreWithDSN(db, dsn)
+
+	ai := &mockAIForIntegration{
+		enrich: func(p collector.RawProject) (*EnrichedLead, error) {
+			return &EnrichedLead{PriorityScore: 9}, nil
+		},
+	}
+
+	e := NewEnricher(nil, rawStore, auditStore, leadStore, ai, NewScorer(0), 0, nil, nil, false, false)
+	project := collector.RawProject{
+		Source:      "announcements",
+		ExternalID:  "bcib:Pattullo Bridge Replacement Project",
+		Title:       "Pattullo Bridge Replacement Project",
+		RawData:     []byte("<html><h3>Pattullo Bridge Replacement Project</h3></html>"),
+		RawType:     "text/html",
+		SourceURL:   "https://bcib.ca/projects/",
+		Description: "major bridge replacement",
+		Hash:        "pattullo-hash-first",
+	}
+
+	inserted1, err := e.processProject(ctx, project)
+	require.NoError(t, err)
+	require.True(t, inserted1)
+
+	project.Hash = "pattullo-hash-second"
+	inserted2, err := e.processProject(ctx, project)
+	require.NoError(t, err)
+	assert.False(t, inserted2, "same source/title should not insert another lead when raw hash dedup misses")
+
+	leads, err := leadStore.ListNew(ctx)
+	require.NoError(t, err)
+	assert.Len(t, leads, 1)
+}

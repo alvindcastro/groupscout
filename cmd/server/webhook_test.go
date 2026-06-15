@@ -26,6 +26,10 @@ func (s *fakeWebhookLeadStore) Insert(ctx context.Context, lead *storage.Lead) e
 	return nil
 }
 
+func (s *fakeWebhookLeadStore) ExistsBySourceTitle(ctx context.Context, source, title string) (bool, error) {
+	return false, nil
+}
+
 func (s *fakeWebhookLeadStore) ListNew(ctx context.Context) ([]storage.Lead, error) {
 	return nil, nil
 }
