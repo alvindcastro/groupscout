@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the applications
-RUN go build -o /groupscout ./cmd/server/main.go
+RUN go build -o /groupscout ./cmd/server
 RUN go build -o /alertd ./cmd/alertd/main.go
 
 # Final stage
