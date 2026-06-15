@@ -231,6 +231,16 @@ func (e *Enricher) processProjectWithOptions(ctx context.Context, p collector.Ra
 			Status:         "skipped",
 			Notes:          "Skipped Claude enrichment due to low pre-score.",
 		}
+		duplicate, err := e.leadStore.ExistsBySourceTitle(ctx, lead.Source, lead.Title)
+		if err != nil {
+			return false, fmt.Errorf("check skipped lead duplicate: %w", err)
+		}
+		if duplicate {
+			if e.Verbose {
+				l.Debug("skipping duplicate skipped lead", "title", lead.Title)
+			}
+			return false, nil
+		}
 		if err := e.leadStore.Insert(ctx, &lead); err != nil {
 			return false, fmt.Errorf("insert skipped lead: %w", err)
 		}
@@ -250,6 +260,16 @@ func (e *Enricher) processProjectWithOptions(ctx context.Context, p collector.Ra
 
 	// Persist the lead
 	lead := toLeadRecord(p, enriched, rawInputID.String())
+	duplicate, err := e.leadStore.ExistsBySourceTitle(ctx, lead.Source, lead.Title)
+	if err != nil {
+		return false, fmt.Errorf("check lead duplicate: %w", err)
+	}
+	if duplicate {
+		if e.Verbose {
+			l.Debug("skipping duplicate lead", "title", lead.Title)
+		}
+		return false, nil
+	}
 
 	// 3. Ollama Rationale (Phase 3)
 	if e.ollamaScoringEnabled && e.ollamaScorer != nil {

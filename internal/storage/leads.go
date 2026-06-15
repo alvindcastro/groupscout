@@ -37,6 +37,7 @@ type Lead struct {
 // LeadStore is the interface for persisting and querying enriched leads.
 type LeadStore interface {
 	Insert(ctx context.Context, l *Lead) error
+	ExistsBySourceTitle(ctx context.Context, source, title string) (bool, error)
 	ListNew(ctx context.Context) ([]Lead, error)
 	ListDeliveryCandidates(ctx context.Context, limit int) ([]Lead, error)
 	UpdateStatus(ctx context.Context, id, status string) error
@@ -99,6 +100,16 @@ func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
 		l.Notes, l.Status, now, now,
 	)
 	return err
+}
+
+func (s *sqliteLeadStore) ExistsBySourceTitle(ctx context.Context, source, title string) (bool, error) {
+	if source == "" || title == "" {
+		return false, nil
+	}
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM leads WHERE source = ? AND title = ?)`
+	err := s.db.QueryRowContext(ctx, Rebind(s.dsn, query), source, title).Scan(&exists)
+	return exists, err
 }
 
 func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
