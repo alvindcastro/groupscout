@@ -245,7 +245,7 @@ func main() {
 			return
 		}
 
-		emailNotifier := leadnotify.NewEmailNotifier(cfg.ResendAPIKey)
+		emailNotifier := leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom)
 		toEmail := r.URL.Query().Get("to")
 		if toEmail == "" {
 			toEmail = "alvin@groupscout.ai"

@@ -15,12 +15,21 @@ import (
 
 const resendAPIURL = "https://api.resend.com/emails"
 
+// defaultEmailFrom is used when no From address is configured. The domain must be
+// verified in the Resend account; otherwise Resend rejects sends with HTTP 403.
+const defaultEmailFrom = "GroupScout <alerts@groupscout.ai>"
+
 type EmailNotifier struct {
 	APIKey string
+	From   string
 }
 
-func NewEmailNotifier(apiKey string) *EmailNotifier {
-	return &EmailNotifier{APIKey: apiKey}
+// NewEmailNotifier returns a notifier. An empty from falls back to defaultEmailFrom.
+func NewEmailNotifier(apiKey, from string) *EmailNotifier {
+	if from == "" {
+		from = defaultEmailFrom
+	}
+	return &EmailNotifier{APIKey: apiKey, From: from}
 }
 
 func (n *EmailNotifier) SendWeeklyDigest(ctx context.Context, toEmail string, leads []storage.Lead) error {
@@ -33,13 +42,46 @@ func (n *EmailNotifier) SendWeeklyDigest(ctx context.Context, toEmail string, le
 		return fmt.Errorf("generate html: %w", err)
 	}
 
-	payload := map[string]any{
-		"from":    "GroupScout <alerts@groupscout.ai>",
+	return n.post(ctx, map[string]any{
+		"from":    n.From,
 		"to":      []string{toEmail},
 		"subject": fmt.Sprintf("Weekly Lead Digest - %s", time.Now().Format("Jan 02, 2006")),
 		"html":    html,
+	})
+}
+
+// SendLeads emails the given leads to every recipient in a single message.
+// It mirrors the leads delivered to Slack so operators get an email copy.
+// Returns nil immediately when there are no recipients or no leads.
+func (n *EmailNotifier) SendLeads(ctx context.Context, recipients []string, leads []storage.Lead) error {
+	if len(recipients) == 0 || len(leads) == 0 {
+		return nil
+	}
+	if n.APIKey == "" {
+		return fmt.Errorf("RESEND_API_KEY not set")
 	}
 
+	html, err := generateDigestHTML(leads)
+	if err != nil {
+		return fmt.Errorf("generate html: %w", err)
+	}
+
+	subject := fmt.Sprintf("New GroupScout Lead: %s", leads[0].Title)
+	if len(leads) > 1 {
+		subject = fmt.Sprintf("GroupScout: %d new leads - %s", len(leads), time.Now().Format("Jan 02, 2006"))
+	}
+
+	return n.post(ctx, map[string]any{
+		"from":    n.From,
+		"to":      recipients,
+		"subject": subject,
+		"html":    html,
+	})
+}
+
+// post marshals the payload and sends it to the Resend API, returning an error
+// for any non-2xx response.
+func (n *EmailNotifier) post(ctx context.Context, payload map[string]any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)

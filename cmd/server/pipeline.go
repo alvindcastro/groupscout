@@ -89,7 +89,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 	result.NewLeads = n
 
 	if opts.GuaranteeOneLead {
-		delivery, err := deliverGuaranteedLead(ctx, leadStore, deliveryStore, leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL), opts)
+		delivery, err := deliverGuaranteedLead(ctx, leadStore, deliveryStore, leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL), leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom), cfg.LeadNotifyEmails, opts)
 		if err != nil {
 			_ = deliveryStore.UpsertResult(ctx, storage.LeadDelivery{
 				IdempotencyKey: opts.IdempotencyKey,
@@ -124,6 +124,15 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 	}
 	l.Info("sent leads to Slack", "count", len(leads))
 	result.NotifiedLeads = len(leads)
+
+	// Email is a best-effort copy of the Slack digest; a failure here must not
+	// fail the run or block marking leads notified, since Slack already delivered.
+	emailNotifier := leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom)
+	if err := emailNotifier.SendLeads(ctx, cfg.LeadNotifyEmails, leads); err != nil {
+		l.Warn("failed to email leads", "error", err, "recipients", cfg.LeadNotifyEmails)
+	} else {
+		l.Info("sent leads via email", "count", len(leads), "recipients", cfg.LeadNotifyEmails)
+	}
 
 	for _, l := range leads {
 		if err := leadStore.UpdateStatus(ctx, l.ID, "notified"); err != nil {
@@ -251,7 +260,7 @@ func cadenceKey(now time.Time) string {
 	return fmt.Sprintf("lead-cadence:%s:%s", now.Format("2006-01-02"), weekday)
 }
 
-func deliverGuaranteedLead(ctx context.Context, leadStore storage.LeadStore, deliveryStore storage.DeliveryStore, notifier leadnotify.Notifier, opts PipelineRunOptions) (storage.LeadDelivery, error) {
+func deliverGuaranteedLead(ctx context.Context, leadStore storage.LeadStore, deliveryStore storage.DeliveryStore, notifier leadnotify.Notifier, emailNotifier *leadnotify.EmailNotifier, recipients []string, opts PipelineRunOptions) (storage.LeadDelivery, error) {
 	candidates, err := leadStore.ListDeliveryCandidates(ctx, 1)
 	if err != nil {
 		return storage.LeadDelivery{}, fmt.Errorf("list delivery candidates: %w", err)
@@ -277,6 +286,16 @@ func deliverGuaranteedLead(ctx context.Context, leadStore storage.LeadStore, del
 	if lead.Status == "new" {
 		if err := leadStore.UpdateStatus(ctx, lead.ID, "notified"); err != nil {
 			return storage.LeadDelivery{LeadID: lead.ID, Status: "failed"}, fmt.Errorf("mark lead notified: %w", err)
+		}
+	}
+
+	// Email is a best-effort copy of the delivered lead; Slack remains the
+	// source of truth for delivery status, so an email failure only warns.
+	if emailNotifier != nil {
+		if err := emailNotifier.SendLeads(ctx, recipients, []storage.Lead{lead}); err != nil {
+			logger.Log.Warn("failed to email guaranteed lead", "error", err, "lead_id", lead.ID, "recipients", recipients)
+		} else {
+			logger.Log.Info("emailed guaranteed lead", "lead_id", lead.ID, "recipients", recipients)
 		}
 	}
 

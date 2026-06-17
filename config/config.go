@@ -15,6 +15,8 @@ type Config struct {
 	AIProvider               string
 	SlackWebhookURL          string
 	ResendAPIKey             string
+	LeadNotifyEmails         []string
+	EmailFrom                string
 	RichmondPermitsURL       string
 	DeltaPermitsURL          string
 	CreativeBCEnabled        bool
@@ -73,6 +75,8 @@ func Load() (*Config, error) {
 		AIProvider:               getEnv("AI_PROVIDER", "claude"),
 		SlackWebhookURL:          os.Getenv("SLACK_WEBHOOK_URL"),
 		ResendAPIKey:             os.Getenv("RESEND_API_KEY"),
+		LeadNotifyEmails:         getEnvList("LEAD_NOTIFY_EMAILS", []string{"alvin.dcastro@gmail.com"}),
+		EmailFrom:                getEnv("EMAIL_FROM", "GroupScout <alerts@groupscout.ai>"),
 		RichmondPermitsURL:       os.Getenv("RICHMOND_PERMITS_URL"),
 		DeltaPermitsURL:          os.Getenv("DELTA_PERMITS_URL"),
 		CreativeBCEnabled:        os.Getenv("CREATIVEBC_ENABLED") == "true",
@@ -152,6 +156,26 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// getEnvList parses a comma-separated environment variable into a trimmed,
+// non-empty slice. Returns fallback when the variable is unset or only whitespace.
+func getEnvList(key string, fallback []string) []string {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return fallback
+	}
+	return out
 }
 
 func getEnvInt(key string, fallback int) int {

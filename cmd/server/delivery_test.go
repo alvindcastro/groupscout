@@ -47,7 +47,7 @@ func TestDeliverGuaranteedLead_SendsExactlyOneCandidate(t *testing.T) {
 	}
 
 	notifier := &captureNotifier{}
-	delivery, err := deliverGuaranteedLead(ctx, leadStore, deliveryStore, notifier, PipelineRunOptions{
+	delivery, err := deliverGuaranteedLead(ctx, leadStore, deliveryStore, notifier, nil, nil, PipelineRunOptions{
 		IdempotencyKey: "lead-cadence:2026-05-27:wednesday",
 		ScheduleKey:    "lead-cadence:2026-05-27:wednesday",
 	})
@@ -83,7 +83,7 @@ func TestDeliverGuaranteedLead_RecordsNoEligibleLead(t *testing.T) {
 	deliveryStore := storage.NewDeliveryStore(db, dsn)
 	ctx := context.Background()
 
-	delivery, err := deliverGuaranteedLead(ctx, leadStore, deliveryStore, &captureNotifier{}, PipelineRunOptions{
+	delivery, err := deliverGuaranteedLead(ctx, leadStore, deliveryStore, &captureNotifier{}, nil, nil, PipelineRunOptions{
 		IdempotencyKey: "lead-cadence:2026-05-27:wednesday",
 		ScheduleKey:    "lead-cadence:2026-05-27:wednesday",
 	})

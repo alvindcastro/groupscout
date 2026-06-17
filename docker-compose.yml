@@ -18,6 +18,12 @@ services:
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - LEAD_NOTIFY_EMAILS=${LEAD_NOTIFY_EMAILS:-alvin.dcastro@gmail.com}
+      # onboarding@resend.dev works without domain verification but only delivers to the
+      # Resend account owner's address. To email other recipients, verify a domain in
+      # Resend and set EMAIL_FROM (e.g. "GroupScout <alerts@groupscout.ai>").
+      - EMAIL_FROM=${EMAIL_FROM:-GroupScout <onboarding@resend.dev>}
       - API_TOKEN=${API_TOKEN}
       - RICHMOND_PERMITS_URL=${RICHMOND_PERMITS_URL}
       - DELTA_PERMITS_URL=${DELTA_PERMITS_URL}
