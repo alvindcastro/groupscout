@@ -161,7 +161,10 @@ func parseCreativeBCHTML(body []byte) ([]creativeBCRecord, error) {
 
 	listDiv := findNodeByID(doc, "inProductionList")
 	if listDiv == nil {
-		return nil, fmt.Errorf("creativebc: production list not found in page")
+		// Go's html5 parser restructures pages with invalid table nesting (e.g. unclosed <div>
+		// inside <td>), which can make the div unfindable by ID even though it exists in raw HTML.
+		// Fall back to walking the whole document so h3.production elements are still found.
+		listDiv = doc
 	}
 
 	var records []creativeBCRecord

@@ -24,7 +24,7 @@ services:
       - CREATIVEBC_ENABLED=true
       - CREATIVEBC_URL=https://www.creativebc.com/search-projects/in-production/
       - VCC_ENABLED=true
-      - VCC_URL=https://www.vancouverconventioncentre.com/events/calendar
+      - VCC_URL=https://www.vancouverconventioncentre.com/events
       - BCBID_ENABLED=true
       - NEWS_ENABLED=true
       - ANNOUNCEMENTS_ENABLED=true

@@ -197,8 +197,11 @@ func main() {
 		}
 
 		deliveryMode := strings.ToLower(req.DeliveryMode)
+		// A cadence_key or schedule_key implies guaranteed delivery — this is defensive against
+		// n8n expression failures that silently drop guarantee_one_lead from the request body.
+		hasScheduleKey := req.CadenceKey != "" || req.ScheduleKey != ""
 		result, err := runPipeline(ctx, cfg, db, PipelineRunOptions{
-			GuaranteeOneLead: req.GuaranteeOneLead || deliveryMode == "one_lead" || deliveryMode == "exactly_one",
+			GuaranteeOneLead: req.GuaranteeOneLead || deliveryMode == "one_lead" || deliveryMode == "exactly_one" || hasScheduleKey,
 			IdempotencyKey:   req.IdempotencyKey,
 			ScheduleKey:      req.ScheduleKey,
 		})
