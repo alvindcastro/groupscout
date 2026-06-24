@@ -26,14 +26,15 @@ type PipelineRunOptions struct {
 }
 
 type PipelineRunResult struct {
-	Status            string `json:"status"`
-	NewLeads          int    `json:"new_leads"`
-	NotifiedLeads     int    `json:"notified_leads"`
-	DeliveryStatus    string `json:"delivery_status,omitempty"`
-	DeliveredLeadID   string `json:"delivered_lead_id,omitempty"`
-	IdempotencyKey    string `json:"idempotency_key,omitempty"`
-	ScheduleKey       string `json:"schedule_key,omitempty"`
-	DeliveryDuplicate bool   `json:"delivery_duplicate,omitempty"`
+	Status            string   `json:"status"`
+	NewLeads          int      `json:"new_leads"`
+	NotifiedLeads     int      `json:"notified_leads"`
+	DeliveryStatus    string   `json:"delivery_status,omitempty"`
+	DeliveredLeadID   string   `json:"delivered_lead_id,omitempty"`
+	DeliveredLeadIDs  []string `json:"delivered_lead_ids,omitempty"`
+	IdempotencyKey    string   `json:"idempotency_key,omitempty"`
+	ScheduleKey       string   `json:"schedule_key,omitempty"`
+	DeliveryDuplicate bool     `json:"delivery_duplicate,omitempty"`
 }
 
 func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts PipelineRunOptions) (PipelineRunResult, error) {
@@ -68,7 +69,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 			return result, fmt.Errorf("load delivery by idempotency key: %w", err)
 		}
 		if existing != nil && existing.Status == "sent" {
-			result.NotifiedLeads = 1
+			result.NotifiedLeads = deliveredCount(existing.Result)
 			result.DeliveredLeadID = existing.LeadID
 			result.DeliveryStatus = "duplicate"
 			result.DeliveryDuplicate = true
@@ -89,7 +90,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 	result.NewLeads = n
 
 	if opts.GuaranteeOneLead {
-		delivery, err := deliverGuaranteedLead(ctx, leadStore, deliveryStore, leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL), leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom), cfg.LeadNotifyEmails, opts)
+		delivery, deliveredLeads, err := deliverGuaranteedLeads(ctx, leadStore, deliveryStore, leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL), leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom), cfg.LeadNotifyEmails, opts)
 		if err != nil {
 			_ = deliveryStore.UpsertResult(ctx, storage.LeadDelivery{
 				IdempotencyKey: opts.IdempotencyKey,
@@ -101,9 +102,14 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 			return result, fmt.Errorf("guaranteed lead delivery: %w", err)
 		}
 		result.DeliveryStatus = delivery.Status
-		result.DeliveredLeadID = delivery.LeadID
+		result.DeliveredLeadIDs = leadIDs(deliveredLeads)
+		if len(result.DeliveredLeadIDs) > 0 {
+			result.DeliveredLeadID = result.DeliveredLeadIDs[0]
+		} else {
+			result.DeliveredLeadID = delivery.LeadID
+		}
 		if delivery.Status == "sent" {
-			result.NotifiedLeads = 1
+			result.NotifiedLeads = len(deliveredLeads)
 		}
 		return result, nil
 	}
@@ -260,10 +266,12 @@ func cadenceKey(now time.Time) string {
 	return fmt.Sprintf("lead-cadence:%s:%s", now.Format("2006-01-02"), weekday)
 }
 
-func deliverGuaranteedLead(ctx context.Context, leadStore storage.LeadStore, deliveryStore storage.DeliveryStore, notifier leadnotify.Notifier, emailNotifier *leadnotify.EmailNotifier, recipients []string, opts PipelineRunOptions) (storage.LeadDelivery, error) {
-	candidates, err := leadStore.ListDeliveryCandidates(ctx, 1)
+const maxCadenceDeliveryLeads = 100
+
+func deliverGuaranteedLeads(ctx context.Context, leadStore storage.LeadStore, deliveryStore storage.DeliveryStore, notifier leadnotify.Notifier, emailNotifier *leadnotify.EmailNotifier, recipients []string, opts PipelineRunOptions) (storage.LeadDelivery, []storage.Lead, error) {
+	candidates, err := leadStore.ListDeliveryCandidates(ctx, maxCadenceDeliveryLeads)
 	if err != nil {
-		return storage.LeadDelivery{}, fmt.Errorf("list delivery candidates: %w", err)
+		return storage.LeadDelivery{}, nil, fmt.Errorf("list delivery candidates: %w", err)
 	}
 	if len(candidates) == 0 {
 		delivery := storage.LeadDelivery{
@@ -274,42 +282,78 @@ func deliverGuaranteedLead(ctx context.Context, leadStore storage.LeadStore, del
 			Result:         "no eligible new or backlog lead available",
 		}
 		if err := deliveryStore.UpsertResult(ctx, delivery); err != nil {
-			return delivery, fmt.Errorf("record no eligible lead: %w", err)
+			return delivery, nil, fmt.Errorf("record no eligible lead: %w", err)
 		}
-		return delivery, nil
+		return delivery, nil, nil
 	}
 
-	lead := candidates[0]
-	if err := notifier.Send(ctx, []storage.Lead{lead}); err != nil {
-		return storage.LeadDelivery{LeadID: lead.ID, Status: "failed"}, err
+	if err := notifier.Send(ctx, candidates); err != nil {
+		return storage.LeadDelivery{Status: "failed"}, nil, err
 	}
-	if lead.Status == "new" {
+	for _, lead := range candidates {
+		if lead.Status != "new" {
+			continue
+		}
 		if err := leadStore.UpdateStatus(ctx, lead.ID, "notified"); err != nil {
-			return storage.LeadDelivery{LeadID: lead.ID, Status: "failed"}, fmt.Errorf("mark lead notified: %w", err)
+			return storage.LeadDelivery{LeadID: lead.ID, Status: "failed"}, candidates, fmt.Errorf("mark lead notified: %w", err)
 		}
 	}
 
 	// Email is a best-effort copy of the delivered lead; Slack remains the
 	// source of truth for delivery status, so an email failure only warns.
 	if emailNotifier != nil {
-		if err := emailNotifier.SendLeads(ctx, recipients, []storage.Lead{lead}); err != nil {
-			logger.Log.Warn("failed to email guaranteed lead", "error", err, "lead_id", lead.ID, "recipients", recipients)
+		if err := emailNotifier.SendLeads(ctx, recipients, candidates); err != nil {
+			logger.Log.Warn("failed to email guaranteed leads", "error", err, "count", len(candidates), "recipients", recipients)
 		} else {
-			logger.Log.Info("emailed guaranteed lead", "lead_id", lead.ID, "recipients", recipients)
+			logger.Log.Info("emailed guaranteed leads", "count", len(candidates), "recipients", recipients)
+		}
+	}
+
+	sentAt := time.Now().UTC()
+	for _, lead := range candidates {
+		leadDelivery := storage.LeadDelivery{
+			IdempotencyKey: opts.IdempotencyKey + ":" + lead.ID,
+			ScheduleKey:    opts.ScheduleKey,
+			LeadID:         lead.ID,
+			Channel:        "slack",
+			Status:         "sent",
+			Result:         "sent lead to slack",
+			SentAt:         sentAt,
+		}
+		if err := deliveryStore.UpsertResult(ctx, leadDelivery); err != nil {
+			return leadDelivery, candidates, fmt.Errorf("record sent lead delivery: %w", err)
 		}
 	}
 
 	delivery := storage.LeadDelivery{
 		IdempotencyKey: opts.IdempotencyKey,
 		ScheduleKey:    opts.ScheduleKey,
-		LeadID:         lead.ID,
 		Channel:        "slack",
 		Status:         "sent",
-		Result:         "sent one lead to slack",
-		SentAt:         time.Now().UTC(),
+		Result:         fmt.Sprintf("sent %d leads to slack", len(candidates)),
+		SentAt:         sentAt,
 	}
 	if err := deliveryStore.UpsertResult(ctx, delivery); err != nil {
-		return delivery, fmt.Errorf("record sent delivery: %w", err)
+		return delivery, candidates, fmt.Errorf("record sent delivery: %w", err)
 	}
-	return delivery, nil
+	return delivery, candidates, nil
+}
+
+func leadIDs(leads []storage.Lead) []string {
+	if len(leads) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(leads))
+	for _, lead := range leads {
+		ids = append(ids, lead.ID)
+	}
+	return ids
+}
+
+func deliveredCount(result string) int {
+	var n int
+	if _, err := fmt.Sscanf(result, "sent %d leads", &n); err == nil && n > 0 {
+		return n
+	}
+	return 1
 }

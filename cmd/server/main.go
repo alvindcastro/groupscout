@@ -201,7 +201,7 @@ func main() {
 		// n8n expression failures that silently drop guarantee_one_lead from the request body.
 		hasScheduleKey := req.CadenceKey != "" || req.ScheduleKey != ""
 		result, err := runPipeline(ctx, cfg, db, PipelineRunOptions{
-			GuaranteeOneLead: req.GuaranteeOneLead || deliveryMode == "one_lead" || deliveryMode == "exactly_one" || hasScheduleKey,
+			GuaranteeOneLead: req.GuaranteeOneLead || deliveryMode == "all_eligible" || deliveryMode == "one_lead" || deliveryMode == "exactly_one" || hasScheduleKey,
 			IdempotencyKey:   req.IdempotencyKey,
 			ScheduleKey:      req.ScheduleKey,
 		})
