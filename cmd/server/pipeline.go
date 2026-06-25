@@ -329,6 +329,17 @@ func deliverGuaranteedLeads(ctx context.Context, leadStore storage.LeadStore, de
 		if err := deliveryStore.UpsertResult(ctx, delivery); err != nil {
 			return delivery, nil, fmt.Errorf("record no eligible lead: %w", err)
 		}
+
+		// Mirror the Slack cadence message to email so recipients stay in sync
+		// even on days with no leads. Best-effort: a failure only warns.
+		if emailNotifier != nil {
+			msg := cadenceMessage(delivery.Status, opts.ScheduleKey, 0)
+			if err := emailNotifier.SendNotice(ctx, recipients, "GroupScout: no new leads today", msg); err != nil {
+				logger.Log.Warn("failed to email no-lead notice", "error", err, "recipients", recipients)
+			} else {
+				logger.Log.Info("emailed no-lead notice", "recipients", recipients)
+			}
+		}
 		return delivery, nil, nil
 	}
 

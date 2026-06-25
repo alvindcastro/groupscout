@@ -79,6 +79,30 @@ func (n *EmailNotifier) SendLeads(ctx context.Context, recipients []string, lead
 	})
 }
 
+// SendNotice emails a short status message to every recipient. It mirrors
+// non-lead cadence outcomes (e.g. "no new leads today") that are also posted to
+// Slack, so email recipients stay in sync with Slack. No-ops when there are no
+// recipients.
+func (n *EmailNotifier) SendNotice(ctx context.Context, recipients []string, subject, message string) error {
+	if len(recipients) == 0 || message == "" {
+		return nil
+	}
+	if n.APIKey == "" {
+		return fmt.Errorf("RESEND_API_KEY not set")
+	}
+
+	html := fmt.Sprintf("<p style=\"font-family: sans-serif; line-height: 1.6; color: #333;\">%s</p>",
+		template.HTMLEscapeString(message))
+
+	return n.post(ctx, map[string]any{
+		"from":    n.From,
+		"to":      recipients,
+		"subject": subject,
+		"text":    message,
+		"html":    html,
+	})
+}
+
 // post marshals the payload and sends it to the Resend API, returning an error
 // for any non-2xx response.
 func (n *EmailNotifier) post(ctx context.Context, payload map[string]any) error {
