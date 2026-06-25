@@ -99,25 +99,25 @@ type ScoreBand struct {
 
 // ExpectedEnrichment specifies expected AI enrichment fields for lead cases.
 type ExpectedEnrichment struct {
-	ProjectType           string             `json:"project_type"`
-	EstimatedRoomNights   RoomNightRange     `json:"estimated_room_nights"`
-	ProjectDurationMonths DurationRange      `json:"project_duration_months"`
-	LodgingNeed           string             `json:"lodging_need"`
-	Confidence            string             `json:"confidence"`
+	ProjectType           string         `json:"project_type"`
+	EstimatedRoomNights   RoomNightRange `json:"estimated_room_nights"`
+	ProjectDurationMonths DurationRange  `json:"project_duration_months"`
+	LodgingNeed           string         `json:"lodging_need"`
+	Confidence            string         `json:"confidence"`
 }
 
 // RoomNightRange specifies min/max room night estimate and whether unknown is allowed.
 type RoomNightRange struct {
-	Min          float64 `json:"min"`
-	Max          float64 `json:"max"`
-	UnknownAllowed bool  `json:"unknown_allowed"`
+	Min            float64 `json:"min"`
+	Max            float64 `json:"max"`
+	UnknownAllowed bool    `json:"unknown_allowed"`
 }
 
 // DurationRange specifies min/max project duration and whether unknown is allowed.
 type DurationRange struct {
-	Min          float64 `json:"min"`
-	Max          float64 `json:"max"`
-	UnknownAllowed bool  `json:"unknown_allowed"`
+	Min            float64 `json:"min"`
+	Max            float64 `json:"max"`
+	UnknownAllowed bool    `json:"unknown_allowed"`
 }
 
 // ExpectedAlert specifies expected alert state and signals for alert cases.
@@ -130,41 +130,41 @@ type ExpectedAlert struct {
 
 // PrivacyExpectation specifies redaction and forbidden output patterns.
 type PrivacyExpectation struct {
-	RedactPatterns         []string `json:"redact_patterns"`
+	RedactPatterns          []string `json:"redact_patterns"`
 	ForbiddenOutputPatterns []string `json:"forbidden_output_patterns"`
 }
 
 // RawLead is the raw payload for a lead-type case.
 type RawLead struct {
-	Title    string            `json:"title"`
-	Text     string            `json:"text"`
-	IssuedAt string            `json:"issued_at"`
-	Location string            `json:"location"`
-	ValueCAD *float64          `json:"value_cad"`
-	Metadata map[string]any    `json:"metadata"`
+	Title    string         `json:"title"`
+	Text     string         `json:"text"`
+	IssuedAt string         `json:"issued_at"`
+	Location string         `json:"location"`
+	ValueCAD *float64       `json:"value_cad"`
+	Metadata map[string]any `json:"metadata"`
 }
 
 // RawAlert is the raw payload for an alert-type case.
 type RawAlert struct {
-	AirportCode string            `json:"airport_code"`
-	ObservedAt  string            `json:"observed_at"`
-	Text        string            `json:"text"`
-	Signals     AlertSignals      `json:"signals"`
+	AirportCode string       `json:"airport_code"`
+	ObservedAt  string       `json:"observed_at"`
+	Text        string       `json:"text"`
+	Signals     AlertSignals `json:"signals"`
 }
 
 // AlertSignals captures the multi-signal snapshot for an alert case.
 type AlertSignals struct {
-	CancelledCount      int           `json:"cancelled_count"`
-	TotalFlights        int           `json:"total_flights"`
-	CancellationRate    float64       `json:"cancellation_rate"`
-	AvgSeatsPerFlight   int           `json:"avg_seats_per_flight"`
-	ConnectingPaxRatio  float64       `json:"connecting_pax_ratio"`
-	HourOfDay           int           `json:"hour_of_day"`
-	MinutesActive       int           `json:"minutes_active"`
-	WeatherAlert        *WeatherSignal `json:"weather_alert"`
-	NotamActive         bool          `json:"notam_active"`
-	SingleRunwayOps     bool          `json:"single_runway_ops"`
-	FeedAgeSeconds      int           `json:"feed_age_seconds"`
+	CancelledCount     int            `json:"cancelled_count"`
+	TotalFlights       int            `json:"total_flights"`
+	CancellationRate   float64        `json:"cancellation_rate"`
+	AvgSeatsPerFlight  int            `json:"avg_seats_per_flight"`
+	ConnectingPaxRatio float64        `json:"connecting_pax_ratio"`
+	HourOfDay          int            `json:"hour_of_day"`
+	MinutesActive      int            `json:"minutes_active"`
+	WeatherAlert       *WeatherSignal `json:"weather_alert"`
+	NotamActive        bool           `json:"notam_active"`
+	SingleRunwayOps    bool           `json:"single_runway_ops"`
+	FeedAgeSeconds     int            `json:"feed_age_seconds"`
 }
 
 // WeatherSignal captures weather alert data for an alert signal snapshot.

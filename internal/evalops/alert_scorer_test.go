@@ -251,8 +251,8 @@ func TestScoreAlertCase_SnowSingleRunwayCapSoftAlert(t *testing.T) {
 
 func TestScoreAlertCase_ThresholdBoundaryBehavior(t *testing.T) {
 	tests := []struct {
-		name           string
-		signals        AlertSignals
+		name             string
+		signals          AlertSignals
 		expectedDecision AlertDecision
 	}{
 		{

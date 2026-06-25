@@ -11,14 +11,14 @@ import (
 
 // EvalReport is the full output from a single eval run.
 type EvalReport struct {
-	RunID          string         `json:"run_id"`
-	GeneratedAt    string         `json:"generated_at"`
-	TotalCases     int            `json:"total_cases"`
-	Passed         int            `json:"passed"`
-	Warned         int            `json:"warned"`
-	Failed         int            `json:"failed"`
-	CriticalCount  int            `json:"critical_count"`
-	Results        []CaseResult   `json:"results"`
+	RunID         string       `json:"run_id"`
+	GeneratedAt   string       `json:"generated_at"`
+	TotalCases    int          `json:"total_cases"`
+	Passed        int          `json:"passed"`
+	Warned        int          `json:"warned"`
+	Failed        int          `json:"failed"`
+	CriticalCount int          `json:"critical_count"`
+	Results       []CaseResult `json:"results"`
 }
 
 // CaseResult holds all findings for a single evaluated case.
@@ -150,10 +150,10 @@ func (r EvalReport) ToMarkdown() string {
 
 // JUnitTestSuites is the root XML element for JUnit XML output.
 type JUnitTestSuites struct {
-	XMLName    xml.Name        `xml:"testsuites"`
-	Name       string          `xml:"name,attr"`
-	Tests      int             `xml:"tests,attr"`
-	Failures   int             `xml:"failures,attr"`
+	XMLName    xml.Name         `xml:"testsuites"`
+	Name       string           `xml:"name,attr"`
+	Tests      int              `xml:"tests,attr"`
+	Failures   int              `xml:"failures,attr"`
 	TestSuites []JUnitTestSuite `xml:"testsuite"`
 }
 
@@ -219,8 +219,8 @@ func (r EvalReport) ToJUnit() ([]byte, error) {
 	sort.Strings(suiteNames)
 
 	suites := JUnitTestSuites{
-		Name:   "groupscout-evalops",
-		Tests:  r.TotalCases,
+		Name:     "groupscout-evalops",
+		Tests:    r.TotalCases,
 		Failures: r.CriticalCount,
 	}
 	for _, name := range suiteNames {

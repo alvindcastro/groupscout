@@ -9,12 +9,12 @@ import (
 
 func makePassedResult(id, caseType string) CaseResult {
 	return CaseResult{
-		CaseID:           id,
-		CaseType:         caseType,
-		Category:         "construction_permit",
-		ReleaseBlocking:  false,
-		Decision:         "keep",
-		ExpectedDecision: "keep",
+		CaseID:            id,
+		CaseType:          caseType,
+		Category:          "construction_permit",
+		ReleaseBlocking:   false,
+		Decision:          "keep",
+		ExpectedDecision:  "keep",
 		IsCriticalFailure: false,
 		Findings:          nil,
 	}

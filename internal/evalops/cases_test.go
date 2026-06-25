@@ -154,7 +154,7 @@ func TestLoadCases_UnknownSourceType(t *testing.T) {
 			"eval_result": "pass", "decision": "keep", "release_blocking": false,
 			"severity_on_mismatch": "warning", "score_band": map[string]any{"min": 0, "max": 10},
 			"enrichment": nil, "alert": nil, "evidence": []string{}, "forbidden_claims": []string{},
-			"privacy": map[string]any{"redact_patterns": []string{}, "forbidden_output_patterns": []string{}},
+			"privacy":             map[string]any{"redact_patterns": []string{}, "forbidden_output_patterns": []string{}},
 			"critical_failure_if": []string{},
 		},
 	}
@@ -188,7 +188,7 @@ func TestLoadCases_UnsupportedRiskLevel(t *testing.T) {
 			"eval_result": "pass", "decision": "keep", "release_blocking": false,
 			"severity_on_mismatch": "warning", "score_band": map[string]any{"min": 0, "max": 10},
 			"enrichment": nil, "alert": nil, "evidence": []string{}, "forbidden_claims": []string{},
-			"privacy": map[string]any{"redact_patterns": []string{}, "forbidden_output_patterns": []string{}},
+			"privacy":             map[string]any{"redact_patterns": []string{}, "forbidden_output_patterns": []string{}},
 			"critical_failure_if": []string{},
 		},
 	}

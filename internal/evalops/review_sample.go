@@ -13,16 +13,16 @@ import (
 // sample writer. It is safe for logs and can be converted into a draft case
 // via DraftCasesFromReviewSamples.
 type ReviewSample struct {
-	TraceID         string            `json:"trace_id"`
-	Stage           Stage             `json:"stage"`
-	SourceSystem    string            `json:"source_system"`
-	SourceType      string            `json:"source_type,omitempty"`
-	FailureReason   string            `json:"failure_reason"`
-	IssueClass      string            `json:"issue_class"`
-	RawExcerpt      string            `json:"raw_excerpt,omitempty"`
-	ReviewRequired  bool              `json:"review_required"`
-	CapturedAt      string            `json:"captured_at"`
-	Metadata        map[string]string `json:"metadata,omitempty"`
+	TraceID        string            `json:"trace_id"`
+	Stage          Stage             `json:"stage"`
+	SourceSystem   string            `json:"source_system"`
+	SourceType     string            `json:"source_type,omitempty"`
+	FailureReason  string            `json:"failure_reason"`
+	IssueClass     string            `json:"issue_class"`
+	RawExcerpt     string            `json:"raw_excerpt,omitempty"`
+	ReviewRequired bool              `json:"review_required"`
+	CapturedAt     string            `json:"captured_at"`
+	Metadata       map[string]string `json:"metadata,omitempty"`
 }
 
 // ReviewSampleWriter writes redacted review samples to a JSONL file.
@@ -159,16 +159,16 @@ func ReadSamples(path string) ([]ReviewSample, error) {
 // DraftCase is a JSONL case draft generated from a ReviewSample.
 // Expected fields contain TODO_REVIEW_* placeholders requiring human review.
 type DraftCase struct {
-	ID             string            `json:"id"`
-	CaseType       string            `json:"case_type"`
-	Category       string            `json:"category"`
-	RiskLevel      string            `json:"risk_level"`
-	TraceID        string            `json:"trace_id"`
-	ReviewRequired bool              `json:"review_required"`
-	Source         CaseSource        `json:"source"`
-	Raw            map[string]any    `json:"raw"`
-	Expected       DraftExpected     `json:"expected"`
-	Notes          string            `json:"notes"`
+	ID             string         `json:"id"`
+	CaseType       string         `json:"case_type"`
+	Category       string         `json:"category"`
+	RiskLevel      string         `json:"risk_level"`
+	TraceID        string         `json:"trace_id"`
+	ReviewRequired bool           `json:"review_required"`
+	Source         CaseSource     `json:"source"`
+	Raw            map[string]any `json:"raw"`
+	Expected       DraftExpected  `json:"expected"`
+	Notes          string         `json:"notes"`
 }
 
 // DraftExpected holds the expected fields for a draft case with TODO placeholders.

@@ -11,11 +11,11 @@ import (
 type Stage string
 
 const (
-	StageCollector   Stage = "collector"
-	StageEnrichment  Stage = "enrichment"
-	StageLLM         Stage = "llm"
+	StageCollector    Stage = "collector"
+	StageEnrichment   Stage = "enrichment"
+	StageLLM          Stage = "llm"
 	StageNotification Stage = "notification"
-	StageAlert       Stage = "alert"
+	StageAlert        Stage = "alert"
 )
 
 // TraceEvent is a safe, redacted trace event for logs, Loki, Sentry breadcrumbs,
@@ -38,13 +38,13 @@ const rawTextMaxLen = 500
 
 // redactPatterns matches common secret, webhook, email, and phone patterns.
 var redactPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)(sk-[a-zA-Z0-9\-_]{16,})`),                              // API keys
-	regexp.MustCompile(`(?i)(https?://hooks\.slack\.com/[^\s"']+)`),                  // Slack webhooks
-	regexp.MustCompile(`(?i)(https?://[^\s"']*webhook[^\s"']*)`),                     // Generic webhooks
-	regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`),          // Email
-	regexp.MustCompile(`\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b`),                            // Phone (xxx-xxx-xxxx)
-	regexp.MustCompile(`(?i)(bearer\s+[a-zA-Z0-9\-._~+/]+=*)`),                       // Bearer tokens
-	regexp.MustCompile(`(?i)(api[_-]?key\s*[:=]\s*["']?[a-zA-Z0-9\-_]{16,}["']?)`),  // API key assignments
+	regexp.MustCompile(`(?i)(sk-[a-zA-Z0-9\-_]{16,})`),                             // API keys
+	regexp.MustCompile(`(?i)(https?://hooks\.slack\.com/[^\s"']+)`),                // Slack webhooks
+	regexp.MustCompile(`(?i)(https?://[^\s"']*webhook[^\s"']*)`),                   // Generic webhooks
+	regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`),         // Email
+	regexp.MustCompile(`\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b`),                          // Phone (xxx-xxx-xxxx)
+	regexp.MustCompile(`(?i)(bearer\s+[a-zA-Z0-9\-._~+/]+=*)`),                     // Bearer tokens
+	regexp.MustCompile(`(?i)(api[_-]?key\s*[:=]\s*["']?[a-zA-Z0-9\-_]{16,}["']?)`), // API key assignments
 }
 
 // RedactSensitive replaces any sensitive patterns in s with [REDACTED].

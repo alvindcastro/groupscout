@@ -21,11 +21,11 @@ type EvalTargetRequest struct {
 // EvalTargetResponse is the JSON response from the eval target.
 // It follows the Promptfoo provider response shape.
 type EvalTargetResponse struct {
-	Output  string              `json:"output"`
-	TraceID string              `json:"trace_id"`
-	Scores  map[string]float64  `json:"scores"`
-	Sources []string            `json:"sources"`
-	Actions []string            `json:"actions,omitempty"`
+	Output  string             `json:"output"`
+	TraceID string             `json:"trace_id"`
+	Scores  map[string]float64 `json:"scores"`
+	Sources []string           `json:"sources"`
+	Actions []string           `json:"actions,omitempty"`
 }
 
 // EvalTargetHandler handles HTTP requests to the local eval target endpoint.

@@ -118,9 +118,9 @@ func TestTruncateRawText_RedactsSecrets(t *testing.T) {
 
 func TestNewCollectorEvent_SafeAttributes(t *testing.T) {
 	attrs := map[string]string{
-		"source":    "richmond_permits",
-		"api_key":   "sk-fake-key-should-be-redacted",
-		"project":   "Industrial Warehouse",
+		"source":  "richmond_permits",
+		"api_key": "sk-fake-key-should-be-redacted",
+		"project": "Industrial Warehouse",
 	}
 	event := NewCollectorEvent("trace-001", "src-001", "permit_pdf", "collected", 150, attrs, "")
 

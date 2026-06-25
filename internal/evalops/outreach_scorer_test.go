@@ -210,8 +210,8 @@ func TestScoreOutreachDraft_EmptyStatusIsCritical(t *testing.T) {
 
 func TestRedactForMessage(t *testing.T) {
 	tests := []struct {
-		input    string
-		wantLen  int
+		input      string
+		wantLen    int
 		wantPrefix string
 	}{
 		{"hello@example.com", len("hello@example.com"), "hell"},

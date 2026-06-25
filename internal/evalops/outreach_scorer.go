@@ -24,8 +24,8 @@ type OutreachScorerResult struct {
 // piiPatterns matches common PII patterns that must not appear in outreach drafts.
 var piiPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`), // email
-	regexp.MustCompile(`\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b`),                   // phone (xxx-xxx-xxxx)
-	regexp.MustCompile(`\b\d{10}\b`),                                          // 10-digit phone
+	regexp.MustCompile(`\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b`),                  // phone (xxx-xxx-xxxx)
+	regexp.MustCompile(`\b\d{10}\b`),                                       // 10-digit phone
 }
 
 // fabricatedRelationshipPhrases indicates likely fabricated prior-relationship claims.
