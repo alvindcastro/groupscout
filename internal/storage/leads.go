@@ -50,18 +50,54 @@ type sqliteLeadStore struct {
 	dsn string
 }
 
-// NewLeadStore returns a LeadStore.
-func NewLeadStore(db *sql.DB) LeadStore {
-	// We don't have the DSN here easily, but we can't easily change the signature
-	// if it's used elsewhere. However, NewLeadStore is only used in main.go
-	// where we have the DSN. Let's see if we can find a way to get DSN from db
-	// or just change the signature.
-	return &sqliteLeadStore{db: db}
-}
-
 // NewLeadStoreWithDSN returns a LeadStore that knows its DSN for rebinding.
 func NewLeadStoreWithDSN(db *sql.DB, dsn string) LeadStore {
 	return &sqliteLeadStore{db: db, dsn: dsn}
+}
+
+// leadColumns is the canonical column list, in struct-field order, shared by
+// every SELECT so the projection always matches scanLead.
+const leadColumns = `id, raw_project_id, raw_input_id, source, title, location, project_value,
+	general_contractor, applicant, contractor, source_url, project_type,
+	estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
+	priority_score, priority_reason, rationale, suggested_outreach_timing,
+	notes, status, created_at, updated_at`
+
+// rowScanner is satisfied by both *sql.Row and *sql.Rows.
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+// scanLead reads one leadColumns row into a Lead.
+func scanLead(s rowScanner) (Lead, error) {
+	var l Lead
+	var rawProjectID, rawInputID sql.NullString
+	if err := s.Scan(
+		&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
+		&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
+		&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
+		&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
+		&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
+	); err != nil {
+		return Lead{}, err
+	}
+	l.RawProjectID = rawProjectID.String
+	l.RawInputID = rawInputID.String
+	return l, nil
+}
+
+// scanLeads drains a result set of leadColumns rows, closing it when done.
+func scanLeads(rows *sql.Rows) ([]Lead, error) {
+	defer rows.Close()
+	var leads []Lead
+	for rows.Next() {
+		l, err := scanLead(rows)
+		if err != nil {
+			return nil, err
+		}
+		leads = append(leads, l)
+	}
+	return leads, rows.Err()
 }
 
 func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
@@ -113,92 +149,35 @@ func (s *sqliteLeadStore) ExistsBySourceTitle(ctx context.Context, source, title
 }
 
 func (s *sqliteLeadStore) ListNew(ctx context.Context) ([]Lead, error) {
-	query := `
-		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
-		       general_contractor, applicant, contractor, source_url, project_type,
-		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, rationale, suggested_outreach_timing,
-		       notes, status, created_at, updated_at
+	query := `SELECT ` + leadColumns + `
 		FROM leads
 		WHERE status = 'new'
-		ORDER BY priority_score DESC, created_at DESC
-	`
+		ORDER BY priority_score DESC, created_at DESC`
 	rows, err := s.db.QueryContext(ctx, Rebind(s.dsn, query))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var leads []Lead
-	for rows.Next() {
-		var l Lead
-		var rawProjectID sql.NullString
-		var rawInputID sql.NullString
-		if err := rows.Scan(
-			&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
-			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
-			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-			&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		l.RawProjectID = rawProjectID.String
-		l.RawInputID = rawInputID.String
-		leads = append(leads, l)
-	}
-	return leads, rows.Err()
+	return scanLeads(rows)
 }
 
 func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
-	query := `
-		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
-		       general_contractor, applicant, contractor, source_url, project_type,
-		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, rationale, suggested_outreach_timing,
-		       notes, status, created_at, updated_at
+	query := `SELECT ` + leadColumns + `
 		FROM leads
 		WHERE (status = 'notified' OR status = 'new')
 		  AND created_at >= ?
-		ORDER BY priority_score DESC, created_at DESC
-	`
+		ORDER BY priority_score DESC, created_at DESC`
 	rows, err := s.db.QueryContext(ctx, Rebind(s.dsn, query), time.Now().Add(-7*24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var leads []Lead
-	for rows.Next() {
-		var l Lead
-		var rawProjectID sql.NullString
-		var rawInputID sql.NullString
-		if err := rows.Scan(
-			&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
-			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
-			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-			&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		l.RawProjectID = rawProjectID.String
-		l.RawInputID = rawInputID.String
-		leads = append(leads, l)
-	}
-	return leads, rows.Err()
+	return scanLeads(rows)
 }
 
 func (s *sqliteLeadStore) ListDeliveryCandidates(ctx context.Context, limit int) ([]Lead, error) {
 	if limit <= 0 {
 		limit = 1
 	}
-	query := `
-		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
-		       general_contractor, applicant, contractor, source_url, project_type,
-		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, rationale, suggested_outreach_timing,
-		       notes, status, created_at, updated_at
+	query := `SELECT ` + leadColumns + `
 		FROM leads
 		WHERE status IN ('new', 'notified')
 		  AND id NOT IN (SELECT lead_id FROM lead_deliveries WHERE status = 'sent' AND lead_id IS NOT NULL)
@@ -206,33 +185,12 @@ func (s *sqliteLeadStore) ListDeliveryCandidates(ctx context.Context, limit int)
 		  CASE WHEN status = 'new' THEN 0 ELSE 1 END,
 		  priority_score DESC,
 		  created_at DESC
-		LIMIT ?
-	`
+		LIMIT ?`
 	rows, err := s.db.QueryContext(ctx, Rebind(s.dsn, query), limit)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var leads []Lead
-	for rows.Next() {
-		var l Lead
-		var rawProjectID sql.NullString
-		var rawInputID sql.NullString
-		if err := rows.Scan(
-			&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
-			&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
-			&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-			&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-			&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		l.RawProjectID = rawProjectID.String
-		l.RawInputID = rawInputID.String
-		leads = append(leads, l)
-	}
-	return leads, rows.Err()
+	return scanLeads(rows)
 }
 
 func (s *sqliteLeadStore) UpdateStatus(ctx context.Context, id, status string) error {
@@ -251,33 +209,14 @@ func (s *sqliteLeadStore) UpdateStatus(ctx context.Context, id, status string) e
 }
 
 func (s *sqliteLeadStore) GetByID(ctx context.Context, id string) (*Lead, error) {
-	query := `
-		SELECT id, raw_project_id, raw_input_id, source, title, location, project_value,
-		       general_contractor, applicant, contractor, source_url, project_type,
-		       estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
-		       priority_score, priority_reason, rationale, suggested_outreach_timing,
-		       notes, status, created_at, updated_at
-		FROM leads
-		WHERE id = ?
-	`
-	var l Lead
-	var rawProjectID sql.NullString
-	var rawInputID sql.NullString
-	err := s.db.QueryRowContext(ctx, Rebind(s.dsn, query), id).Scan(
-		&l.ID, &rawProjectID, &rawInputID, &l.Source, &l.Title, &l.Location, &l.ProjectValue,
-		&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
-		&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
-		&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-		&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
-	)
+	query := `SELECT ` + leadColumns + ` FROM leads WHERE id = ?`
+	l, err := scanLead(s.db.QueryRowContext(ctx, Rebind(s.dsn, query), id))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-	l.RawProjectID = rawProjectID.String
-	l.RawInputID = rawInputID.String
 	return &l, nil
 }
 

@@ -93,7 +93,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 	result.NewLeads = n
 
 	if opts.GuaranteeOneLead {
-		delivery, deliveredLeads, err := deliverGuaranteedLeads(ctx, leadStore, deliveryStore, leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL), leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom), cfg.LeadNotifyEmails, opts)
+		delivery, deliveredLeads, err := deliverGuaranteedLeads(ctx, leadStore, deliveryStore, newSlackNotifier(cfg), newEmailNotifier(cfg), cfg.LeadNotifyEmails, opts)
 		if err != nil {
 			_ = deliveryStore.UpsertResult(ctx, storage.LeadDelivery{
 				IdempotencyKey: opts.IdempotencyKey,
@@ -128,7 +128,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 		return result, nil
 	}
 
-	notifier := leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL)
+	notifier := newSlackNotifier(cfg)
 	if err := notifier.Send(ctx, leads); err != nil {
 		return result, fmt.Errorf("slack notify: %w", err)
 	}
@@ -137,7 +137,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 
 	// Email is a best-effort copy of the Slack digest; a failure here must not
 	// fail the run or block marking leads notified, since Slack already delivered.
-	emailNotifier := leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom)
+	emailNotifier := newEmailNotifier(cfg)
 	if err := emailNotifier.SendLeads(ctx, cfg.LeadNotifyEmails, leads); err != nil {
 		l.Warn("failed to email leads", "error", err, "recipients", cfg.LeadNotifyEmails)
 	} else {
@@ -150,6 +150,14 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 		}
 	}
 	return result, nil
+}
+
+func newSlackNotifier(cfg *config.Config) leadnotify.Notifier {
+	return leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL)
+}
+
+func newEmailNotifier(cfg *config.Config) *leadnotify.EmailNotifier {
+	return leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom)
 }
 
 func buildCollectors(cfg *config.Config) []collector.Collector {

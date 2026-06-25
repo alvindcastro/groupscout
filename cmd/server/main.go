@@ -17,7 +17,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/alvindcastro/groupscout/config"
-	"github.com/alvindcastro/groupscout/internal/leadnotify"
 	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
@@ -245,7 +244,7 @@ func main() {
 			return
 		}
 
-		emailNotifier := leadnotify.NewEmailNotifier(cfg.ResendAPIKey, cfg.EmailFrom)
+		emailNotifier := newEmailNotifier(cfg)
 		toEmail := r.URL.Query().Get("to")
 		if toEmail == "" {
 			toEmail = "alvin@groupscout.ai"
@@ -266,7 +265,7 @@ func main() {
 	http.HandleFunc("/n8n/webhook", handleN8NWebhook(
 		cfg,
 		storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL),
-		leadnotify.NewSlackNotifier(cfg.SlackWebhookURL, cfg.BaseURL),
+		newSlackNotifier(cfg),
 	))
 
 	http.HandleFunc("/leads/", func(w http.ResponseWriter, r *http.Request) {

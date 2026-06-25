@@ -134,6 +134,7 @@ Important variables are documented in `.env.example`. The most commonly needed l
 - `DATABASE_URL` for Postgres or local SQLite fallback
 - `API_TOKEN` for `/run`, `/digest`, `/ingest`, and related protected endpoints
 - `SLACK_WEBHOOK_URL` for lead delivery
+- `RESEND_API_KEY`, `EMAIL_FROM`, and `LEAD_NOTIFY_EMAILS` for the email copy that mirrors Slack delivery (including the no-lead cadence notice); recipients are delivered in listed order
 - `CLAUDE_API_KEY`, `OLLAMA_*`, or future provider settings for enrichment
 - collector toggles such as `CREATIVEBC_ENABLED`, `VCC_ENABLED`, `BCBID_ENABLED`, `NEWS_ENABLED`, and `EVENTBRITE_ENABLED`
 - `AUDIT_RETENTION_*` for raw audit cleanup behavior
