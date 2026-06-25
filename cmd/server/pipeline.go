@@ -27,6 +27,7 @@ type PipelineRunOptions struct {
 
 type PipelineRunResult struct {
 	Status            string   `json:"status"`
+	Message           string   `json:"message,omitempty"`
 	NewLeads          int      `json:"new_leads"`
 	NotifiedLeads     int      `json:"notified_leads"`
 	DeliveryStatus    string   `json:"delivery_status,omitempty"`
@@ -56,6 +57,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 		if !locked {
 			result.Status = "locked"
 			result.DeliveryStatus = "locked"
+			result.Message = cadenceMessage("locked", result.ScheduleKey, 0)
 			return result, nil
 		}
 		defer func() {
@@ -73,6 +75,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 			result.DeliveredLeadID = existing.LeadID
 			result.DeliveryStatus = "duplicate"
 			result.DeliveryDuplicate = true
+			result.Message = cadenceMessage("duplicate", result.ScheduleKey, result.NotifiedLeads)
 			return result, nil
 		}
 	}
@@ -111,6 +114,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 		if delivery.Status == "sent" {
 			result.NotifiedLeads = len(deliveredLeads)
 		}
+		result.Message = cadenceMessage(delivery.Status, result.ScheduleKey, result.NotifiedLeads)
 		return result, nil
 	}
 
@@ -264,6 +268,47 @@ func cadenceKey(now time.Time) string {
 	}
 	weekday := strings.ToLower(now.Weekday().String())
 	return fmt.Sprintf("lead-cadence:%s:%s", now.Format("2006-01-02"), weekday)
+}
+
+// cadenceMessage returns a human-readable, ready-to-post summary of a cadence
+// run so the Slack/n8n step can post it verbatim instead of stitching together
+// raw flags like run_ok/no_lead/status.
+func cadenceMessage(status, scheduleKey string, count int) string {
+	day := cadenceDayLabel(scheduleKey)
+	switch status {
+	case "sent":
+		if count == 1 {
+			return fmt.Sprintf("📬 GroupScout sent 1 new lead for %s.", day)
+		}
+		return fmt.Sprintf("📬 GroupScout sent %d new leads for %s.", count, day)
+	case "duplicate":
+		return fmt.Sprintf("✅ GroupScout already delivered today's leads for %s — nothing new to resend.", day)
+	case "locked":
+		return fmt.Sprintf("⏳ GroupScout cadence for %s is already running; skipped this duplicate trigger.", day)
+	case "no_eligible_lead":
+		return fmt.Sprintf("📭 No new leads for %s. GroupScout ran cleanly — every current lead has already been delivered, so there was nothing fresh to send.", day)
+	default:
+		return fmt.Sprintf("GroupScout cadence finished for %s (status: %s).", day, status)
+	}
+}
+
+// cadenceDayLabel turns a schedule key like "lead-cadence:2026-06-25:thursday"
+// into a friendly "Thursday, 2026-06-25". Falls back to the raw key.
+func cadenceDayLabel(scheduleKey string) string {
+	parts := strings.Split(scheduleKey, ":")
+	if len(parts) >= 3 {
+		date := parts[len(parts)-2]
+		weekday := parts[len(parts)-1]
+		if weekday != "" {
+			weekday = strings.ToUpper(weekday[:1]) + weekday[1:]
+			return fmt.Sprintf("%s, %s", weekday, date)
+		}
+		return date
+	}
+	if scheduleKey == "" {
+		return "today"
+	}
+	return scheduleKey
 }
 
 const maxCadenceDeliveryLeads = 100

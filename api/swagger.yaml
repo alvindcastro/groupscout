@@ -79,6 +79,10 @@ paths:
                   status:
                     type: string
                     example: success
+                  message:
+                    type: string
+                    description: Human-readable, ready-to-post summary of the run (suitable for posting verbatim to Slack).
+                    example: "📭 No new leads for Thursday, 2026-06-25. GroupScout ran cleanly — every current lead has already been delivered, so there was nothing fresh to send."
                   new_leads:
                     type: integer
                   notified_leads:
