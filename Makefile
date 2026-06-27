@@ -1,3 +1,5 @@
+COMPOSE ?= docker compose
+
 .PHONY: help build test lint run run-once docker-up docker-down docker-logs ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
 
 # Default target: help
@@ -15,9 +17,9 @@ help:
 	@echo "run              - Run the lead generation server"
 	@echo "run-alertd       - Run the alertd service"
 	@echo "run-once         - Run the lead generation pipeline once and exit"
-	@echo "docker-up        - Start all services using Docker Compose"
-	@echo "docker-down      - Stop all services using Docker Compose"
-	@echo "docker-logs      - Follow Docker Compose logs"
+	@echo "docker-up        - Start all services using Docker Compose or COMPOSE='podman compose'"
+	@echo "docker-down      - Stop all services using Docker Compose or COMPOSE='podman compose'"
+	@echo "docker-logs      - Follow Compose logs using Docker or COMPOSE='podman compose'"
 	@echo "ollama-pull      - Pull required LLM models to local Ollama"
 	@echo "ollama-push      - Push persona Modelfiles to local Ollama"
 	@echo "db-migrate       - Run database migrations (Postgres)"
@@ -67,13 +69,13 @@ eval-target:
 	go run cmd/evaltarget/main.go
 
 docker-up:
-	docker compose up -d
+	$(COMPOSE) up -d
 
 docker-down:
-	docker compose down
+	$(COMPOSE) down
 
 docker-logs:
-	docker compose logs -f
+	$(COMPOSE) logs -f
 
 ollama-pull:
 	ollama pull mistral
@@ -99,7 +101,7 @@ clean:
 # clear: Removes all data, stops containers, and cleans build artifacts
 clear:
 	@echo "Clearing all data..."
-	docker compose down -v
+	$(COMPOSE) down -v
 	rm -f groupscout.db
 	rm -rf build/
 	@echo "Data cleared."

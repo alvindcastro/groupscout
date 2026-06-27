@@ -52,6 +52,11 @@ func TestSmokeScriptHasRequiredChecks(t *testing.T) {
 		{"success message", "smoke-ui-docker-e2e: all checks passed"},
 		{"cleanup trap", "cleanup"},
 		{"groupscout-ui repo", "groupscout-ui"},
+		{"configurable compose command", "GROUPSCOUT_COMPOSE"},
+		{"backend compose file", "docker-compose.yml"},
+		{"UI compose file", "compose.dev.yml"},
+		{"stable compose project", "-p groupscout"},
+		{"bad proxy service", "groupscout-ui-production-bad-proxy"},
 	}
 
 	for _, r := range required {
@@ -62,6 +67,10 @@ func TestSmokeScriptHasRequiredChecks(t *testing.T) {
 }
 
 func TestSmokeScriptIsExecutable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows-mounted checkouts do not reliably expose POSIX executable bits")
+	}
+
 	info, err := os.Stat(scriptPath(t))
 	if err != nil {
 		t.Fatalf("cannot stat smoke script: %v", err)
@@ -81,7 +90,7 @@ func TestSmokeScriptDefaultUiRepo(t *testing.T) {
 func TestSmokeScriptHasCleanupTrap(t *testing.T) {
 	script := readScript(t)
 	if !strings.Contains(script, "trap cleanup EXIT") {
-		t.Error("smoke script missing 'trap cleanup EXIT' — containers may not be cleaned up on failure")
+		t.Error("smoke script missing 'trap cleanup EXIT' - containers may not be cleaned up on failure")
 	}
 }
 
@@ -89,6 +98,37 @@ func TestSmokeScriptDoesNotRemoveVolumes(t *testing.T) {
 	script := readScript(t)
 	// cleanup must not pass -v flag (would remove backend data volumes)
 	if strings.Contains(script, "down -v") {
-		t.Error("smoke script cleanup uses 'down -v' — this would delete backend data volumes")
+		t.Error("smoke script cleanup uses 'down -v' - this would delete backend data volumes")
+	}
+}
+
+func TestSmokeScriptSupportsPodmanComposeOverride(t *testing.T) {
+	script := readScript(t)
+	if !strings.Contains(script, `GROUPSCOUT_COMPOSE="${GROUPSCOUT_COMPOSE:-docker compose}"`) {
+		t.Error("smoke script should default to Docker Compose through GROUPSCOUT_COMPOSE")
+	}
+	if !strings.Contains(script, `read -r -a COMPOSE <<< "${GROUPSCOUT_COMPOSE}"`) {
+		t.Error("smoke script should split GROUPSCOUT_COMPOSE so 'podman compose' works")
+	}
+	if strings.Contains(script, "docker compose \\") {
+		t.Error("smoke script should use the configurable Compose command, not hardcoded docker compose calls")
+	}
+}
+
+func TestSmokeScriptUsesExplicitComposeFiles(t *testing.T) {
+	script := readScript(t)
+	required := []string{
+		`-f "${GROUPSCOUT_BACKEND_REPO}/docker-compose.yml"`,
+		`-f "${GROUPSCOUT_UI_REPO}/compose.dev.yml"`,
+		`--profile smoke-ui-e2e`,
+		`up -d --build groupscout-ui-production groupscout-ui-production-bad-proxy`,
+		`stop groupscout-ui-production groupscout-ui-production-bad-proxy`,
+		`rm -f groupscout-ui-production groupscout-ui-production-bad-proxy`,
+	}
+
+	for _, token := range required {
+		if !strings.Contains(script, token) {
+			t.Errorf("smoke script missing explicit Compose token %q", token)
+		}
 	}
 }
