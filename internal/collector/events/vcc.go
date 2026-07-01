@@ -80,8 +80,12 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]collector.RawProject, err
 	// Based on common patterns and PHASES.md, we want to extract:
 	// name, start date, end date, category tag.
 
-	doc.Find("article, .event-card, .event, .listing-item, .views-row").Each(func(i int, sel *goquery.Selection) {
-		s := sel.Find("h2, h3, h4, .event-title, .title, a").First()
+	// The live VCC events page renders each event as an <a class="event-item">
+	// anchor wrapping .event-details (title h2), .event-date, and .event-location.
+	// The older selectors (.event-card/.views-row/etc.) are kept as fallbacks so
+	// the collector survives another markup revision.
+	doc.Find(".event-item, article, .event-card, .event, .listing-item, .views-row").Each(func(i int, sel *goquery.Selection) {
+		s := sel.Find(".event-details h2, h2, h3, h4, .event-title, .title").First()
 		title := strings.TrimSpace(s.Text())
 		if title == "" || len(title) > 150 || len(title) < 5 {
 			return
@@ -93,11 +97,17 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]collector.RawProject, err
 			return
 		}
 
-		// Find metadata by looking inside the container
-		dateStr := strings.TrimSpace(sel.Find(".event-date, .date, .time, .field--name-field-event-date").First().Text())
+		// Find metadata by looking inside the container. The live .event-date
+		// markup stacks day/month spans across lines, so collapse whitespace.
+		dateStr := normalizeSpace(sel.Find(".event-date, .date, .time, .field--name-field-event-date").First().Text())
 		category := strings.TrimSpace(sel.Find(".event-category, .category, .type, .field--name-field-event-category").First().Text())
 
-		link, _ := s.Attr("href")
+		// The container itself may be the <a> (live .event-item markup), so check
+		// it before falling back to nested anchors.
+		link := strings.TrimSpace(sel.AttrOr("href", ""))
+		if link == "" {
+			link, _ = s.Attr("href")
+		}
 		if link == "" {
 			link, _ = s.Find("a").First().Attr("href")
 		}
@@ -167,6 +177,12 @@ func (c *VCCCollector) isRelevant(title, category string) bool {
 
 	// If no explicit keep/drop, default to true for now to let Claude decide
 	return true
+}
+
+// normalizeSpace collapses any run of whitespace (including newlines from
+// stacked markup) into single spaces and trims the result.
+func normalizeSpace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 func (c *VCCCollector) slugify(s string) string {
