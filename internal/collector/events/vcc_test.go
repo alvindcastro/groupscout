@@ -37,6 +37,73 @@ var vccMockHTML = `
 	</html>
 `
 
+// vccLiveMarkupHTML mirrors the real vancouverconventioncentre.com/events
+// structure (July 2026 snapshot): each event is an <a class="event-item">
+// anchor holding the href, with the title in .event-details h2 and stacked
+// day/month spans in .event-date. This guards against the selector drift that
+// made the collector return 200 but find 0 events.
+var vccLiveMarkupHTML = `
+	<html>
+		<body>
+			<section class="events-items">
+				<a class="event-item has-image anim start" href="/events/canada-together-2026">
+					<div class="event-container">
+						<div class="event-ctn">
+							<div class="event-date">
+								<div class="day"><span>1</span>
+									<span class="month">Jul</span></div>
+							</div>
+							<div class="event-details">
+								<h2 class="font-helvetica">Canada Together 2026</h2>
+								<p class="event-location"><span></span></p>
+							</div>
+						</div>
+					</div>
+				</a>
+				<a class="event-item anim start" href="/events/10th-world-congress-of-biomechanics">
+					<div class="event-container">
+						<div class="event-ctn">
+							<div class="event-date">
+								<div class="day"><span>11</span>
+									<span class="month">Jul</span></div>
+								<div> › </div>
+								<div class="day"><span>15</span>
+									<span class="month">Jul</span></div>
+							</div>
+							<div class="event-details">
+								<h2 class="font-helvetica">10th World Congress of Biomechanics</h2>
+							</div>
+						</div>
+					</div>
+				</a>
+			</section>
+		</body>
+	</html>
+`
+
+func TestVCCCollector_CollectLiveMarkup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(vccLiveMarkupHTML))
+	}))
+	defer server.Close()
+
+	c := NewVCCCollector(server.URL)
+	projects, err := c.Collect(context.Background())
+	require.NoError(t, err)
+	require.Len(t, projects, 2, "collector must extract both .event-item anchors from live markup")
+
+	assert.Equal(t, "Canada Together 2026", projects[0].Title)
+	assert.Equal(t, "https://www.vancouverconventioncentre.com/events/canada-together-2026", projects[0].SourceURL)
+	assert.Equal(t, "Category:  | Date: 1 Jul", projects[0].Description)
+
+	assert.Equal(t, "10th World Congress of Biomechanics", projects[1].Title)
+	assert.Equal(t, "https://www.vancouverconventioncentre.com/events/10th-world-congress-of-biomechanics", projects[1].SourceURL)
+	assert.Equal(t, "Category:  | Date: 11 Jul › 15 Jul", projects[1].Description)
+
+	assert.NotEqual(t, projects[0].Hash, projects[1].Hash, "each event needs a distinct dedup hash")
+}
+
 func TestVCCCollector_Collect(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
