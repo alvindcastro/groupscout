@@ -16,6 +16,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testAdvisoryLockKey must match the storage package's key so the two
+// integration suites serialize against each other. `go test ./pkgA ./pkgB`
+// runs each package's test binary as a separate, concurrently-running process
+// against the one shared TEST_POSTGRES_URL database; without serialization the
+// enrichment package's cleanup (`DELETE FROM raw_inputs`) races the storage
+// package's lead insert and trips leads_raw_input_id_fkey (SQLSTATE 23503).
+const testAdvisoryLockKey = 0x67734954 // "gsIT"
+
+func acquireTestLock(t *testing.T, db *sql.DB) *sql.Conn {
+	t.Helper()
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("advisory lock conn: %v", err)
+	}
+	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", testAdvisoryLockKey); err != nil {
+		conn.Close()
+		t.Fatalf("pg_advisory_lock: %v", err)
+	}
+	return conn
+}
+
+func releaseTestLock(conn *sql.Conn) {
+	if conn == nil {
+		return
+	}
+	conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", testAdvisoryLockKey)
+	conn.Close()
+}
+
 func newTestDB(t *testing.T) (*sql.DB, string) {
 	t.Helper()
 	dsn := os.Getenv("TEST_POSTGRES_URL")
@@ -29,10 +59,19 @@ func newTestDB(t *testing.T) (*sql.DB, string) {
 	if err := storage.Migrate(db, dsn); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	t.Cleanup(func() {
+
+	lockConn := acquireTestLock(t, db)
+	clean := func() {
+		db.Exec("DELETE FROM delivery_locks")
+		db.Exec("DELETE FROM lead_deliveries")
 		db.Exec("DELETE FROM leads")
 		db.Exec("DELETE FROM raw_projects")
 		db.Exec("DELETE FROM raw_inputs")
+	}
+	clean()
+	t.Cleanup(func() {
+		clean()
+		releaseTestLock(lockConn)
 		db.Close()
 	})
 	return db, dsn

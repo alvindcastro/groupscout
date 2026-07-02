@@ -9,6 +9,39 @@ import (
 	"testing"
 )
 
+// testAdvisoryLockKey serializes integration tests that share this database.
+// `go test ./pkgA ./pkgB` builds and runs each package's test binary as a
+// separate OS process, and those processes run concurrently against the one
+// shared TEST_POSTGRES_URL database. Without serialization, one package's
+// `DELETE FROM raw_inputs` races another package's lead insert and trips
+// leads_raw_input_id_fkey (SQLSTATE 23503). A session-level Postgres advisory
+// lock held on a pinned connection for the lifetime of each test makes the
+// test bodies mutually exclusive across every package and process. The
+// enrichment package uses the same key so the two suites serialize together.
+const testAdvisoryLockKey = 0x67734954 // "gsIT"
+
+func acquireTestLock(t *testing.T, db *sql.DB) *sql.Conn {
+	t.Helper()
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("advisory lock conn: %v", err)
+	}
+	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", testAdvisoryLockKey); err != nil {
+		conn.Close()
+		t.Fatalf("pg_advisory_lock: %v", err)
+	}
+	return conn
+}
+
+func releaseTestLock(conn *sql.Conn) {
+	if conn == nil {
+		return
+	}
+	conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", testAdvisoryLockKey)
+	conn.Close()
+}
+
 func newTestDB(t *testing.T) (*sql.DB, string) {
 	t.Helper()
 	dsn := os.Getenv("TEST_POSTGRES_URL")
@@ -22,17 +55,19 @@ func newTestDB(t *testing.T) (*sql.DB, string) {
 	if err := Migrate(db, dsn); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	db.Exec("DELETE FROM delivery_locks")
-	db.Exec("DELETE FROM lead_deliveries")
-	db.Exec("DELETE FROM leads")
-	db.Exec("DELETE FROM raw_projects")
-	db.Exec("DELETE FROM raw_inputs")
-	t.Cleanup(func() {
+
+	lockConn := acquireTestLock(t, db)
+	clean := func() {
 		db.Exec("DELETE FROM delivery_locks")
 		db.Exec("DELETE FROM lead_deliveries")
 		db.Exec("DELETE FROM leads")
 		db.Exec("DELETE FROM raw_projects")
 		db.Exec("DELETE FROM raw_inputs")
+	}
+	clean()
+	t.Cleanup(func() {
+		clean()
+		releaseTestLock(lockConn)
 		db.Close()
 	})
 	return db, dsn
