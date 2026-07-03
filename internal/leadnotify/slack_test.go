@@ -140,6 +140,25 @@ func TestBuildMessage_empty(t *testing.T) {
 	}
 }
 
+func TestAnalyticsSummaryBlock_containsSourceAttributionColumns(t *testing.T) {
+	block := analyticsSummaryBlock([]storage.SourceAttribution{
+		{Source: "announcements", Leads: 5, Claimed: 2, Won: 1, HitRate: 60},
+		{Source: "delta_permits", Leads: 1, Claimed: 0, Won: 0, HitRate: 0},
+	})
+
+	text := block["text"].(map[string]any)
+	content, _ := text["text"].(string)
+	for _, want := range []string{
+		"Source | Leads | Claimed | Won | Hit Rate",
+		"announcements | 5 | 2 | 1 | 60%",
+		"delta_permits | 1 | 0 | 0 | 0%",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("analytics summary missing %q\ngot: %s", want, content)
+		}
+	}
+}
+
 // ── leadBlock ─────────────────────────────────────────────────────────────────
 
 func TestLeadBlock_containsTitle(t *testing.T) {

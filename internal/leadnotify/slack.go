@@ -83,6 +83,17 @@ func (s *SlackNotifier) buildMessage(leads []storage.Lead) map[string]any {
 	return map[string]any{"blocks": blocks}
 }
 
+func (s *SlackNotifier) buildMessageWithAnalytics(leads []storage.Lead, attribution []storage.SourceAttribution) map[string]any {
+	msg := s.buildMessage(leads)
+	if len(attribution) == 0 {
+		return msg
+	}
+	blocks := msg["blocks"].([]map[string]any)
+	blocks = append(blocks, analyticsSummaryBlock(attribution))
+	msg["blocks"] = blocks
+	return msg
+}
+
 func headerBlock(n int) map[string]any {
 	label := "lead"
 	if n != 1 {
@@ -99,6 +110,20 @@ func headerBlock(n int) map[string]any {
 
 func dividerBlock() map[string]any {
 	return map[string]any{"type": "divider"}
+}
+
+func analyticsSummaryBlock(rows []storage.SourceAttribution) map[string]any {
+	text := "*Source Attribution*\n`Source | Leads | Claimed | Won | Hit Rate`"
+	for _, row := range rows {
+		text += fmt.Sprintf("\n`%s | %d | %d | %d | %.0f%%`", row.Source, row.Leads, row.Claimed, row.Won, row.HitRate)
+	}
+	return map[string]any{
+		"type": "section",
+		"text": map[string]any{
+			"type": "mrkdwn",
+			"text": text,
+		},
+	}
 }
 
 // leadBlock renders one Lead as a Slack section block.

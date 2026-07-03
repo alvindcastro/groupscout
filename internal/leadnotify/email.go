@@ -33,11 +33,15 @@ func NewEmailNotifier(apiKey, from string) *EmailNotifier {
 }
 
 func (n *EmailNotifier) SendWeeklyDigest(ctx context.Context, toEmail string, leads []storage.Lead) error {
+	return n.SendWeeklyDigestWithAnalytics(ctx, toEmail, leads, nil, nil)
+}
+
+func (n *EmailNotifier) SendWeeklyDigestWithAnalytics(ctx context.Context, toEmail string, leads []storage.Lead, attribution []storage.SourceAttribution, demand []storage.DemandBucket) error {
 	if n.APIKey == "" {
 		return fmt.Errorf("RESEND_API_KEY not set")
 	}
 
-	html, err := generateDigestHTML(leads)
+	html, err := generateDigestHTMLWithAnalytics(leads, attribution, demand)
 	if err != nil {
 		return fmt.Errorf("generate html: %w", err)
 	}
@@ -132,6 +136,10 @@ func (n *EmailNotifier) post(ctx context.Context, payload map[string]any) error 
 }
 
 func generateDigestHTML(leads []storage.Lead) (string, error) {
+	return generateDigestHTMLWithAnalytics(leads, nil, nil)
+}
+
+func generateDigestHTMLWithAnalytics(leads []storage.Lead, attribution []storage.SourceAttribution, demand []storage.DemandBucket) (string, error) {
 	const tpl = `
 <!DOCTYPE html>
 <html>
@@ -143,6 +151,9 @@ func generateDigestHTML(leads []storage.Lead) (string, error) {
         .medium-priority { border-left: 5px solid #f0ad4e; }
         .score { font-weight: bold; font-size: 1.2em; color: #d9534f; }
         .meta { font-size: 0.9em; color: #666; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f5f5f5; }
         h2 { margin-top: 0; }
         .btn { display: inline-block; padding: 10px 15px; background: #0275d8; color: #fff; text-decoration: none; border-radius: 3px; }
     </style>
@@ -151,7 +162,38 @@ func generateDigestHTML(leads []storage.Lead) (string, error) {
     <h1>Weekly High-Priority Leads</h1>
     <p>Here are the top construction and event leads for the past week.</p>
 
-    {{range .}}
+    {{if .Attribution}}
+    <h2>Source Attribution</h2>
+    <table>
+        <tr><th>Source</th><th>Leads</th><th>Claimed</th><th>Won</th><th>Hit Rate</th></tr>
+        {{range .Attribution}}
+        <tr>
+            <td>{{.Source}}</td>
+            <td>{{.Leads}}</td>
+            <td>{{.Claimed}}</td>
+            <td>{{.Won}}</td>
+            <td>{{printf "%.1f%%" .HitRate}}</td>
+        </tr>
+        {{end}}
+    </table>
+    {{end}}
+
+    {{if .Demand}}
+    <h2>Demand Density By Week</h2>
+    <table>
+        <tr><th>Week</th><th>Source</th><th>Leads</th><th>Estimated Crew</th></tr>
+        {{range .Demand}}
+        <tr>
+            <td>{{date .WeekStart}}</td>
+            <td>{{.Source}}</td>
+            <td>{{.Leads}}</td>
+            <td>{{.EstimatedCrewSize}}</td>
+        </tr>
+        {{end}}
+    </table>
+    {{end}}
+
+    {{range .Leads}}
     <div class="lead-card {{if ge .PriorityScore 8}}high-priority{{else}}medium-priority{{end}}">
         <h2>{{.Title}}</h2>
         <div class="score">Priority Score: {{.PriorityScore}}/10</div>
@@ -169,13 +211,26 @@ func generateDigestHTML(leads []storage.Lead) (string, error) {
 </body>
 </html>`
 
-	t, err := template.New("digest").Parse(tpl)
+	t, err := template.New("digest").Funcs(template.FuncMap{
+		"date": func(t time.Time) string {
+			return t.Format("2006-01-02")
+		},
+	}).Parse(tpl)
 	if err != nil {
 		return "", err
 	}
 
 	var buf bytes.Buffer
-	if err := t.Execute(&buf, displayLeads(leads)); err != nil {
+	data := struct {
+		Leads       []storage.Lead
+		Attribution []storage.SourceAttribution
+		Demand      []storage.DemandBucket
+	}{
+		Leads:       displayLeads(leads),
+		Attribution: attribution,
+		Demand:      demand,
+	}
+	if err := t.Execute(&buf, data); err != nil {
 		return "", err
 	}
 

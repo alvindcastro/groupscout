@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alvindcastro/groupscout/config"
 	"github.com/alvindcastro/groupscout/internal/storage"
@@ -43,6 +44,14 @@ func (s *fakeWebhookLeadStore) UpdateStatus(ctx context.Context, id, status stri
 }
 
 func (s *fakeWebhookLeadStore) ListForDigest(ctx context.Context) ([]storage.Lead, error) {
+	return nil, nil
+}
+
+func (s *fakeWebhookLeadStore) SourceAttribution(ctx context.Context, since time.Time) ([]storage.SourceAttribution, error) {
+	return nil, nil
+}
+
+func (s *fakeWebhookLeadStore) DemandDensityByWeek(ctx context.Context, since time.Time) ([]storage.DemandBucket, error) {
 	return nil, nil
 }
 

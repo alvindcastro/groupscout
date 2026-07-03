@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -34,6 +35,23 @@ type Lead struct {
 	UpdatedAt               time.Time
 }
 
+// SourceAttribution summarizes source yield and action outcomes in a time window.
+type SourceAttribution struct {
+	Source  string
+	Leads   int
+	Claimed int
+	Won     int
+	HitRate float64
+}
+
+// DemandBucket groups actionable demand signals by lead-created week and source.
+type DemandBucket struct {
+	WeekStart         time.Time
+	Source            string
+	Leads             int
+	EstimatedCrewSize int
+}
+
 // LeadStore is the interface for persisting and querying enriched leads.
 type LeadStore interface {
 	Insert(ctx context.Context, l *Lead) error
@@ -42,6 +60,8 @@ type LeadStore interface {
 	ListDeliveryCandidates(ctx context.Context, limit int) ([]Lead, error)
 	UpdateStatus(ctx context.Context, id, status string) error
 	ListForDigest(ctx context.Context) ([]Lead, error)
+	SourceAttribution(ctx context.Context, since time.Time) ([]SourceAttribution, error)
+	DemandDensityByWeek(ctx context.Context, since time.Time) ([]DemandBucket, error)
 	GetByID(ctx context.Context, id string) (*Lead, error)
 }
 
@@ -173,6 +193,88 @@ func (s *sqliteLeadStore) ListForDigest(ctx context.Context) ([]Lead, error) {
 	return scanLeads(rows)
 }
 
+func (s *sqliteLeadStore) SourceAttribution(ctx context.Context, since time.Time) ([]SourceAttribution, error) {
+	query := `
+		SELECT
+			COALESCE(NULLIF(source, ''), 'unknown') AS source_name,
+			COUNT(*) AS leads,
+			SUM(CASE WHEN status = 'claimed' THEN 1 ELSE 0 END) AS claimed,
+			SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) AS won
+		FROM leads
+		WHERE created_at >= ?
+		GROUP BY source_name
+		ORDER BY leads DESC, source_name ASC`
+	rows, err := s.db.QueryContext(ctx, Rebind(s.dsn, query), since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []SourceAttribution
+	for rows.Next() {
+		var row SourceAttribution
+		if err := rows.Scan(&row.Source, &row.Leads, &row.Claimed, &row.Won); err != nil {
+			return nil, err
+		}
+		if row.Leads > 0 {
+			row.HitRate = float64(row.Claimed+row.Won) / float64(row.Leads) * 100
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
+func (s *sqliteLeadStore) DemandDensityByWeek(ctx context.Context, since time.Time) ([]DemandBucket, error) {
+	query := `
+		SELECT COALESCE(NULLIF(source, ''), 'unknown'), created_at, estimated_crew_size
+		FROM leads
+		WHERE created_at >= ?
+		  AND status NOT IN ('dismissed', 'lost', 'skipped')
+		ORDER BY created_at ASC, source ASC`
+	rows, err := s.db.QueryContext(ctx, Rebind(s.dsn, query), since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type key struct {
+		week   time.Time
+		source string
+	}
+	buckets := map[key]DemandBucket{}
+	for rows.Next() {
+		var source string
+		var createdAt time.Time
+		var crew int
+		if err := rows.Scan(&source, &createdAt, &crew); err != nil {
+			return nil, err
+		}
+		k := key{week: weekStartUTC(createdAt), source: source}
+		b := buckets[k]
+		if b.Source == "" {
+			b = DemandBucket{WeekStart: k.week, Source: source}
+		}
+		b.Leads++
+		b.EstimatedCrewSize += crew
+		buckets[k] = b
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	out := make([]DemandBucket, 0, len(buckets))
+	for _, bucket := range buckets {
+		out = append(out, bucket)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].WeekStart.Equal(out[j].WeekStart) {
+			return out[i].WeekStart.Before(out[j].WeekStart)
+		}
+		return out[i].Source < out[j].Source
+	})
+	return out, nil
+}
+
 func (s *sqliteLeadStore) ListDeliveryCandidates(ctx context.Context, limit int) ([]Lead, error) {
 	if limit <= 0 {
 		limit = 1
@@ -225,4 +327,12 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+func weekStartUTC(t time.Time) time.Time {
+	t = t.UTC()
+	y, m, d := t.Date()
+	day := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+	offset := (int(day.Weekday()) + 6) % 7
+	return day.AddDate(0, 0, -offset)
 }

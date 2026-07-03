@@ -238,6 +238,19 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		digestSince := time.Now().Add(-7 * 24 * time.Hour)
+		sourceAttribution, err := leadStore.SourceAttribution(ctx, digestSince)
+		if err != nil {
+			l.Error("source attribution failed", "error", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		demandBuckets, err := leadStore.DemandDensityByWeek(ctx, digestSince)
+		if err != nil {
+			l.Error("demand density failed", "error", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		if len(leads) == 0 {
 			fmt.Fprintln(w, "No leads for digest")
@@ -250,7 +263,7 @@ func main() {
 			toEmail = "alvin@groupscout.ai"
 		}
 
-		if err := emailNotifier.SendWeeklyDigest(ctx, toEmail, leads); err != nil {
+		if err := emailNotifier.SendWeeklyDigestWithAnalytics(ctx, toEmail, leads, sourceAttribution, demandBuckets); err != nil {
 			l.Error("send email failed", "error", err)
 			sentry.CaptureException(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
