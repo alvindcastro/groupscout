@@ -1,0 +1,20 @@
+# Keep secrets, local binaries and databases out of the build context.
+.env
+.env.*
+!.env.example
+*.exe
+*.db
+*.db-shm
+*.db-wal
+build/
+dist/
+backups/
+coverage.out
+coverage.html
+
+# VCS, editor and agent metadata
+.git/
+.idea/
+.claude/
+.junie/
+.beads/

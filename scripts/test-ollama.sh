@@ -47,6 +47,6 @@ for persona in "${PERSONA_MODELS[@]}"; do
   if echo "$AVAILABLE_MODELS" | grep -q "$persona"; then
     echo "✅ Persona model '$persona' is available."
   else
-    echo "ℹ️ Persona model '$persona' is NOT available. Run 'go run cmd/server/main.go ollama push-models'."
+    echo "ℹ️ Persona model '$persona' is NOT available. Run 'go run ./cmd/server ollama push-models'."
   fi
 done

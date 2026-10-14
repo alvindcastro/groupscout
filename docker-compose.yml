@@ -1,9 +1,28 @@
+# GroupScout runtime: base Compose file.
+#
+#   docker-compose.yml               services, healthchecks, pinned images; no host ports
+#   docker-compose.override.yml      dev: host ports + local builds (auto-loaded by `compose up`)
+#   deploy/compose/compose.prod.yml  production: use with -f, which skips the dev override
+#
+# Profiles: core services (postgres, groupscout, alertd, n8n) always run.
+#   llm = ollama + ollama-init     obs = prometheus, grafana, loki, promtail
+# COMPOSE_PROFILES=llm,obs starts everything (the Makefile default).
+#
+# Images are pinned to explicit versions. Bump them deliberately: n8n and
+# Grafana migrate their databases forward and cannot be downgraded.
+
+name: groupscout
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   groupscout:
-    build: .
+    image: ${GROUPSCOUT_IMAGE:-groupscout}:${GROUPSCOUT_IMAGE_TAG:-local}
     container_name: groupscout_app
-    ports:
-      - "8080:8080"
     networks:
       - groupscout_net
     depends_on:
@@ -11,22 +30,23 @@ services:
         condition: service_healthy
       ollama:
         condition: service_healthy
+        required: false
       ollama-init:
         condition: service_completed_successfully
+        required: false
     environment:
-      - DATABASE_URL=postgres://groupscout:groupscout@postgres:5432/groupscout
-      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
-      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
-      - RESEND_API_KEY=${RESEND_API_KEY}
+      - DATABASE_URL=postgres://groupscout:${POSTGRES_PASSWORD:-groupscout}@postgres:5432/groupscout
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
       - LEAD_NOTIFY_EMAILS=${LEAD_NOTIFY_EMAILS:-alvin.dcastro@gmail.com}
       # onboarding@resend.dev works without domain verification but only delivers to the
       # Resend account owner's address. To email other recipients, verify a domain in
       # Resend and set EMAIL_FROM (e.g. "GroupScout <alerts@groupscout.ai>").
       - EMAIL_FROM=${EMAIL_FROM:-GroupScout <onboarding@resend.dev>}
-      - API_TOKEN=${API_TOKEN}
-      - RICHMOND_PERMITS_URL=${RICHMOND_PERMITS_URL}
-      - DELTA_PERMITS_URL=${DELTA_PERMITS_URL}
+      - API_TOKEN=${API_TOKEN:-}
+      - RICHMOND_PERMITS_URL=${RICHMOND_PERMITS_URL:-}
+      - DELTA_PERMITS_URL=${DELTA_PERMITS_URL:-}
       - CREATIVEBC_ENABLED=true
       - CREATIVEBC_URL=https://www.creativebc.com/search-projects/in-production/
       - VCC_ENABLED=true
@@ -43,49 +63,69 @@ services:
       - AUDIT_RETENTION_DAYS=${AUDIT_RETENTION_DAYS:-30}
       - AUDIT_RETENTION_INTERVAL_HOURS=${AUDIT_RETENTION_INTERVAL_HOURS:-24}
       - AUDIT_RETENTION_RUN_ON_START=${AUDIT_RETENTION_RUN_ON_START:-true}
+      - JSON_LOG=${JSON_LOG:-false}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s   # migrations run on startup
+    logging: *default-logging
     restart: unless-stopped
 
   alertd:
-    build: .
+    image: ${GROUPSCOUT_IMAGE:-groupscout}:${GROUPSCOUT_IMAGE_TAG:-local}
     container_name: groupscout_alertd
     command: ["./alertd"]
-    ports:
-      - "8081:8081"
-    env_file: .env
     volumes:
       - ./config:/app/config:ro
     networks:
       - groupscout_net
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # Only the variables alertd reads (cmd/alertd/main.go); it never sees the
+    # pipeline's API keys.
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - ALERTD_PORT=8081
+      - OLLAMA_ENABLED=${OLLAMA_ENABLED:-true}
+      - OLLAMA_ENDPOINT=http://ollama:11434
+      - OLLAMA_ALERT_COPY_ENABLED=${OLLAMA_ALERT_COPY_ENABLED:-false}
+      - OLLAMA_ALERT_COPY_TIMEOUT_S=${OLLAMA_ALERT_COPY_TIMEOUT_S:-15}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *default-logging
     restart: unless-stopped
 
   postgres:
-    image: pgvector/pgvector:pg17
+    # -bookworm is explicit: a silent switch to a trixie base changes glibc
+    # collation under the existing data directory.
+    image: pgvector/pgvector:0.8.7-pg17-bookworm
     container_name: groupscout_postgres
     environment:
       - POSTGRES_DB=groupscout
       - POSTGRES_USER=groupscout
-      - POSTGRES_PASSWORD=groupscout
+      # Only applied when the data volume is first initialised. To rotate on an
+      # existing volume, ALTER USER groupscout PASSWORD '...' as well.
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-groupscout}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
       - groupscout_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U groupscout"]
+      test: ["CMD-SHELL", "pg_isready -U groupscout -d groupscout"]
       interval: 10s
       timeout: 5s
       retries: 5
-    ports:
-      - "5432:5432"
+    logging: *default-logging
     restart: unless-stopped
 
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:2.43.5
     container_name: groupscout_n8n
-    ports:
-      - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
@@ -96,45 +136,61 @@ services:
       - N8N_PROTOCOL=http
       - WEBHOOK_URL=http://localhost:5678/
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # Blank keeps the key n8n generated inside n8n_data. Once set it must match
+      # that key, or n8n refuses to start ("Mismatching encryption keys").
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-}
+      - GENERIC_TIMEZONE=America/Vancouver
+      - TZ=America/Vancouver
       - GROUPSCOUT_API_BASE_URL=http://groupscout:8080
-      - GROUPSCOUT_API_TOKEN=${API_TOKEN}
-      - GROUPSCOUT_OPS_SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - GROUPSCOUT_API_TOKEN=${API_TOKEN:-}
+      - GROUPSCOUT_OPS_SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5678/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.15.0
     container_name: groupscout_prometheus
-    ports:
-      - "9090:9090"
+    profiles: ["obs"]
     volumes:
       - prometheus_data:/prometheus
     networks:
       - groupscout_net
+    logging: *default-logging
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.2.4
     container_name: groupscout_grafana
-    ports:
-      - "3000:3000"
+    profiles: ["obs"]
+    environment:
+      # Only applied when grafana_data is first initialised.
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
       - groupscout_net
+    logging: *default-logging
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.7.8
     container_name: groupscout_loki
-    ports:
-      - "3100:3100"
+    profiles: ["obs"]
     networks:
       - groupscout_net
+    logging: *default-logging
     restart: unless-stopped
 
   promtail:
-    image: grafana/promtail:latest
+    image: grafana/promtail:3.6.11
     container_name: groupscout_promtail
+    profiles: ["obs"]
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -142,21 +198,21 @@ services:
     command: -config.file=/etc/promtail/promtail.yaml
     networks:
       - groupscout_net
+    logging: *default-logging
     restart: unless-stopped
     depends_on:
       - loki
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.4
     container_name: groupscout_ollama
+    profiles: ["llm"]
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
     networks:
       - groupscout_net
-    # Do NOT publish 11434 to host in prod — internal only
-    # ports:
-    #   - "11434:11434"   # uncomment for local debugging only
+    # Never published to the host outside local debugging (see the dev override).
     mem_limit: 12g
     cpus: "2.0"
     healthcheck:
@@ -174,10 +230,12 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    logging: *default-logging
 
   ollama-init:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.4
     container_name: groupscout_ollama_init
+    profiles: ["llm"]
     restart: "no"
     volumes:
       - ollama_data:/root/.ollama
@@ -200,6 +258,7 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+    logging: *default-logging
 
 volumes:
   pgdata:
