@@ -1,0 +1,4 @@
+# Files executed or parsed inside Linux containers must keep LF endings on
+# every checkout (a CRLF bootstrap.sh fails under sh).
+*.sh text eol=lf
+deploy/** text eol=lf

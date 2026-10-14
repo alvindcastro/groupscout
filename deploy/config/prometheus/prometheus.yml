@@ -1,0 +1,18 @@
+# Prometheus scrape configuration (obs Compose profile).
+# Targets use Compose service names on groupscout_net.
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # GroupScout API server: Go runtime metrics plus ollama_* when Ollama is
+  # used. Pipeline counters are tracked in groupscout-site-yyj.
+  - job_name: groupscout
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["groupscout:8080"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

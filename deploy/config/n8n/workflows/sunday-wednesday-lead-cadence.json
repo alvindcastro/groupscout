@@ -1,0 +1,406 @@
+{
+  "id": "groupscout-sunday-wednesday-lead-cadence",
+  "name": "GroupScout Lead Cadence (Sun/Tue/Thu 6 PM)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                0,
+                2,
+                4
+              ],
+              "triggerAtHour": 18,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "f78f0fe1-9e78-4c95-ae63-36ca7e7f36a5",
+      "name": "Schedule Sun Tue Thu 6 PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst parts = new Intl.DateTimeFormat('en-CA', {\n  timeZone: 'America/Vancouver',\n  weekday: 'long',\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit'\n}).formatToParts(now).reduce((acc, part) => {\n  acc[part.type] = part.value;\n  return acc;\n}, {});\nconst day = String(parts.weekday || 'manual').toLowerCase();\nconst date = `${parts.year}-${parts.month}-${parts.day}`;\nconst cadenceKey = `lead-cadence:${date}:${day}`;\nconst store = $getWorkflowStaticData('global');\nconst existing = store[cadenceKey];\nconst alreadyDelivered = existing && existing.status === 'delivered';\nif (alreadyDelivered) {\n  return [{ json: { cadence_key: cadenceKey, cadence_date: date, cadence_day: day, duplicate: true, existing } }];\n}\nstore[cadenceKey] = { started_at: now.toISOString(), status: 'started', previous: existing || null };\nreturn [{ json: { cadence_key: cadenceKey, cadence_date: date, cadence_day: day, duplicate: false } }];"
+      },
+      "id": "1ebd674b-090a-4645-a2d4-e6156dd0e09f",
+      "name": "Build Cadence Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.duplicate}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "8af08f9e-d264-4ff0-bf7d-68d40dcb926f",
+      "name": "Duplicate Cadence?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { skipped: true, reason: 'cadence key already reserved', cadence_key: $json.cadence_key } }];"
+      },
+      "id": "5dddf80b-bc02-4c8b-bbf1-ecdd3d75c25c",
+      "name": "Stop Duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{($env.GROUPSCOUT_API_BASE_URL || 'http://groupscout:8080') + '/health'}}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b5cc55d1-2d4b-4f92-b5c3-8d6a1edb2cf4",
+      "name": "Health Preflight",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -260,
+        80
+      ],
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const statusCode = Number($json.statusCode || $json.status || 0);\nconst body = $json.body || $json.data || $json;\nconst bodyText = typeof body === 'string' ? body : JSON.stringify(body);\nconst ok = statusCode >= 200 && statusCode < 300 && /\"database\"\\s*:\\s*\"ok\"|database.*ok|\"status\"\\s*:\\s*\"ok\"/i.test(bodyText);\nreturn [{ json: { health_ok: ok, status_code: statusCode, body_text: bodyText.slice(0, 1000) } }];"
+      },
+      "id": "c75183e3-125c-470a-933b-71d5986c9c87",
+      "name": "Classify Health",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.health_ok}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "91457106-0561-43b9-a6ab-2eadcd19c4f5",
+      "name": "Health OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        180,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{($env.GROUPSCOUT_API_BASE_URL || 'http://groupscout:8080') + '/run'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.GROUPSCOUT_API_TOKEN || 'REPLACE_WITH_API_TOKEN'}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ guarantee_one_lead: true, delivery_mode: 'all_eligible', cadence_key: $node['Build Cadence Key'].json.cadence_key, schedule_key: $node['Build Cadence Key'].json.cadence_key, idempotency_key: $node['Build Cadence Key'].json.cadence_key }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "fe2c60f0-6cc5-4e6f-b98d-955e88cc9dcc",
+      "name": "Trigger GroupScout Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        -20
+      ],
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const statusCode = Number($json.statusCode || $json.status || 0);\nconst body = $json.body || $json.data || $json;\nconst bodyText = typeof body === 'string' ? body : JSON.stringify(body);\nlet parsed = {};\ntry { parsed = typeof body === 'string' ? JSON.parse(body) : body; } catch (e) { parsed = {}; }\nconst httpOK = statusCode >= 200 && statusCode < 300;\nconst notifiedLeads = Number(parsed.notified_leads || 0);\nconst newLeads = Number(parsed.new_leads || 0);\nconst deliveryStatus = parsed.delivery_status || '';\nconst deliveredLeadId = parsed.delivered_lead_id || '';\nconst message = String(parsed.message || '').trim();\nconst delivered = httpOK && (notifiedLeads > 0 || deliveryStatus === 'sent' || deliveryStatus === 'duplicate');\nconst noLead = httpOK && (notifiedLeads === 0 || deliveryStatus === 'no_eligible_lead' || /no new leads|no qualified lead|0 leads|zero leads|nothing to notify/i.test(bodyText));\nreturn [{ json: { run_ok: httpOK, delivered, no_lead: noLead, new_leads: newLeads, notified_leads: notifiedLeads, delivery_status: deliveryStatus, delivered_lead_id: deliveredLeadId, message, status_code: statusCode, body_text: bodyText.slice(0, 1500) } }];"
+      },
+      "id": "7bedb357-94d9-4ca9-a60d-aa801fb8f455",
+      "name": "Classify Run Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.delivered}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "a67ffed4-1574-4384-8648-53eda8ff6c3b",
+      "name": "Delivered?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        860,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const key = $node['Build Cadence Key'].json.cadence_key;\nconst store = $getWorkflowStaticData('global');\nstore[key] = { delivered_at: new Date().toISOString(), status: 'delivered' };\nreturn [{ json: { delivered: true, cadence_key: key } }];"
+      },
+      "id": "136e33b1-ea32-4c1b-9af0-af718df7e9aa",
+      "name": "Mark Delivered",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.GROUPSCOUT_OPS_SLACK_WEBHOOK_URL || 'https://hooks.slack.com/services/REPLACE/ME'}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.message || ('No new leads for ' + $node['Build Cadence Key'].json.cadence_key + '. GroupScout ran cleanly, but there was nothing fresh to send.') }) }}",
+        "options": {}
+      },
+      "id": "fb634712-13e0-470b-a737-df690df43105",
+      "name": "Ops Slack No Lead Or Run Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        100
+      ],
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.GROUPSCOUT_OPS_SLACK_WEBHOOK_URL || 'https://hooks.slack.com/services/REPLACE/ME'}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: 'GroupScout cadence health preflight failed for ' + $node['Build Cadence Key'].json.cadence_key + '. status=' + $json.status_code }) }}",
+        "options": {}
+      },
+      "id": "ea648247-4465-46b3-ad4d-e718dfb82833a",
+      "name": "Ops Slack Health Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        220
+      ],
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Sun Tue Thu 6 PM": {
+      "main": [
+        [
+          {
+            "node": "Build Cadence Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Cadence Key": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Cadence?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Cadence?": {
+      "main": [
+        [
+          {
+            "node": "Stop Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Health Preflight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Preflight": {
+      "main": [
+        [
+          {
+            "node": "Classify Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Health": {
+      "main": [
+        [
+          {
+            "node": "Health OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health OK?": {
+      "main": [
+        [
+          {
+            "node": "Trigger GroupScout Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ops Slack Health Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger GroupScout Run": {
+      "main": [
+        [
+          {
+            "node": "Classify Run Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Run Result": {
+      "main": [
+        [
+          {
+            "node": "Delivered?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delivered?": {
+      "main": [
+        [
+          {
+            "node": "Mark Delivered",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ops Slack No Lead Or Run Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "America/Vancouver",
+    "executionTimeout": 600
+  },
+  "versionId": "c0e34e36-2bd0-4fd7-9154-1262ddb7c964",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "groupscout"
+    },
+    {
+      "name": "cadence"
+    }
+  ]
+}

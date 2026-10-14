@@ -3,7 +3,7 @@
 # Container runtime; `make docker-up COMPOSE="podman compose"` works too.
 COMPOSE ?= docker compose
 # Optional Compose profiles started with the core services (llm = Ollama,
-# obs = Prometheus/Grafana/Loki/Promtail). `COMPOSE_PROFILES=` starts core only.
+# obs = Prometheus/Grafana/Loki/Alloy). `COMPOSE_PROFILES=` starts core only.
 COMPOSE_PROFILES ?= llm,obs
 export COMPOSE_PROFILES
 # Git revision stamped into binaries and images; reported by /health.
