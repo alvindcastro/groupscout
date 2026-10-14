@@ -1,4 +1,15 @@
-.PHONY: help build test lint run run-once docker-up docker-down docker-logs ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
+.PHONY: help build test lint run run-once docker-up docker-down docker-logs compose-check ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
+
+# Container runtime; `make docker-up COMPOSE="podman compose"` works too.
+COMPOSE ?= docker compose
+# Optional Compose profiles started with the core services (llm = Ollama,
+# obs = Prometheus/Grafana/Loki/Promtail). `COMPOSE_PROFILES=` starts core only.
+COMPOSE_PROFILES ?= llm,obs
+export COMPOSE_PROFILES
+# Git revision stamped into binaries and images; reported by /health.
+GROUPSCOUT_VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+export GROUPSCOUT_VERSION
+LDFLAGS := -X main.version=$(GROUPSCOUT_VERSION)
 
 # Default target: help
 help:
@@ -15,9 +26,10 @@ help:
 	@echo "run              - Run the lead generation server"
 	@echo "run-alertd       - Run the alertd service"
 	@echo "run-once         - Run the lead generation pipeline once and exit"
-	@echo "docker-up        - Start all services using Docker Compose"
+	@echo "docker-up        - Build and start services (COMPOSE_PROFILES=$(COMPOSE_PROFILES))"
 	@echo "docker-down      - Stop all services using Docker Compose"
 	@echo "docker-logs      - Follow Docker Compose logs"
+	@echo "compose-check    - Render dev (every profile) and prod Compose configs"
 	@echo "ollama-pull      - Pull required LLM models to local Ollama"
 	@echo "ollama-push      - Push persona Modelfiles to local Ollama"
 	@echo "db-migrate       - Run database migrations (Postgres)"
@@ -28,8 +40,8 @@ help:
 	@echo "smoke-ui-docker-e2e - Run backend + UI Docker E2E smoke (requires both Compose stacks)"
 
 build:
-	go build -o build/server ./cmd/server
-	go build -o build/alertd ./cmd/alertd
+	go build -ldflags "$(LDFLAGS)" -o build/server ./cmd/server
+	go build -ldflags "$(LDFLAGS)" -o build/alertd ./cmd/alertd
 
 test:
 	go test -v ./...
@@ -49,13 +61,13 @@ lint:
 	fi
 
 run:
-	go run cmd/server/main.go
+	go run ./cmd/server
 
 run-alertd:
-	go run cmd/alertd/main.go
+	go run ./cmd/alertd
 
 run-once:
-	go run cmd/server/main.go --run-once
+	go run ./cmd/server --run-once
 
 eval-quality:
 	go test -v ./internal/evalops/... -count=1
@@ -67,13 +79,24 @@ eval-target:
 	go run cmd/evaltarget/main.go
 
 docker-up:
-	docker compose up -d
+	$(COMPOSE) up -d --build
 
 docker-down:
-	docker compose down
+	$(COMPOSE) down
 
 docker-logs:
-	docker compose logs -f
+	$(COMPOSE) logs -f
+
+# compose-check: render every dev profile set and the prod overlay (with
+# placeholder secrets) without starting anything.
+compose-check:
+	@for p in "" llm obs llm,obs; do \
+		COMPOSE_PROFILES=$$p $(COMPOSE) config -q || exit 1; \
+	done
+	@GROUPSCOUT_IMAGE=ghcr.io/example/groupscout GROUPSCOUT_IMAGE_TAG=check \
+		POSTGRES_PASSWORD=check API_TOKEN=check N8N_ENCRYPTION_KEY=check GRAFANA_ADMIN_PASSWORD=check \
+		$(COMPOSE) -f docker-compose.yml -f deploy/compose/compose.prod.yml config -q
+	@echo "compose-check: dev and prod Compose configs render"
 
 ollama-pull:
 	ollama pull mistral
@@ -81,7 +104,7 @@ ollama-pull:
 	ollama pull phi3:mini
 
 ollama-push:
-	go run cmd/server/main.go ollama push-models
+	go run ./cmd/server ollama push-models
 
 db-migrate:
 	@echo "Ensure DATABASE_URL is set in your environment."
@@ -99,7 +122,7 @@ clean:
 # clear: Removes all data, stops containers, and cleans build artifacts
 clear:
 	@echo "Clearing all data..."
-	docker compose down -v
+	$(COMPOSE) down -v
 	rm -f groupscout.db
 	rm -rf build/
 	@echo "Data cleared."
@@ -112,4 +135,4 @@ smoke-ui-docker-e2e:
 start-fresh: clear docker-up
 	@echo "Waiting for services to be ready..."
 	@sleep 15
-	go run cmd/server/main.go --run-once
+	go run ./cmd/server --run-once

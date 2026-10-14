@@ -1,0 +1,54 @@
+# Production overrides. Combine with the base file only, never the dev override:
+#
+#   docker compose -f docker-compose.yml -f deploy/compose/compose.prod.yml up -d
+#
+# Differences from local development:
+#   - images come from the registry by immutable tag; the base file's local
+#     build is removed with !reset so the host never builds from source
+#   - secrets that default to dev values in the base file are required here
+#   - nothing is published on public interfaces; admin surfaces bind to
+#     127.0.0.1 for SSH-tunnel access, and public ingress arrives through a
+#     tunnel container in a later phase
+#   - Ollama is off unless OLLAMA_ENABLED=true and the llm profile is enabled
+#
+# Paths resolve relative to the first -f file (the repo root).
+
+x-require-image: &require-image "${GROUPSCOUT_IMAGE:?set GROUPSCOUT_IMAGE, e.g. ghcr.io/alvindcastro/groupscout}:${GROUPSCOUT_IMAGE_TAG:?set GROUPSCOUT_IMAGE_TAG to the git SHA being deployed}"
+
+services:
+  groupscout:
+    image: *require-image
+    build: !reset null
+    environment:
+      - DATABASE_URL=postgres://groupscout:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/groupscout
+      - API_TOKEN=${API_TOKEN:?API_TOKEN is required}
+      - OLLAMA_ENABLED=${OLLAMA_ENABLED:-false}
+      - JSON_LOG=true
+    ports:
+      - "127.0.0.1:8080:8080"
+    mem_limit: 1536m   # starting point; tune from `docker stats` after the first weeks
+
+  alertd:
+    image: *require-image
+    build: !reset null
+    environment:
+      - OLLAMA_ENABLED=${OLLAMA_ENABLED:-false}
+    mem_limit: 256m
+
+  postgres:
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+
+  n8n:
+    environment:
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY is required in production}
+      - GROUPSCOUT_API_TOKEN=${API_TOKEN:?API_TOKEN is required}
+    ports:
+      - "127.0.0.1:5678:5678"
+    mem_limit: 1g
+
+  grafana:
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+    ports:
+      - "127.0.0.1:3000:3000"

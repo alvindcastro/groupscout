@@ -1,0 +1,37 @@
+# Local development host ports, auto-loaded by `docker compose` / `podman compose`
+# when no -f flag is given. Commands that pass -f explicitly (for example the UI
+# repo's compose.dev.yml flows) skip this file unless they list it too.
+# Production uses deploy/compose/compose.prod.yml instead.
+
+services:
+  groupscout:
+    ports:
+      - "8080:8080"
+
+  alertd:
+    ports:
+      - "8081:8081"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  n8n:
+    ports:
+      - "5678:5678"
+
+  prometheus:
+    ports:
+      - "9090:9090"
+
+  grafana:
+    ports:
+      - "3000:3000"
+
+  loki:
+    ports:
+      - "3100:3100"
+
+  # ollama:
+  #   ports:
+  #     - "11434:11434"   # uncomment for local debugging only
