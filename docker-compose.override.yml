@@ -1,20 +1,14 @@
-# Local development overrides, auto-loaded by `docker compose` / `podman compose`
-# when no -f flag is given. Builds the backend image locally and publishes the
-# historical host ports. Production uses deploy/compose/compose.prod.yml instead.
-
-x-local-build: &local-build
-  context: .
-  args:
-    VERSION: ${GROUPSCOUT_VERSION:-dev}   # `make docker-up` passes the git SHA
+# Local development host ports, auto-loaded by `docker compose` / `podman compose`
+# when no -f flag is given. Commands that pass -f explicitly (for example the UI
+# repo's compose.dev.yml flows) skip this file unless they list it too.
+# Production uses deploy/compose/compose.prod.yml instead.
 
 services:
   groupscout:
-    build: *local-build
     ports:
       - "8080:8080"
 
   alertd:
-    build: *local-build
     ports:
       - "8081:8081"
 

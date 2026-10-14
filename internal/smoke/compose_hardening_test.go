@@ -146,6 +146,28 @@ func TestComposeOptionalServicesUseProfiles(t *testing.T) {
 	}
 }
 
+func TestComposeBaseBuildsLocallyAndProdNeverBuilds(t *testing.T) {
+	// The base file must build on its own: the UI repo's compose.dev.yml flows
+	// pass `-f docker-compose.yml` explicitly, which skips the dev override.
+	base := readRepoFile(t, "docker-compose.yml")
+	var raw struct {
+		Services map[string]map[string]any `yaml:"services"`
+	}
+	if err := yaml.Unmarshal([]byte(base), &raw); err != nil {
+		t.Fatalf("parse docker-compose.yml: %v", err)
+	}
+	for _, name := range []string{"groupscout", "alertd"} {
+		if raw.Services[name]["build"] == nil {
+			t.Errorf("base service %s must define build so `-f docker-compose.yml` works without the override", name)
+		}
+	}
+
+	prod := readRepoFile(t, "deploy/compose/compose.prod.yml")
+	if n := strings.Count(prod, "build: !reset null"); n != 2 {
+		t.Errorf("compose.prod.yml must reset build for groupscout and alertd (found %d), so hosts pull images instead of building", n)
+	}
+}
+
 func TestComposeProdRequiresSecrets(t *testing.T) {
 	prod := readRepoFile(t, "deploy/compose/compose.prod.yml")
 	for _, v := range []string{"GROUPSCOUT_IMAGE", "GROUPSCOUT_IMAGE_TAG", "POSTGRES_PASSWORD", "API_TOKEN", "N8N_ENCRYPTION_KEY", "GRAFANA_ADMIN_PASSWORD"} {

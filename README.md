@@ -60,9 +60,9 @@ make docker-logs
 
 Compose layout:
 
-- `docker-compose.yml` is the base: pinned images, healthchecks, log rotation, no host ports.
-- `docker-compose.override.yml` is auto-loaded for local development: local image build stamped with the git SHA, plus the usual host ports (`8080`, `8081`, `5432`, `5678`, `9090`, `3000`, `3100`).
-- `deploy/compose/compose.prod.yml` is the production overlay (`-f docker-compose.yml -f deploy/compose/compose.prod.yml`): registry image by tag, required secrets, loopback-only ports.
+- `docker-compose.yml` is the base: local image build stamped with the git SHA, pinned images, healthchecks, log rotation, no host ports. It works on its own, which the UI repo's `-f docker-compose.yml -f compose.dev.yml` flows rely on.
+- `docker-compose.override.yml` is auto-loaded when no `-f` flag is given and publishes the usual host ports (`8080`, `8081`, `5432`, `5678`, `9090`, `3000`, `3100`). Commands that pass `-f` must list it explicitly to get those ports.
+- `deploy/compose/compose.prod.yml` is the production overlay (`-f docker-compose.yml -f deploy/compose/compose.prod.yml`): registry image by tag with no local build, required secrets, loopback-only ports.
 - Ollama (`llm` profile) and Prometheus/Grafana/Loki/Promtail (`obs` profile) are optional. `make docker-up` starts both by default. Use `make docker-up COMPOSE_PROFILES=` for the core services only, or set `COMPOSE_PROFILES` in `.env` for plain `docker compose` / `podman compose` commands.
 - `make docker-up COMPOSE="podman compose"` runs the same targets on Podman. `make compose-check` renders every profile set and the production overlay without starting anything.
 - `GET /health` reports the running build in its `version` field.

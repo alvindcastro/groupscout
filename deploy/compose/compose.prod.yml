@@ -3,7 +3,8 @@
 #   docker compose -f docker-compose.yml -f deploy/compose/compose.prod.yml up -d
 #
 # Differences from local development:
-#   - images come from the registry by immutable tag (no local builds)
+#   - images come from the registry by immutable tag; the base file's local
+#     build is removed with !reset so the host never builds from source
 #   - secrets that default to dev values in the base file are required here
 #   - nothing is published on public interfaces; admin surfaces bind to
 #     127.0.0.1 for SSH-tunnel access, and public ingress arrives through a
@@ -17,6 +18,7 @@ x-require-image: &require-image "${GROUPSCOUT_IMAGE:?set GROUPSCOUT_IMAGE, e.g. 
 services:
   groupscout:
     image: *require-image
+    build: !reset null
     environment:
       - DATABASE_URL=postgres://groupscout:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/groupscout
       - API_TOKEN=${API_TOKEN:?API_TOKEN is required}
@@ -28,6 +30,7 @@ services:
 
   alertd:
     image: *require-image
+    build: !reset null
     environment:
       - OLLAMA_ENABLED=${OLLAMA_ENABLED:-false}
     mem_limit: 256m

@@ -1,8 +1,8 @@
 # GroupScout runtime: base Compose file.
 #
-#   docker-compose.yml               services, healthchecks, pinned images; no host ports
-#   docker-compose.override.yml      dev: host ports + local builds (auto-loaded by `compose up`)
-#   deploy/compose/compose.prod.yml  production: use with -f, which skips the dev override
+#   docker-compose.yml               services, local build, healthchecks, pinned images; no host ports
+#   docker-compose.override.yml      dev host ports (auto-loaded when no -f flag is given)
+#   deploy/compose/compose.prod.yml  production: registry image, no build; use with -f
 #
 # Profiles: core services (postgres, groupscout, alertd, n8n) always run.
 #   llm = ollama + ollama-init     obs = prometheus, grafana, loki, promtail
@@ -13,6 +13,11 @@
 
 name: groupscout
 
+x-local-build: &local-build
+  context: .
+  args:
+    VERSION: ${GROUPSCOUT_VERSION:-dev}   # `make docker-up` passes the git SHA
+
 x-logging: &default-logging
   driver: json-file
   options:
@@ -22,6 +27,7 @@ x-logging: &default-logging
 services:
   groupscout:
     image: ${GROUPSCOUT_IMAGE:-groupscout}:${GROUPSCOUT_IMAGE_TAG:-local}
+    build: *local-build
     container_name: groupscout_app
     networks:
       - groupscout_net
@@ -76,6 +82,7 @@ services:
 
   alertd:
     image: ${GROUPSCOUT_IMAGE:-groupscout}:${GROUPSCOUT_IMAGE_TAG:-local}
+    build: *local-build
     container_name: groupscout_alertd
     command: ["./alertd"]
     volumes:
