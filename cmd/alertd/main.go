@@ -23,6 +23,17 @@ import (
 
 var roomInventory int
 
+// version is the build revision, stamped at build time with
+// -ldflags "-X main.version=<git sha>".
+var version = "dev"
+
+// healthHandler backs the container healthcheck: alertd is healthy while its
+// HTTP server is serving.
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"status":"ok","version":%q}`+"\n", version)
+}
+
 func inventoryHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -109,6 +120,7 @@ func main() {
 		port = "8081"
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/slack/inventory", inventoryHandler)
 	go func() {
 		log.Printf("Starting HTTP server on port %s", port)

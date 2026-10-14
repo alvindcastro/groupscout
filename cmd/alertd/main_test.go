@@ -74,3 +74,23 @@ func TestInventoryHandler_ZeroCount(t *testing.T) {
 		t.Errorf("expected roomInventory to be 0, got %v", roomInventory)
 	}
 }
+
+func TestHealthHandler_ReportsVersion(t *testing.T) {
+	old := version
+	version = "abc1234"
+	t.Cleanup(func() { version = old })
+
+	rr := httptest.NewRecorder()
+	healthHandler(rr, httptest.NewRequest("GET", "/health", nil))
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status OK, got %v", rr.Code)
+	}
+	if got := rr.Header().Get("Content-Type"); got != "application/json" {
+		t.Errorf("expected application/json, got %q", got)
+	}
+	expectedBody := `{"status":"ok","version":"abc1234"}`
+	if strings.TrimSpace(rr.Body.String()) != expectedBody {
+		t.Errorf("expected body %s, got %s", expectedBody, rr.Body.String())
+	}
+}
