@@ -5,7 +5,7 @@
 #   deploy/compose/compose.prod.yml  production: registry image, no build; use with -f
 #
 # Profiles: core services (postgres, groupscout, alertd, n8n) always run.
-#   llm = ollama + ollama-init     obs = prometheus, grafana, loki, promtail
+#   llm = ollama + ollama-init     obs = prometheus, grafana, loki, alloy
 # COMPOSE_PROFILES=llm,obs starts everything (the Makefile default).
 #
 # Images are pinned to explicit versions. Bump them deliberately: n8n and
@@ -133,8 +133,14 @@ services:
   n8n:
     image: n8nio/n8n:2.43.5
     container_name: groupscout_n8n
+    # Imports the tracked workflows (deploy/config/n8n/workflows) before n8n
+    # starts: missing or changed workflows are (re)imported and published, so an
+    # empty n8n_data volume comes back with the cadence active. Restart n8n to
+    # apply an edited workflow file.
+    entrypoint: ["tini", "--", "sh", "/opt/groupscout/n8n/bootstrap.sh"]
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./deploy/config/n8n:/opt/groupscout/n8n:ro
     networks:
       - groupscout_net
     environment:
@@ -156,7 +162,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 120s   # bootstrap imports run before the server starts
     logging: *default-logging
     restart: unless-stopped
 
@@ -166,6 +172,7 @@ services:
     profiles: ["obs"]
     volumes:
       - prometheus_data:/prometheus
+      - ./deploy/config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       - groupscout_net
     logging: *default-logging
@@ -180,6 +187,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./deploy/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/config/grafana/dashboards:/etc/grafana/dashboards:ro
     networks:
       - groupscout_net
     logging: *default-logging
@@ -194,15 +203,18 @@ services:
     logging: *default-logging
     restart: unless-stopped
 
-  promtail:
-    image: grafana/promtail:3.6.11
-    container_name: groupscout_promtail
+  alloy:
+    # Ships container logs to Loki through the Docker API. Works on Docker and
+    # on the Podman machine, where /var/run/docker.sock links to the Podman
+    # socket. Socket access is root-equivalent; keep this service internal.
+    image: grafana/alloy:v1.20.1
+    container_name: groupscout_alloy
     profiles: ["obs"]
+    command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
     volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./deploy/config/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./config/promtail.yaml:/etc/promtail/promtail.yaml:ro
-    command: -config.file=/etc/promtail/promtail.yaml
+      - alloy_data:/var/lib/alloy/data
     networks:
       - groupscout_net
     logging: *default-logging
@@ -272,6 +284,7 @@ volumes:
   n8n_data:
   prometheus_data:
   grafana_data:
+  alloy_data:
   ollama_data:
     name: groupscout_ollama_data
 

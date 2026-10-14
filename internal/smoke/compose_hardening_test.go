@@ -26,6 +26,8 @@ type composeService struct {
 	Logging     map[string]any `yaml:"logging"`
 	Profiles    []string       `yaml:"profiles"`
 	DependsOn   any            `yaml:"depends_on"`
+	Volumes     []string       `yaml:"volumes"`
+	Entrypoint  []string       `yaml:"entrypoint"`
 }
 
 var coreServices = []string{"groupscout", "alertd", "postgres", "n8n"}
@@ -129,7 +131,7 @@ func TestComposeOptionalServicesUseProfiles(t *testing.T) {
 	services := loadCompose(t, "docker-compose.yml").Services
 	want := map[string]string{
 		"ollama": "llm", "ollama-init": "llm",
-		"prometheus": "obs", "grafana": "obs", "loki": "obs", "promtail": "obs",
+		"prometheus": "obs", "grafana": "obs", "loki": "obs", "alloy": "obs",
 	}
 	for name, profile := range want {
 		if got := services[name].Profiles; len(got) != 1 || got[0] != profile {
