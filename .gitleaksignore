@@ -1,0 +1,48 @@
+# Reviewed gitleaks findings in published history (IaC Phase 3, 2026-10-14).
+# None is a real credential: curl examples use placeholders such as
+# YOUR_API_TOKEN or dev-token, adversarial_cases.jsonl plants a fake
+# sk-test key on purpose, and N8N_GUIDE.md shows an appXXXX Airtable id.
+# New findings must be fixed (and the secret rotated), not added here.
+0507414496df2e13d4c1e94954f53e849a018ae1:docs/guides/TESTING.md:curl-auth-header:127
+0507414496df2e13d4c1e94954f53e849a018ae1:docs/guides/TESTING.md:curl-auth-header:141
+0507414496df2e13d4c1e94954f53e849a018ae1:docs/guides/TESTING.md:curl-auth-header:148
+0f0ea3f539a7a71cffc3ff46b196a40170eef3fe:data/evals/groupscout/adversarial_cases.jsonl:generic-api-key:2
+1dda44b8b90f09ab285d1a8d2258b17d7daff1bd:data/evals/groupscout/adversarial_cases.jsonl:generic-api-key:2
+3d35a3d0b7dce8a6edc28eb79f8cb8e04be976b5:docs/PROMPTS_AI_READY_SQL.md:curl-auth-header:167
+3d35a3d0b7dce8a6edc28eb79f8cb8e04be976b5:docs/PROMPTS_AI_READY_SQL.md:curl-auth-header:171
+3d35a3d0b7dce8a6edc28eb79f8cb8e04be976b5:docs/PROMPTS_PHASE16.md:curl-auth-header:158
+3d35a3d0b7dce8a6edc28eb79f8cb8e04be976b5:docs/PROMPTS_PHASE16.md:curl-auth-header:242
+3d35a3d0b7dce8a6edc28eb79f8cb8e04be976b5:docs/PROMPTS_PHASE16.md:curl-auth-header:291
+50d8c8ff7e14f4c10c40a88684d67e17936c4495:docs/API_TESTING.md:curl-auth-header:20
+50d8c8ff7e14f4c10c40a88684d67e17936c4495:docs/API_TESTING.md:curl-auth-header:34
+50d8c8ff7e14f4c10c40a88684d67e17936c4495:docs/API_TESTING.md:curl-auth-header:41
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/guides/SETUP.md:curl-auth-header:125
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/guides/SETUP.md:curl-auth-header:300
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/guides/TESTING.md:curl-auth-header:124
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/guides/TESTING.md:curl-auth-header:199
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/guides/TESTING.md:curl-auth-header:208
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/guides/TESTING.md:curl-auth-header:215
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/planning/ui/BACKEND_FOR_UI_TESTING.md:curl-auth-header:132
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/prompts/PROMPTS_AI_READY_SQL.md:curl-auth-header:167
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/prompts/PROMPTS_AI_READY_SQL.md:curl-auth-header:171
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/prompts/PROMPTS_PHASE16.md:curl-auth-header:158
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/prompts/PROMPTS_PHASE16.md:curl-auth-header:359
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/prompts/PROMPTS_PHASE16.md:curl-auth-header:492
+64b9caa79c3c4bf690927b77f8e631de2aefd31d:docs/prompts/PROMPTS_PHASE16.md:curl-auth-header:549
+6a7da24cd597fc051a51bafaf106f02a92de5121:docs/SETUP.md:curl-auth-header:108
+9c1e322c809b68e1e8a2195e85d53c14aece1171:docs/PROMPTS_AI_READY_SQL.md:curl-auth-header:167
+9c1e322c809b68e1e8a2195e85d53c14aece1171:docs/PROMPTS_AI_READY_SQL.md:curl-auth-header:171
+9c1e322c809b68e1e8a2195e85d53c14aece1171:docs/PROMPTS_PHASE16.md:curl-auth-header:158
+9c1e322c809b68e1e8a2195e85d53c14aece1171:docs/PROMPTS_PHASE16.md:curl-auth-header:242
+9c1e322c809b68e1e8a2195e85d53c14aece1171:docs/PROMPTS_PHASE16.md:curl-auth-header:291
+a06933e1394e5127572047cb1315da4e78bba6b2:docs/guides/N8N_GUIDE.md:airtable-api-key:258
+a06933e1394e5127572047cb1315da4e78bba6b2:docs/guides/N8N_GUIDE.md:curl-auth-header:395
+bc72df0932bc0d53a60aa7566cefb64b7ab8d017:docs/guides/SETUP.md:curl-auth-header:108
+bc72df0932bc0d53a60aa7566cefb64b7ab8d017:docs/prompts/PROMPTS_PHASE16.md:curl-auth-header:158
+bc72df0932bc0d53a60aa7566cefb64b7ab8d017:docs/prompts/PROMPTS_PHASE16.md:curl-auth-header:359
+bc72df0932bc0d53a60aa7566cefb64b7ab8d017:docs/prompts/PROMPTS_PHASE16.md:curl-auth-header:492
+bc72df0932bc0d53a60aa7566cefb64b7ab8d017:docs/prompts/PROMPTS_PHASE16.md:curl-auth-header:549
+bd0179fd5e1ef8c764a1d0ee0c9a0537be49e221:docs/SETUP.md:curl-auth-header:189
+bd0179fd5e1ef8c764a1d0ee0c9a0537be49e221:docs/TESTING.md:curl-auth-header:29
+edaabd74f266382108e47e47c305b25e174820cf:docs/planning/ui/BACKEND_FOR_UI_TESTING.md:curl-auth-header:84
+fff68581fa101dc9bcfe70389339d7a9c7be9fc3:docs/PROMPTS_PHASE16.md:curl-auth-header:348

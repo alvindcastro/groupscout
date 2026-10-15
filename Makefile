@@ -1,4 +1,4 @@
-.PHONY: help build test lint run run-once docker-up docker-down docker-logs compose-check ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
+.PHONY: help build test lint run run-once docker-up docker-down docker-logs compose-check secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
 
 # Container runtime; `make docker-up COMPOSE="podman compose"` works too.
 COMPOSE ?= docker compose
@@ -30,6 +30,11 @@ help:
 	@echo "docker-down      - Stop all services using Docker Compose"
 	@echo "docker-logs      - Follow Docker Compose logs"
 	@echo "compose-check    - Render dev (every profile) and prod Compose configs"
+	@echo "secrets-edit     - Edit deploy/secrets/\$$SECRETS_ENV.sops.env (default prod) with sops"
+	@echo "secrets-render   - Decrypt it to .env (FORCE=1 replaces a .env that differs)"
+	@echo "secrets-diff     - Name the keys that differ between .env and the encrypted file"
+	@echo "secrets-updatekeys - Re-encrypt secrets after changing recipients in .sops.yaml"
+	@echo "secrets-scan     - gitleaks over git history plus tracked-secret-file checks"
 	@echo "ollama-pull      - Pull required LLM models to local Ollama"
 	@echo "ollama-push      - Push persona Modelfiles to local Ollama"
 	@echo "db-migrate       - Run database migrations (Postgres)"
@@ -97,6 +102,11 @@ compose-check:
 		POSTGRES_PASSWORD=check API_TOKEN=check N8N_ENCRYPTION_KEY=check GRAFANA_ADMIN_PASSWORD=check \
 		$(COMPOSE) -f docker-compose.yml -f deploy/compose/compose.prod.yml config -q
 	@echo "compose-check: dev and prod Compose configs render"
+
+# Secrets as code (SOPS + age): see deploy/scripts/secrets.sh and
+# groupscout-site backend/docs/guides/SECRETS.md.
+secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan:
+	@sh deploy/scripts/secrets.sh $(@:secrets-%=%)
 
 ollama-pull:
 	ollama pull mistral
