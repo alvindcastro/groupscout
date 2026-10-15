@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://aka.ms/configuration-dsc-schema/0.2
+#
+# GroupScout Windows workstation (IaC Phase 10, groupscout-site-6ah.11).
+# Installs the tools for the Podman dev stack; setup-dev.ps1 does the rest:
+#
+#   winget configure -f deploy\windows\configuration.dsc.yaml --accept-configuration-agreements
+#   powershell -ExecutionPolicy Bypass -File deploy\windows\setup-dev.ps1
+#
+# Already-installed packages are left alone, so this is safe to re-run.
+# Versions are not pinned: winget installs the current release, and
+# 'winget upgrade --all' moves them forward. The container images, which
+# matter for reproducibility, are pinned in the backend repo instead.
+# Check the machine against it without changing anything:
+#   winget configure test -f deploy\windows\configuration.dsc.yaml --accept-configuration-agreements
+# Runbook: groupscout-site backend/docs/guides/PODMAN_MIGRATION.md.
+properties:
+  configurationVersion: 0.2.0
+  resources:
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wsl
+      directives:
+        description: Windows Subsystem for Linux (Podman runs its machine as a WSL 2 distro)
+        securityContext: elevated
+      settings:
+        id: Microsoft.WSL
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: podman
+      dependsOn:
+        - wsl
+      directives:
+        description: Podman, the container engine for the GroupScout stack
+      settings:
+        id: RedHat.Podman
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: compose
+      directives:
+        description: Docker Compose, the provider behind 'podman compose'
+      settings:
+        id: Docker.DockerCompose
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: git
+      directives:
+        description: Git
+      settings:
+        id: Git.Git
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: gh
+      directives:
+        description: GitHub CLI (pull requests, Actions runs)
+      settings:
+        id: GitHub.cli
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: go
+      directives:
+        description: Go, for building and testing the backend outside containers
+      settings:
+        id: GoLang.Go
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: node
+      directives:
+        description: Node.js LTS, for the UI repo's tests
+      settings:
+        id: OpenJS.NodeJS.LTS
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: age
+      directives:
+        description: age, which holds the SOPS key for deploy/secrets
+      settings:
+        id: FiloSottile.age
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: sops
+      directives:
+        description: SOPS, to edit and render deploy/secrets/*.sops.env
+      settings:
+        id: SecretsOPerationS.SOPS
+        source: winget
