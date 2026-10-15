@@ -1,0 +1,174 @@
+# Continuous integration and image publishing (IaC Phase 4, groupscout-site-6ah.5).
+#
+#   go           gofmt, go vet, unit tests and the eval release gate
+#   integration  the -tags integration suites against a throwaway pgvector
+#                Postgres service container
+#   compose      every dev profile set and the prod overlay render
+#   image        build the image, start it with the prod overlay and check
+#                /health, then fail on fixable critical vulnerabilities. On
+#                main it pushes ghcr.io/alvindcastro/groupscout:<full sha> and
+#                the moving :main tag, so every main commit has an image.
+#
+# Branch protection on main requires these jobs. Third-party actions are pinned
+# to commit SHAs, and downloaded tools are checksum-verified; Renovate proposes
+# the action and image updates (renovate.json). Bump GRYPE_VERSION and its
+# checksum by hand from the release's checksums file.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  go:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Unit tests
+        run: go test -count=1 ./...
+
+      - name: Eval release gate
+        run: make eval-gate
+
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        # Same image as the postgres service in docker-compose.yml.
+        image: pgvector/pgvector:0.8.7-pg17-bookworm
+        env:
+          POSTGRES_USER: groupscout
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: groupscout_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U groupscout -d groupscout_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # The suites delete rows between tests: only ever point them at a
+      # disposable database like this one.
+      TEST_POSTGRES_URL: postgres://groupscout:ci@localhost:5432/groupscout_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # -p 1: the packages share one database and clean tables between tests,
+      # so their test binaries must not run concurrently.
+      - name: Integration tests
+        run: go test -tags integration -p 1 -count=1 ./...
+
+  compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Render dev profiles and the prod overlay
+        run: make compose-check
+
+  image:
+    needs: [go, integration, compose]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GROUPSCOUT_IMAGE: ghcr.io/alvindcastro/groupscout
+      GROUPSCOUT_IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build
+        run: docker build --pull --build-arg VERSION="$GROUPSCOUT_IMAGE_TAG" -t "$GROUPSCOUT_IMAGE:$GROUPSCOUT_IMAGE_TAG" .
+
+      # Start the new image the way production runs it (registry tag, no build,
+      # required secrets) and check it reports healthy with this commit's SHA.
+      - name: Start with the prod overlay and check /health
+        env:
+          COMPOSE_PROFILES: ""
+          POSTGRES_PASSWORD: ci
+          API_TOKEN: ci
+          N8N_ENCRYPTION_KEY: ci
+          GRAFANA_ADMIN_PASSWORD: ci
+          SLACK_BOT_TOKEN: ci-placeholder # alertd refuses to start without one
+        run: |
+          prod="docker compose -f docker-compose.yml -f deploy/compose/compose.prod.yml"
+          if ! $prod up -d --no-build --wait --wait-timeout 180 postgres groupscout alertd; then
+            $prod ps -a
+            $prod logs --no-color
+            exit 1
+          fi
+          health=$(curl -fsS http://127.0.0.1:8080/health)
+          echo "/health: $health"
+          echo "$health" | jq -e --arg v "$GROUPSCOUT_IMAGE_TAG" \
+            '.status == "ok" and .database == "ok" and .version == $v' >/dev/null
+          $prod down -v
+
+      - name: Install grype
+        env:
+          GRYPE_VERSION: 0.119.0
+          GRYPE_SHA256: 3fa2dc4b924621ab65404cf08d0b8438d896d80ab949c9d5a4ca283c36004c9b
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLo grype.tar.gz "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz"
+          echo "${GRYPE_SHA256}  grype.tar.gz" | sha256sum -c -
+          tar -xzf grype.tar.gz grype
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      # Lists every finding that has a fix; fails only on fixable criticals.
+      - name: Vulnerability scan
+        run: grype "docker:$GROUPSCOUT_IMAGE:$GROUPSCOUT_IMAGE_TAG" --only-fixed --fail-on critical
+
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'alvindcastro/groupscout'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "$GROUPSCOUT_IMAGE:$GROUPSCOUT_IMAGE_TAG" "$GROUPSCOUT_IMAGE:main"
+          docker push "$GROUPSCOUT_IMAGE:$GROUPSCOUT_IMAGE_TAG"
+          docker push "$GROUPSCOUT_IMAGE:main"
+          docker logout ghcr.io
