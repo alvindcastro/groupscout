@@ -130,11 +130,7 @@ func TestSecretScanRunsInCI(t *testing.T) {
 			t.Errorf("secret-scan.yml missing %q", want)
 		}
 	}
-	for _, m := range regexp.MustCompile(`uses:\s*(\S+)`).FindAllStringSubmatch(wf, -1) {
-		if !regexp.MustCompile(`@[0-9a-f]{40}$`).MatchString(m[1]) {
-			t.Errorf("secret-scan.yml action %s must be pinned to a commit SHA", m[1])
-		}
-	}
+	// Action pinning is checked for every workflow in ci_test.go.
 
 	script := readRepoFile(t, "deploy/scripts/secrets.sh")
 	if !strings.Contains(script, "gitleaks git --redact") {

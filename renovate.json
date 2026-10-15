@@ -1,0 +1,46 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "IaC Phase 4 (groupscout-site-6ah.5): weekly, grouped update PRs. Nothing automerges; CI must pass before a PR can merge.",
+  "extends": [
+    "config:recommended",
+    "docker:pinDigests",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "America/Vancouver",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "postUpdateOptions": ["gomodTidy"],
+  "packageRules": [
+    {
+      "description": "Supply-chain cool-off: wait a week before proposing new Go modules and Actions.",
+      "matchDatasources": ["go", "github-tags"],
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Actions and runner labels. Images used in workflows follow the image rules below.",
+      "matchDatasources": ["github-tags", "github-runners"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "matchDatasources": ["go"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "Go modules"
+    },
+    {
+      "description": "One weekly PR for base and service images. A package used in several files (pgvector in Compose and the CI service) always updates in one PR.",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "matchPackageNames": ["!n8nio/n8n", "!grafana/grafana", "!pgvector/pgvector"],
+      "groupName": "container images"
+    },
+    {
+      "description": "These migrate their data forward and cannot be downgraded: one PR each.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["n8nio/n8n", "grafana/grafana", "pgvector/pgvector"],
+      "prBodyNotes": [
+        "This image migrates its data volume forward and cannot be rolled back by reverting the tag. Read the release notes and take a backup before deploying."
+      ]
+    }
+  ]
+}
