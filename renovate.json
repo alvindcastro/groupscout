@@ -14,15 +14,16 @@
   "packageRules": [
     {
       "description": "Supply-chain cool-off: wait a week before proposing new Go modules and Actions.",
-      "matchManagers": ["gomod", "github-actions"],
+      "matchDatasources": ["go", "github-tags"],
       "minimumReleaseAge": "7 days"
     },
     {
-      "matchManagers": ["github-actions"],
+      "description": "Actions and runner labels. Images used in workflows follow the image rules below.",
+      "matchDatasources": ["github-tags", "github-runners"],
       "groupName": "GitHub Actions"
     },
     {
-      "matchManagers": ["gomod"],
+      "matchDatasources": ["go"],
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "Go modules"
     },
