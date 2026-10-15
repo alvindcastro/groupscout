@@ -116,15 +116,18 @@ secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan:
 # explicitly because Ansible ignores an ansible.cfg in a world-writable
 # directory, which every path under /mnt/c is in WSL.
 ANSIBLE_ENV := cd deploy/ansible && ANSIBLE_CONFIG=ansible.cfg
+# Extra ansible-playbook arguments, e.g.
+#   make ansible-apply ANSIBLE_ARGS="-e '{\"groupscout_services\":[\"postgres\"]}'"
+ANSIBLE_ARGS ?=
 
 ansible-deps:
 	$(ANSIBLE_ENV) ansible-galaxy collection install -r requirements.yml
 
 ansible-apply:
-	$(ANSIBLE_ENV) ansible-playbook site.yml
+	$(ANSIBLE_ENV) ansible-playbook site.yml $(ANSIBLE_ARGS)
 
 ansible-check:
-	$(ANSIBLE_ENV) ansible-playbook site.yml --check --diff
+	$(ANSIBLE_ENV) ansible-playbook site.yml --check --diff $(ANSIBLE_ARGS)
 
 ansible-lint:
 	$(ANSIBLE_ENV) ansible-lint --offline site.yml
