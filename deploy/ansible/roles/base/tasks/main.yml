@@ -1,0 +1,94 @@
+- name: Install base packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Set the time zone
+  become: true
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Turn on unattended security upgrades
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      // Managed by Ansible (deploy/ansible, base role).
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: WSL host settings
+  when: host_is_wsl
+  become: true
+  block:
+    - name: Write /etc/wsl.conf (systemd, default user, hostname, no Windows interop)
+      ansible.builtin.template:
+        src: wsl.conf.j2
+        dest: /etc/wsl.conf
+        owner: root
+        group: root
+        mode: "0644"
+
+    # Every WSL 2 distro shares one binfmt_misc table, and systemd-shutdown
+    # (systemd >= 256) flushes it whenever binfmt_misc is mounted. That
+    # deletes WSLInterop, breaking cmd.exe and wsl.exe in every other distro.
+    - name: Mask the units that mount or flush binfmt_misc
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        masked: true
+      loop:
+        - systemd-binfmt.service
+        - proc-sys-fs-binfmt_misc.automount
+        - proc-sys-fs-binfmt_misc.mount
+
+    - name: Install the unit that detaches binfmt_misc at boot
+      ansible.builtin.copy:
+        src: wsl-binfmt-detach.service
+        dest: /etc/systemd/system/wsl-binfmt-detach.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable it
+      ansible.builtin.systemd_service:
+        name: wsl-binfmt-detach.service
+        enabled: true
+        daemon_reload: true
+
+- name: Time sync and swap (hosts other than WSL)
+  when: not host_is_wsl
+  become: true
+  block:
+    - name: Install chrony
+      ansible.builtin.apt:
+        name: chrony
+        state: present
+
+    - name: Run chrony
+      ansible.builtin.systemd_service:
+        name: chrony
+        enabled: true
+        state: started
+
+    - name: Create the swap file
+      ansible.builtin.command:
+        cmd: "sh -c 'fallocate -l {{ base_swap_size_mb }}M /swapfile && chmod 600 /swapfile && mkswap /swapfile'"
+        creates: /swapfile
+
+    - name: Mount the swap file at boot
+      ansible.posix.mount:
+        src: /swapfile
+        path: none
+        fstype: swap
+        opts: sw
+        state: present
+
+    - name: Turn swap on
+      ansible.builtin.command: swapon --all
+      changed_when: false

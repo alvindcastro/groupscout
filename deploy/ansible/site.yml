@@ -1,0 +1,37 @@
+# One command from a fresh Debian/Ubuntu host to a running, healthy stack
+# (IaC Phase 5, groupscout-site-6ah.6). Re-runs change nothing.
+#
+#   cd deploy/ansible
+#   ansible-galaxy collection install -r requirements.yml
+#   ansible-playbook site.yml                 # apply
+#   ansible-playbook site.yml --check --diff  # drift check
+- name: GroupScout host
+  hosts: groupscout
+  pre_tasks:
+    # Shared by every role.
+    - name: Detect a WSL host
+      ansible.builtin.set_fact:
+        host_is_wsl: "{{ 'microsoft' in ansible_facts.kernel | lower }}"
+
+    - name: Read the deploy user's uid
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ deploy_user }}"
+
+    - name: Remember the deploy user's uid
+      ansible.builtin.set_fact:
+        deploy_uid: "{{ ansible_facts.getent_passwd[deploy_user][1] }}"
+
+    # WSL distros share one cgroup tree. The Podman machine's user is 1000,
+    # so a deploy user with uid 1000 cannot start its systemd user manager.
+    - name: Check the deploy user's uid is unique across WSL distros
+      ansible.builtin.assert:
+        that: not host_is_wsl or deploy_uid | int != 1000
+        fail_msg: >-
+          On WSL the deploy user must not be uid 1000; re-run
+          deploy/windows/new-wsl-host.ps1, which moves it to 2000.
+  roles:
+    - base
+    - hardening
+    - podman
+    - groupscout

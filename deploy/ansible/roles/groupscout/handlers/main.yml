@@ -1,0 +1,11 @@
+# Compose only recreates containers whose definition changed; config files
+# mounted into a container need a restart of that service to be re-read.
+- name: Recreate the stack
+  ansible.builtin.command:
+    cmd: >-
+      podman compose -f docker-compose.yml -f deploy/compose/compose.prod.yml
+      up --detach --force-recreate {{ groupscout_services | join(' ') }}
+    chdir: "{{ groupscout_dir }}"
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ deploy_uid }}
+  changed_when: true

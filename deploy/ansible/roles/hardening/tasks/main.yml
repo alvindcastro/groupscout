@@ -1,0 +1,41 @@
+- name: Configure sshd (key only, no root, only the deploy user)
+  become: true
+  ansible.builtin.template:
+    src: sshd-groupscout.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-groupscout.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Restart sshd
+
+- name: Remove the bootstrap sshd settings
+  become: true
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d/10-groupscout-bootstrap.conf
+    state: absent
+  notify: Restart sshd
+
+# A default-deny UFW on WSL would apply to the network namespace that every
+# WSL distro shares, including the Podman machine; WSL's NAT already keeps
+# the LAN out. Other hosts get the firewall.
+- name: Firewall (hosts other than WSL)
+  when: not host_is_wsl
+  become: true
+  block:
+    - name: Install UFW
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+
+    - name: Allow SSH
+      community.general.ufw:
+        rule: allow
+        port: "{{ ssh_port }}"
+        proto: tcp
+
+    - name: Deny other inbound traffic and turn the firewall on
+      community.general.ufw:
+        state: enabled
+        policy: deny
+        direction: incoming

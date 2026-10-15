@@ -62,7 +62,7 @@ Compose layout:
 
 - `docker-compose.yml` is the base: local image build stamped with the git SHA, pinned images, healthchecks, log rotation, no host ports. It works on its own, which the UI repo's `-f docker-compose.yml -f compose.dev.yml` flows rely on.
 - `docker-compose.override.yml` is auto-loaded when no `-f` flag is given and publishes the usual host ports (`8080`, `8081`, `5432`, `5678`, `9090`, `3000`, `3100`). Commands that pass `-f` must list it explicitly to get those ports.
-- `deploy/compose/compose.prod.yml` is the production overlay (`-f docker-compose.yml -f deploy/compose/compose.prod.yml`): registry image by tag with no local build, required secrets, loopback-only ports.
+- `deploy/compose/compose.prod.yml` is the production overlay (`-f docker-compose.yml -f deploy/compose/compose.prod.yml`): registry image by tag with no local build, required secrets, loopback-only ports. `GROUPSCOUT_API_HOST_PORT`, `GROUPSCOUT_N8N_HOST_PORT` and `GROUPSCOUT_GRAFANA_HOST_PORT` move those ports (defaults 8080, 5678, 3000).
 - `deploy/config/` holds app config mounted read-only, so a fresh volume comes back fully configured:
   - `n8n/workflows/*.json` is imported and published by `n8n/bootstrap.sh` each time n8n starts, when a workflow is missing or its file changed. Restart n8n to apply an edited workflow.
   - `prometheus/prometheus.yml` scrapes `groupscout:8080/metrics`.
@@ -71,6 +71,16 @@ Compose layout:
 - Ollama (`llm` profile) and Prometheus/Grafana/Loki/Alloy (`obs` profile) are optional. `make docker-up` starts both by default. Use `make docker-up COMPOSE_PROFILES=` for the core services only, or set `COMPOSE_PROFILES` in `.env` for plain `docker compose` / `podman compose` commands.
 - `make docker-up COMPOSE="podman compose"` runs the same targets on Podman. `make compose-check` renders every profile set and the production overlay without starting anything.
 - `GET /health` reports the running build in its `version` field.
+
+Infrastructure as code (plan and runbooks in the coordination repo, `backend/docs/`):
+
+- `deploy/secrets/*.sops.env`: the environment, encrypted with SOPS + age. `make secrets-render` writes `.env`, and `make secrets-edit` changes values (SECRETS.md).
+- `.github/workflows/`: `ci.yml` covers tests, the eval gate, integration tests, Compose and Ansible checks, and the image build, smoke test and vulnerability scan. Every `main` commit is published as `ghcr.io/alvindcastro/groupscout:<sha>`. `secret-scan.yml` runs gitleaks (CI.md).
+- `deploy/windows/`:
+  - `configuration.dsc.yaml` plus `setup-dev.ps1` set up a Windows dev machine in two commands.
+  - `register-autostart.ps1` installs the logon task that starts Podman and the stack (`podman-autostart.ps1`).
+  - `new-wsl-host.ps1` creates the WSL production host (PODMAN_MIGRATION.md, WSL_HOST.md).
+- `deploy/ansible/`: `site.yml` configures a Debian/Ubuntu host (today the WSL 2 distro `groupscout-prod`) and runs the stack on rootless Podman. Use `make ansible-deps`, `make ansible-apply`, `make ansible-check` and `make ansible-lint` (WSL_HOST.md).
 
 Stop the Docker stack:
 
@@ -154,7 +164,7 @@ Important variables are documented in `.env.example`. The most commonly needed l
 - collector toggles such as `CREATIVEBC_ENABLED`, `VCC_ENABLED`, `BCBID_ENABLED`, `NEWS_ENABLED`, and `EVENTBRITE_ENABLED`
 - `AUDIT_RETENTION_*` for raw audit cleanup behavior
 
-Keep secrets in local environment files or secret stores. Do not commit real tokens, webhook URLs, provider keys, or database credentials.
+Keep secrets in `deploy/secrets/*.sops.env` (encrypted) and the rendered, git-ignored `.env`. Do not commit real tokens, webhook URLs, provider keys, or database credentials in plaintext; `make secrets-scan` and CI's gitleaks job check for them.
 
 ## Documentation Policy
 

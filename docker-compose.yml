@@ -206,14 +206,16 @@ services:
   alloy:
     # Ships container logs to Loki through the Docker API. Works on Docker and
     # on the Podman machine, where /var/run/docker.sock links to the Podman
-    # socket. Socket access is root-equivalent; keep this service internal.
+    # socket. Rootless Podman hosts set CONTAINER_SOCKET to the user's socket
+    # (/run/user/<uid>/podman/podman.sock). Socket access is root-equivalent;
+    # keep this service internal.
     image: grafana/alloy:v1.20.1
     container_name: groupscout_alloy
     profiles: ["obs"]
     command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
     volumes:
       - ./deploy/config/alloy/config.alloy:/etc/alloy/config.alloy:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${CONTAINER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
       - alloy_data:/var/lib/alloy/data
     networks:
       - groupscout_net

@@ -1,0 +1,10 @@
+base_packages:
+  - acl
+  - ca-certificates
+  - curl
+  - jq
+  - rsync
+  - tzdata
+  - unattended-upgrades
+# Hosts that are not WSL get time sync and a swap file; WSL takes both from Windows.
+base_swap_size_mb: 2048

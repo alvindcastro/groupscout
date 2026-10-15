@@ -1,0 +1,84 @@
+- name: Create the stack directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ groupscout_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0755"
+  loop: ["", deploy, deploy/compose]
+
+# Files are world-readable on purpose: rootless containers run as mapped
+# subuids, which are "other" to files owned by the deploy user.
+- name: Copy the Compose files and app config from the repo
+  ansible.builtin.copy:
+    src: "{{ groupscout_repo_root }}/{{ item }}"
+    dest: "{{ groupscout_dir }}/{{ item }}"
+    mode: "0644"
+    directory_mode: "0755"
+  loop:
+    - docker-compose.yml
+    - deploy/compose/compose.prod.yml
+    - deploy/config/
+    - config/
+  notify: Recreate the stack
+
+- name: Render .env from the encrypted secrets for {{ groupscout_secrets_env }}
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ groupscout_dir }}/.env"
+    mode: "0600"
+  vars:
+    groupscout_secrets: >-
+      {{ lookup('community.sops.sops',
+                groupscout_repo_root ~ '/deploy/secrets/' ~ groupscout_secrets_env ~ '.sops.env',
+                input_type='dotenv', output_type='dotenv') }}
+  no_log: true
+  notify: Recreate the stack
+
+- name: Start the stack
+  ansible.builtin.command:
+    cmd: >-
+      podman compose -f docker-compose.yml -f deploy/compose/compose.prod.yml
+      up --detach --remove-orphans {{ groupscout_services | join(' ') }}
+    chdir: "{{ groupscout_dir }}"
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ deploy_uid }}
+  register: groupscout_up
+  # Compose reports each container on stderr; an unchanged one says "Running".
+  changed_when: groupscout_up.stderr is search('(Pulled|Created|Recreated|Started)$', multiline=True)
+
+- name: Create the user unit directory
+  ansible.builtin.file:
+    path: ~/.config/systemd/user
+    state: directory
+    mode: "0755"
+
+- name: Install the unit that starts the stack at boot
+  ansible.builtin.template:
+    src: groupscout.service.j2
+    dest: ~/.config/systemd/user/groupscout.service
+    mode: "0644"
+
+- name: Enable it
+  ansible.builtin.systemd_service:
+    name: groupscout.service
+    scope: user
+    enabled: true
+    daemon_reload: true
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ deploy_uid }}
+
+- name: Apply changed files before checking health
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for /health to report this image and a working database
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ groupscout_host_ports.api }}/health
+    return_content: true
+  register: groupscout_health
+  until: >-
+    groupscout_health.status == 200 and groupscout_health.json.database == 'ok'
+    and groupscout_health.json.version == groupscout_image_tag
+  retries: 40
+  delay: 5

@@ -1,0 +1,15 @@
+# Managed by Ansible (deploy/ansible, base role). Takes effect at the next
+# start of the distro (wsl --terminate {{ inventory_hostname }}).
+[boot]
+systemd=true
+
+[user]
+default={{ deploy_user }}
+
+[network]
+hostname={{ inventory_hostname }}
+
+# No Windows interop on this host; see wsl-binfmt-detach.service.
+[interop]
+enabled=false
+appendWindowsPath=false

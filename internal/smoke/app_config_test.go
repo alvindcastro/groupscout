@@ -194,7 +194,9 @@ func TestAlloyShipsContainerLogsToLoki(t *testing.T) {
 	}
 	for _, want := range []string{
 		"./deploy/config/alloy/config.alloy:/etc/alloy/config.alloy:ro",
-		"/var/run/docker.sock:/var/run/docker.sock:ro",
+		// The host side is a variable so rootless Podman hosts can mount the
+		// user's socket; Docker and the Podman machine keep the default.
+		"${CONTAINER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro",
 	} {
 		if !hasVolume(alloy, want) {
 			t.Errorf("alloy must mount %s", want)

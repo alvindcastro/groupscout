@@ -1,0 +1,18 @@
+# Managed by Ansible (deploy/ansible, base role).
+# Every WSL 2 distro shares one binfmt_misc table, and systemd-shutdown
+# (systemd >= 256) flushes it whenever it is mounted, deleting the WSLInterop
+# entry for all distros. This host needs no interop, so unmount it at boot.
+[Unit]
+Description=Detach the shared binfmt_misc so shutdown cannot flush WSL interop
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+ConditionPathIsMountPoint=/proc/sys/fs/binfmt_misc
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/umount -l /proc/sys/fs/binfmt_misc
+
+[Install]
+WantedBy=sysinit.target

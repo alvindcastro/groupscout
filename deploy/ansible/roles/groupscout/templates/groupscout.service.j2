@@ -1,0 +1,18 @@
+# Managed by Ansible (deploy/ansible, groupscout role).
+# Brings the stack up when the deploy user's systemd instance starts (at
+# boot, through lingering). Podman's podman-restart.service only restarts
+# containers with restart policy "always"; Compose uses "unless-stopped".
+[Unit]
+Description=GroupScout stack (podman compose up)
+Wants=podman.socket
+After=podman.socket
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={{ groupscout_dir }}
+ExecStart=/usr/bin/podman compose -f docker-compose.yml -f deploy/compose/compose.prod.yml up --detach {{ groupscout_services | join(' ') }}
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

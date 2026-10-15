@@ -1,0 +1,11 @@
+# Managed by Ansible (deploy/ansible, hardening role).
+Port {{ ssh_port }}
+{% for address in hardening_ssh_listen_addresses %}
+ListenAddress {{ address }}
+{% endfor %}
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AllowUsers {{ deploy_user }}
+X11Forwarding no

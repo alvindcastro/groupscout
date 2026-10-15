@@ -1,0 +1,4 @@
+# sshd listens on loopback on WSL (the controller is another distro in the
+# same network namespace). Other hosts: every address until D5 settles on
+# Tailscale, which then narrows this to the tailnet address.
+hardening_ssh_listen_addresses: "{{ ['127.0.0.1'] if host_is_wsl else ['0.0.0.0'] }}"
