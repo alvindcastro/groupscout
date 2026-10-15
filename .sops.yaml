@@ -1,0 +1,23 @@
+# SOPS creation rules (IaC Phase 3, groupscout-site-6ah.4).
+#
+# Secrets are encrypted to the age public keys below; the matching private
+# keys never enter git. To add a recipient (another workstation, the prod
+# host, CI), append its public key to the anchor and run
+# `make secrets-updatekeys` so existing files are re-encrypted to it.
+# Runbook: groupscout-site backend/docs/guides/SECRETS.md.
+
+keys:
+  # alvin, WSL workstation: ~/.config/sops/age/keys.txt (created 2026-10-14)
+  - &alvin_wsl age1d8lu7k7k0f5km3xlkqp4w463r5uhmsqqfw7spmtg95g4ddnej36sm2tl7y
+
+creation_rules:
+  # Compose environments: deploy/secrets/<env>.sops.env renders to .env.
+  - path_regex: deploy/secrets/[^/]+\.sops\.env$
+    key_groups:
+      - age:
+          - *alvin_wsl
+  # Ansible group_vars (Phase 5).
+  - path_regex: deploy/ansible/.*secrets\.sops\.ya?ml$
+    key_groups:
+      - age:
+          - *alvin_wsl
