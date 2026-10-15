@@ -1,0 +1,153 @@
+# Grafana alert rules, provisioned as code (IaC Phase 9, groupscout-site-6ah.10).
+# Edit here, not in the UI (provisioned rules are read-only there), then
+# restart Grafana. Metrics come from cmd/server/monitoring.go and logs from
+# Loki via Alloy. The cadence dead man's switch itself is the external
+# Healthchecks.io check (deploy/config/healthchecks/checks.json); the
+# cadence-overdue rule here is the in-stack backup.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: groupscout-ops
+    folder: GroupScout
+    interval: 1m
+    rules:
+      - uid: groupscout-api-down
+        title: GroupScout API down
+        condition: C
+        for: 5m
+        noDataState: Alerting
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus cannot scrape the GroupScout API.
+          description: up{job="groupscout"} has been 0 or missing for 5 minutes. Check groupscout_app (podman ps, podman logs groupscout_app) and /health.
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: up{job="groupscout"}
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: lt, params: [1]}
+
+      - uid: groupscout-cadence-overdue
+        title: GroupScout lead cadence missed
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: The last scheduled lead cadence run did not complete.
+          description: No cadence run completed for the latest Sun/Tue/Thu 18:00 slot (plus 45 minutes' grace). Check that n8n is up and its cadence workflow is active, then POST /run by hand if needed. If the API itself is down, the API-down alert fires instead.
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: max(groupscout_cadence_overdue)
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+
+      - uid: groupscout-collector-failed
+        title: GroupScout collector failed
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: "Collector {{ $labels.collector }} failed in a recent run."
+          description: "The collector returned an error during a pipeline run in the last 2 hours, so its source was not collected. Search the app logs for collector={{ $labels.collector }}."
+        data:
+          - refId: A
+            relativeTimeRange: {from: 7200, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: sum by (collector) (increase(groupscout_collector_runs_total{result="error"}[2h]))
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+
+      - uid: groupscout-no-new-leads
+        title: GroupScout found no new leads in 14 days
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: No lead has been created for 14 days.
+          description: Six cadence runs produced nothing new. Check the collector-failed alerts and the app logs for sources that drifted or returned nothing.
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: time() - max(groupscout_last_lead_created_timestamp_seconds)
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [1209600]}
+
+      - uid: groupscout-restart-loop
+        title: GroupScout container restarting repeatedly
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.container }} started more than 3 times in 15 minutes."
+          description: Counted from each container's startup log line in Loki (the app logs "database ready", the n8n bootstrap logs one line per tracked workflow). Check podman logs for the crash.
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: loki
+            model:
+              refId: A
+              expr: sum by (container) (count_over_time({container=~"groupscout_app|groupscout_n8n"} |~ "database ready|groupscout-n8n-bootstrap\\] (unchanged|importing):" [15m]))
+              queryType: instant
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [3]}

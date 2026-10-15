@@ -1,4 +1,4 @@
-.PHONY: help build test lint run run-once docker-up docker-down docker-logs compose-check secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
+.PHONY: help build test lint run run-once docker-up docker-down docker-logs compose-check secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan monitors-plan monitors-apply ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
 
 # Container runtime; `make docker-up COMPOSE="podman compose"` works too.
 COMPOSE ?= docker compose
@@ -35,6 +35,8 @@ help:
 	@echo "secrets-diff     - Name the keys that differ between .env and the encrypted file"
 	@echo "secrets-updatekeys - Re-encrypt secrets after changing recipients in .sops.yaml"
 	@echo "secrets-scan     - gitleaks over git history plus tracked-secret-file checks"
+	@echo "monitors-plan    - Print the Healthchecks.io checks in deploy/config/healthchecks"
+	@echo "monitors-apply   - Create or update those checks (needs HEALTHCHECKS_API_KEY)"
 	@echo "ollama-pull      - Pull required LLM models to local Ollama"
 	@echo "ollama-push      - Push persona Modelfiles to local Ollama"
 	@echo "db-migrate       - Run database migrations (Postgres)"
@@ -107,6 +109,12 @@ compose-check:
 # groupscout-site backend/docs/guides/SECRETS.md.
 secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan:
 	@sh deploy/scripts/secrets.sh $(@:secrets-%=%)
+
+# Monitoring as code: the Healthchecks.io dead man's switch for the lead
+# cadence. See deploy/scripts/monitors.sh and groupscout-site
+# backend/docs/guides/MONITORING.md.
+monitors-plan monitors-apply:
+	@sh deploy/scripts/monitors.sh $(@:monitors-%=%)
 
 ollama-pull:
 	ollama pull mistral

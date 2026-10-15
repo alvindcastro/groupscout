@@ -83,6 +83,7 @@ func runPipeline(ctx context.Context, cfg *config.Config, db *sql.DB, opts Pipel
 	collectors := buildCollectors(cfg)
 	e := buildEnricher(cfg, db, collectors)
 	e.Verbose = true
+	e.OnCollectorRun = ops.recordCollectorRun
 
 	l.Info("running pipeline...")
 	n, err := e.Run(ctx)

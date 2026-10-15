@@ -1,0 +1,15 @@
+{
+  "_doc": "Healthchecks.io checks (IaC Phase 9, groupscout-site-6ah.10). Apply with `make monitors-apply`. Fields are the Healthchecks.io v3 check API; schedule, tz and grace must match internal/cadence.Default and the n8n cadence workflow (internal/smoke checks this).",
+  "checks": [
+    {
+      "name": "groupscout-cadence",
+      "slug": "groupscout-cadence",
+      "tags": "groupscout cadence",
+      "desc": "GroupScout lead cadence. n8n triggers POST /run on Sun/Tue/Thu at 18:00 Vancouver time; the API pings this check when the run completes and pings /fail when it errors. A missing ping means n8n, the API, Podman or the host is down. Runbook: groupscout-site backend/docs/guides/MONITORING.md.",
+      "schedule": "0 18 * * 0,2,4",
+      "tz": "America/Vancouver",
+      "grace": 2700,
+      "channels": "*"
+    }
+  ]
+}

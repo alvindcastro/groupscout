@@ -71,6 +71,8 @@ services:
       - AUDIT_RETENTION_RUN_ON_START=${AUDIT_RETENTION_RUN_ON_START:-true}
       - JSON_LOG=${JSON_LOG:-false}
       - SENTRY_DSN=${SENTRY_DSN:-}
+      # Healthchecks.io check URL pinged after each cadence run (IaC Phase 9).
+      - CADENCE_HEARTBEAT_URL=${CADENCE_HEARTBEAT_URL:-}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/health"]
       interval: 30s
@@ -156,7 +158,8 @@ services:
       - TZ=America/Vancouver
       - GROUPSCOUT_API_BASE_URL=http://groupscout:8080
       - GROUPSCOUT_API_TOKEN=${API_TOKEN:-}
-      - GROUPSCOUT_OPS_SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      # Cadence failure notices: the ops channel when set, else the lead channel.
+      - GROUPSCOUT_OPS_SLACK_WEBHOOK_URL=${OPS_SLACK_WEBHOOK_URL:-${SLACK_WEBHOOK_URL:-}}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5678/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s
@@ -185,6 +188,9 @@ services:
     environment:
       # Only applied when grafana_data is first initialised.
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      # Alert contact point (provisioning/alerting). Never the lead channel: when
+      # unset, the placeholder fails delivery and alerts stay in the Grafana UI.
+      - GROUPSCOUT_OPS_SLACK_WEBHOOK_URL=${OPS_SLACK_WEBHOOK_URL:-http://127.0.0.1:9/ops-slack-webhook-not-configured}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./deploy/config/grafana/provisioning:/etc/grafana/provisioning:ro

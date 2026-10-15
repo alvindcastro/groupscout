@@ -145,6 +145,9 @@ jobs:
           echo "/health: $health"
           echo "$health" | jq -e --arg v "$GROUPSCOUT_IMAGE_TAG" \
             '.status == "ok" and .database == "ok" and .version == $v' >/dev/null
+          # The cadence gauge needs the embedded time zone database
+          # (America/Vancouver); a fresh database is never overdue.
+          curl -fsS http://127.0.0.1:8080/metrics | grep -x 'groupscout_cadence_overdue 0'
           $prod down -v
 
       - name: Install grype

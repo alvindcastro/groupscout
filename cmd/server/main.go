@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -14,9 +16,12 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/alvindcastro/groupscout/config"
+	"github.com/alvindcastro/groupscout/internal/cadence"
+	"github.com/alvindcastro/groupscout/internal/heartbeat"
 	"github.com/alvindcastro/groupscout/internal/logger"
 	"github.com/alvindcastro/groupscout/internal/ollama"
 	"github.com/alvindcastro/groupscout/internal/storage"
@@ -118,6 +123,7 @@ func main() {
 	}
 
 	startAuditRetentionWorker(cfg, db)
+	startOpsMonitor(cfg, db, l)
 
 	if cfg.APIToken == "" {
 		l.Warn("API_TOKEN not set; server will be insecure (all requests allowed)")
@@ -168,10 +174,13 @@ func main() {
 		// A cadence_key or schedule_key implies guaranteed delivery — this is defensive against
 		// n8n expression failures that silently drop guarantee_one_lead from the request body.
 		hasScheduleKey := req.CadenceKey != "" || req.ScheduleKey != ""
-		result, err := runPipeline(ctx, cfg, db, PipelineRunOptions{
+		opts := PipelineRunOptions{
 			GuaranteeOneLead: req.GuaranteeOneLead || deliveryMode == "all_eligible" || deliveryMode == "one_lead" || deliveryMode == "exactly_one" || hasScheduleKey,
 			IdempotencyKey:   req.IdempotencyKey,
 			ScheduleKey:      req.ScheduleKey,
+		}
+		result, err := ops.trackRun(ctx, opts, func() (PipelineRunResult, error) {
+			return runPipeline(ctx, cfg, db, opts)
 		})
 		if err != nil {
 			l.Error("pipeline failed", "error", err)
@@ -289,5 +298,32 @@ func main() {
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		l.Error("server failed", "error", err)
 		os.Exit(1)
+	}
+}
+
+// startOpsMonitor sets up the ops metrics and the cadence heartbeat (IaC
+// Phase 9). A bad heartbeat URL disables the heartbeat rather than the API.
+func startOpsMonitor(cfg *config.Config, db *sql.DB, l *slog.Logger) {
+	pinger, err := heartbeat.New(cfg.CadenceHeartbeatURL)
+	if err != nil {
+		l.Error("cadence heartbeat disabled", "error", err)
+		pinger, _ = heartbeat.New("")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	activity, err := storage.LoadActivity(ctx, db, cfg.DatabaseURL)
+	if err != nil {
+		l.Warn("ops metrics start without database history", "error", err)
+	}
+	ops = newOpsMonitor(prometheus.DefaultRegisterer, cadence.Default, pinger, activity, time.Now(), l)
+	var names []string
+	for _, c := range buildCollectors(cfg) {
+		names = append(names, c.Name())
+	}
+	ops.initCollectors(names)
+	if pinger.Enabled() {
+		l.Info("cadence heartbeat enabled", "host", pinger.Host())
+	} else {
+		l.Info("cadence heartbeat disabled; set CADENCE_HEARTBEAT_URL to enable it")
 	}
 }

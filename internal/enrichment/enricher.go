@@ -33,6 +33,10 @@ type Enricher struct {
 	ollamaScoringEnabled    bool
 	PriorityAlertThreshold  int
 	Verbose                 bool
+	// OnCollectorRun, when set, is called once per collector per Run with the
+	// collector's new-lead count and its error (nil on success), so callers
+	// can record collector health without parsing logs.
+	OnCollectorRun func(collector string, newLeads int, err error)
 }
 
 // NewEnricher wires together all pipeline dependencies.
@@ -112,6 +116,7 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 	}
 	projects, err := c.Collect(ctx)
 	if err != nil {
+		e.reportCollectorRun(c.Name(), 0, err)
 		var driftErr *collector.SourceDriftError
 		if errors.As(err, &driftErr) {
 			l.Warn("collector source URL drifted — update or disable this collector",
@@ -131,6 +136,7 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 	for _, p := range projects {
 		inserted, err := e.processProjectWithOptions(ctx, normalizeRawProject(p), processProjectOptions{})
 		if err != nil {
+			e.reportCollectorRun(c.Name(), newLeads, err)
 			return newLeads, fmt.Errorf("enricher: %s: %w", c.Name(), err)
 		}
 		if inserted {
@@ -141,7 +147,14 @@ func (e *Enricher) runCollector(ctx context.Context, c collector.Collector) (int
 	if e.Verbose {
 		l.Info("collector finished", "new_leads", newLeads)
 	}
+	e.reportCollectorRun(c.Name(), newLeads, nil)
 	return newLeads, nil
+}
+
+func (e *Enricher) reportCollectorRun(name string, newLeads int, err error) {
+	if e.OnCollectorRun != nil {
+		e.OnCollectorRun(name, newLeads, err)
+	}
 }
 
 // processProject deduplicates, enriches, and stores a single RawProject.
