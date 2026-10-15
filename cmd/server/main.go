@@ -81,7 +81,7 @@ func main() {
 
 	db, err := storage.Open(cfg.DatabaseURL)
 	if err != nil {
-		l.Error("failed to open database", "url", cfg.DatabaseURL, "error", err)
+		l.Error("failed to open database", "url", storage.RedactDSN(cfg.DatabaseURL), "error", err)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -90,7 +90,7 @@ func main() {
 		l.Error("failed to migrate database", "error", err)
 		os.Exit(1)
 	}
-	l.Info("database ready", "url", cfg.DatabaseURL)
+	l.Info("database ready", "url", storage.RedactDSN(cfg.DatabaseURL))
 
 	if *runOnce {
 		if cfg.AIProvider == "claude" && cfg.ClaudeAPIKey == "" {

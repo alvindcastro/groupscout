@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -125,6 +126,24 @@ func DriverName(dsn string) string {
 		return "pgx"
 	}
 	return "sqlite"
+}
+
+// RedactDSN returns dsn with any password masked so it is safe to log.
+// SQLite file paths are returned unchanged.
+func RedactDSN(dsn string) string {
+	if !strings.Contains(dsn, "://") {
+		return dsn
+	}
+	u, err := url.Parse(dsn)
+	if err != nil {
+		// url.Parse errors quote the input, so never fall back to dsn itself.
+		return "<unparseable database url>"
+	}
+	if q := u.Query(); q.Has("password") {
+		q.Set("password", "xxxxx")
+		u.RawQuery = q.Encode()
+	}
+	return u.Redacted()
 }
 
 // Migrate applies the schema to the database. Safe to call on every startup.
