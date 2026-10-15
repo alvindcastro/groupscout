@@ -1,4 +1,4 @@
-.PHONY: help build test lint run run-once docker-up docker-down docker-logs compose-check secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
+.PHONY: help build test lint run run-once docker-up docker-down docker-logs compose-check secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan ansible-deps ansible-apply ansible-check ansible-lint ollama-pull ollama-push db-migrate doctor clean fmt vet eval-quality eval-gate eval-target smoke-ui-docker-e2e
 
 # Container runtime; `make docker-up COMPOSE="podman compose"` works too.
 COMPOSE ?= docker compose
@@ -35,6 +35,10 @@ help:
 	@echo "secrets-diff     - Name the keys that differ between .env and the encrypted file"
 	@echo "secrets-updatekeys - Re-encrypt secrets after changing recipients in .sops.yaml"
 	@echo "secrets-scan     - gitleaks over git history plus tracked-secret-file checks"
+	@echo "ansible-deps     - Install the pinned Ansible collections (deploy/ansible/requirements.yml)"
+	@echo "ansible-apply    - Configure the host and start the stack (deploy/ansible/site.yml)"
+	@echo "ansible-check    - Drift check: what ansible-apply would change (--check --diff)"
+	@echo "ansible-lint     - Lint the playbook and roles"
 	@echo "ollama-pull      - Pull required LLM models to local Ollama"
 	@echo "ollama-push      - Push persona Modelfiles to local Ollama"
 	@echo "db-migrate       - Run database migrations (Postgres)"
@@ -107,6 +111,23 @@ compose-check:
 # groupscout-site backend/docs/guides/SECRETS.md.
 secrets-edit secrets-render secrets-diff secrets-updatekeys secrets-scan:
 	@sh deploy/scripts/secrets.sh $(@:secrets-%=%)
+
+# Host configuration (IaC Phase 5): deploy/ansible. ANSIBLE_CONFIG is set
+# explicitly because Ansible ignores an ansible.cfg in a world-writable
+# directory, which every path under /mnt/c is in WSL.
+ANSIBLE_ENV := cd deploy/ansible && ANSIBLE_CONFIG=ansible.cfg
+
+ansible-deps:
+	$(ANSIBLE_ENV) ansible-galaxy collection install -r requirements.yml
+
+ansible-apply:
+	$(ANSIBLE_ENV) ansible-playbook site.yml
+
+ansible-check:
+	$(ANSIBLE_ENV) ansible-playbook site.yml --check --diff
+
+ansible-lint:
+	$(ANSIBLE_ENV) ansible-lint --offline site.yml
 
 ollama-pull:
 	ollama pull mistral

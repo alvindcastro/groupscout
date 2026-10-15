@@ -1,0 +1,5 @@
+podman_packages:
+  - podman
+  - docker-compose-v2   # the Compose provider behind 'podman compose'
+  - passt               # pasta, rootless networking
+  - uidmap

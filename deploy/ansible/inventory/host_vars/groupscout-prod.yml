@@ -1,0 +1,9 @@
+# Staging until cutover from the Podman machine (see WSL_HOST.md): the live
+# stack still holds ports 8080/5678/3000 in the network namespace every WSL
+# distro shares, and n8n stays off so the cadence cannot run twice. Throwaway
+# secrets, with no Slack, Resend or Claude keys.
+# Cutover: delete these four settings and run site.yml again.
+groupscout_secrets_env: staging
+groupscout_services: [postgres, groupscout]
+groupscout_compose_profiles: []
+groupscout_host_ports: {api: 18080, n8n: 15678, grafana: 13000}

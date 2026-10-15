@@ -1,0 +1,17 @@
+# Settings shared by every GroupScout host. Secrets do not live here: the
+# groupscout role decrypts deploy/secrets/<env>.sops.env on the controller.
+timezone: America/Vancouver
+deploy_user: deploy
+ssh_port: 2222
+
+# Image published by CI (Phase 4); deploy by full commit SHA.
+groupscout_image: ghcr.io/alvindcastro/groupscout
+groupscout_image_tag: 4ec52525542e29ed561420c5a1550232a0d1ae18
+
+groupscout_secrets_env: prod
+groupscout_dir: /opt/groupscout
+# alertd is left out until groupscout-site-q74 decides whether it runs here:
+# started with the real SLACK_BOT_TOKEN it posts to the hotel Slack channel.
+groupscout_services: [postgres, groupscout, n8n, prometheus, loki, alloy, grafana]
+groupscout_compose_profiles: [obs]
+groupscout_host_ports: {api: 8080, n8n: 5678, grafana: 3000}

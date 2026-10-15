@@ -1,0 +1,77 @@
+# Rootless Podman for the deploy user (decision D4, 2026-10-15: Podman over
+# Docker where possible). Containers run as the deploy user; lingering keeps
+# the user's systemd running from boot, its podman.socket serves 'podman
+# compose' and Alloy's log discovery, and the groupscout role's
+# groupscout.service brings the stack up at boot. podman-restart.service is
+# enabled for containers with restart policy "always".
+- name: Install Podman and the Compose provider
+  become: true
+  ansible.builtin.apt:
+    name: "{{ podman_packages }}"
+    state: present
+
+- name: Create the Podman drop-in directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /etc/containers/registries.conf.d
+    - /etc/containers/containers.conf.d
+
+- name: Resolve short image names on Docker Hub
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/containers/registries.conf.d/10-groupscout.conf
+    content: |
+      # Managed by Ansible (deploy/ansible, podman role).
+      unqualified-search-registries = ["docker.io"]
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Quiet the 'external compose provider' banner
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/containers/containers.conf.d/10-groupscout.conf
+    content: |
+      # Managed by Ansible (deploy/ansible, podman role).
+      [engine]
+      compose_warning_logs = false
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Keep the deploy user's services running without a login session
+  become: true
+  ansible.builtin.command:
+    cmd: loginctl enable-linger {{ deploy_user }}
+    creates: /var/lib/systemd/linger/{{ deploy_user }}
+
+- name: Start the deploy user's systemd instance
+  become: true
+  ansible.builtin.systemd_service:
+    name: user@{{ deploy_uid }}.service
+    state: started
+
+- name: Look for the deploy user's bus
+  ansible.builtin.stat:
+    path: /run/user/{{ deploy_uid }}/bus
+  register: podman_user_bus
+
+# On a fresh host in --check mode the user instance does not exist yet.
+- name: Start the user's Podman socket and enable the restart service
+  when: podman_user_bus.stat.exists or not ansible_check_mode
+  ansible.builtin.systemd_service:
+    name: "{{ item.name }}"
+    scope: user
+    enabled: true
+    state: "{{ item.state | default(omit) }}"
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ deploy_uid }}
+  loop:
+    - {name: podman.socket, state: started}
+    - {name: podman-restart.service}

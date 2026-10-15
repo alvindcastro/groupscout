@@ -4,6 +4,7 @@
 #   integration  the -tags integration suites against a throwaway pgvector
 #                Postgres service container
 #   compose      every dev profile set and the prod overlay render
+#   ansible      ansible-lint and a syntax check of deploy/ansible (Phase 5)
 #   image        build the image, start it with the prod overlay and check
 #                /health, then fail on fixable critical vulnerabilities. On
 #                main it pushes ghcr.io/alvindcastro/groupscout:<full sha> and
@@ -105,6 +106,29 @@ jobs:
 
       - name: Render dev profiles and the prod overlay
         run: make compose-check
+
+  ansible:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The runner's system Python refuses pip installs (PEP 668), so use a venv.
+      - name: Install ansible-core and ansible-lint
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ansible"
+          "$RUNNER_TEMP/ansible/bin/pip" install --quiet ansible-core==2.21.4 ansible-lint==26.9.0
+          echo "$RUNNER_TEMP/ansible/bin" >> "$GITHUB_PATH"
+
+      - name: Install the pinned collections
+        run: make ansible-deps
+
+      - name: Lint and syntax-check the playbook
+        run: |
+          make ansible-lint
+          cd deploy/ansible && ANSIBLE_CONFIG=ansible.cfg ansible-playbook site.yml --syntax-check
 
   image:
     needs: [go, integration, compose]

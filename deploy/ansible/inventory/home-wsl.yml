@@ -1,0 +1,15 @@
+# The home production host (decision D1, 2026-10-15): the WSL 2 distro
+# groupscout-prod on the Windows PC, created by deploy/windows/new-wsl-host.ps1.
+# WSL 2 distros share one network namespace, so the controller (the dev
+# distro) reaches its sshd at 127.0.0.1:2222. A VPS or home Linux box would
+# be another entry here with its own address; the roles stay the same.
+all:
+  children:
+    groupscout:
+      hosts:
+        groupscout-prod:
+          ansible_host: 127.0.0.1
+          ansible_port: 2222
+          ansible_user: deploy
+          ansible_ssh_private_key_file: ~/.ssh/groupscout_prod_ed25519
+          ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new

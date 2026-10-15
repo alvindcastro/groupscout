@@ -1,0 +1,2 @@
+# The backend repo checkout this playbook runs from.
+groupscout_repo_root: "{{ playbook_dir | dirname | dirname }}"
