@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ type VCCCollector struct {
 	client  *http.Client
 	url     string
 	Verbose bool
+	now     func() time.Time
 }
 
 // NewVCCCollector creates a new VCCCollector.
@@ -29,6 +31,7 @@ func NewVCCCollector(url string) *VCCCollector {
 	return &VCCCollector{
 		client: &http.Client{Timeout: 30 * time.Second},
 		url:    url,
+		now:    time.Now,
 	}
 }
 
@@ -126,6 +129,14 @@ func (c *VCCCollector) Collect(ctx context.Context) ([]collector.RawProject, err
 			return
 		}
 
+		// The listing keeps events for a while after they end.
+		if end, ok := vccEndDate(dateStr, c.now()); ok && end.Before(dateOnly(c.now())) {
+			if c.Verbose {
+				logger.Log.Debug("vcc skip past event", "title", title, "date", dateStr)
+			}
+			return
+		}
+
 		// Normalize link
 		if link != "" && !strings.HasPrefix(link, "http") {
 			link = "https://www.vancouverconventioncentre.com" + link
@@ -177,6 +188,35 @@ func (c *VCCCollector) isRelevant(title, category string) bool {
 
 	// If no explicit keep/drop, default to true for now to let Claude decide
 	return true
+}
+
+// vccDayMonthRe matches the "11 Jul" day/month pairs of the live .event-date markup.
+var vccDayMonthRe = regexp.MustCompile(`(\d{1,2})\s+([A-Za-z]{3})`)
+
+// vccEndDate returns the last date in a VCC date string such as "11 Jul › 15 Jul".
+// The page omits the year, so it is the one that puts the date nearest to now.
+func vccEndDate(dateStr string, now time.Time) (time.Time, bool) {
+	m := vccDayMonthRe.FindAllStringSubmatch(dateStr, -1)
+	if m == nil {
+		return time.Time{}, false
+	}
+	last := m[len(m)-1]
+	t, err := time.Parse("2 Jan 2006", fmt.Sprintf("%s %s %d", last[1], last[2], now.Year()))
+	if err != nil {
+		return time.Time{}, false
+	}
+	today := dateOnly(now)
+	switch {
+	case t.Before(today.AddDate(0, -6, 0)):
+		t = t.AddDate(1, 0, 0)
+	case t.After(today.AddDate(0, 6, 0)):
+		t = t.AddDate(-1, 0, 0)
+	}
+	return t, true
+}
+
+func dateOnly(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 // normalizeSpace collapses any run of whitespace (including newlines from
