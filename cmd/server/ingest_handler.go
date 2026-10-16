@@ -64,7 +64,9 @@ func handleIngest(cfg *config.Config, newProcessor func() singleProjectProcessor
 
 		status := "created"
 		code := http.StatusCreated
-		if !inserted {
+		if inserted {
+			ops.recordLeads(1)
+		} else {
 			status = "duplicate"
 			code = http.StatusOK
 		}

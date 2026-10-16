@@ -1,0 +1,16 @@
+# Grafana alert contact point (IaC Phase 9, groupscout-site-6ah.10).
+# Alerts go to the ops Slack channel, never the lead channel. Compose passes
+# OPS_SLACK_WEBHOOK_URL through as GROUPSCOUT_OPS_SLACK_WEBHOOK_URL; when it is
+# unset, the placeholder URL makes delivery fail harmlessly and the alerts are
+# visible only in Grafana (Alerting > Alert rules).
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: groupscout-ops
+    receivers:
+      - uid: groupscout-ops-slack
+        type: slack
+        settings:
+          url: $GROUPSCOUT_OPS_SLACK_WEBHOOK_URL
+        disableResolveMessage: false

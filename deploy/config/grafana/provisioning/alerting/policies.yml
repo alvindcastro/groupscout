@@ -1,0 +1,11 @@
+# Grafana notification policy (IaC Phase 9). Every alert goes to the ops
+# contact point; a still-firing alert is repeated twice a day at most.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: groupscout-ops
+    group_by: ["grafana_folder", "alertname"]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 12h

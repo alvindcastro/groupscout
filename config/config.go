@@ -14,6 +14,7 @@ type Config struct {
 	GeminiAPIKey             string
 	AIProvider               string
 	SlackWebhookURL          string
+	CadenceHeartbeatURL      string // dead man's switch check URL (Healthchecks.io); empty disables
 	ResendAPIKey             string
 	LeadNotifyEmails         []string
 	EmailFrom                string
@@ -87,6 +88,7 @@ func Load() (*Config, error) {
 		GeminiAPIKey:             os.Getenv("GEMINI_API_KEY"),
 		AIProvider:               getEnv("AI_PROVIDER", "claude"),
 		SlackWebhookURL:          os.Getenv("SLACK_WEBHOOK_URL"),
+		CadenceHeartbeatURL:      os.Getenv("CADENCE_HEARTBEAT_URL"),
 		ResendAPIKey:             os.Getenv("RESEND_API_KEY"),
 		LeadNotifyEmails:         getEnvList("LEAD_NOTIFY_EMAILS", []string{"alvin.dcastro@gmail.com"}),
 		EmailFrom:                getEnv("EMAIL_FROM", "GroupScout <alerts@groupscout.ai>"),

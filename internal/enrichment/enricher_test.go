@@ -488,6 +488,64 @@ func TestEnricher_processProject_skipsDuplicateLeadBySourceAndTitle(t *testing.T
 	}
 }
 
+// ── OnCollectorRun ────────────────────────────────────────────────────────────
+
+type stubCollector struct {
+	name     string
+	projects []collector.RawProject
+	err      error
+}
+
+func (s stubCollector) Name() string { return s.name }
+
+func (s stubCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
+	return s.projects, s.err
+}
+
+func TestEnricher_Run_reportsEachCollector(t *testing.T) {
+	audit := &mockAuditStore{
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		store:        func(raw storage.RawInput) (uuid.UUID, error) { return uuid.New(), nil },
+	}
+	raw := &mockRawStore{
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		insert:       func(p *collector.RawProject) error { return nil },
+	}
+	leads := &mockLeadStore{insert: func(l *storage.Lead) error { return nil }}
+	ai := &mockAI{enrich: func(p collector.RawProject) (*EnrichedLead, error) {
+		return &EnrichedLead{PriorityScore: 7}, nil
+	}}
+	collectors := []collector.Collector{
+		stubCollector{name: "works", projects: []collector.RawProject{{Source: "works", Title: "Big build", Description: "crew", Value: 5_000_000}}},
+		stubCollector{name: "broken", err: errors.New("selector not found")},
+		stubCollector{name: "quiet"},
+	}
+	e := NewEnricher(collectors, raw, audit, leads, ai, NewScorer(0), 0, nil, nil, false, false)
+
+	type report struct {
+		newLeads int
+		failed   bool
+	}
+	got := map[string]report{}
+	e.OnCollectorRun = func(name string, newLeads int, err error) {
+		got[name] = report{newLeads: newLeads, failed: err != nil}
+	}
+
+	n, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	want := map[string]report{"works": {newLeads: 1}, "broken": {failed: true}, "quiet": {}}
+	for name, w := range want {
+		if g, ok := got[name]; !ok || g != w {
+			t.Errorf("collector %s reported %+v (seen=%v), want %+v", name, g, ok, w)
+		}
+	}
+	if n != 1 {
+		t.Errorf("Run new leads = %d, want 1", n)
+	}
+}
+
 func TestEnricher_processProject_enrichmentFailureLeavesProjectRetryable(t *testing.T) {
 	var rawInserts int
 	raw := &mockRawStore{
