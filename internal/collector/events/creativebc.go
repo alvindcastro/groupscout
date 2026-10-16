@@ -17,14 +17,18 @@ import (
 )
 
 // creativeBCDefaultURL is the Salesforce Visualforce page that server-renders the in-production
-// list as static HTML. isdtp=p1 strips Salesforce navigation chrome.
-const creativeBCDefaultURL = "https://knowledgehub.creativebc.com/apex/In_Production_List?isdtp=p1"
+// list as static HTML. creativebc.com/bc-film-commission/in-production/ only embeds this page
+// in an iframe; Collect follows that iframe if it is given the wrapper page instead.
+const creativeBCDefaultURL = "https://creativebc.my.salesforce-sites.com/inproduction"
 
-// creativeBCKeepTypes maps normalized production types to keep (Feature Film + TV Series only).
-// Animation, Documentary, New Media, and Mini Series are primarily local-crew work.
+// creativeBCKeepTypes maps normalized production types to keep: features, series, TV movies
+// and pilots, which bring in out-of-town cast and crew. Documentary, New Media and
+// Reality/Lifestyle productions are primarily local-crew work.
 var creativeBCKeepTypes = map[string]bool{
 	"feature film": true,
 	"tv series":    true,
+	"tv movie":     true,
+	"tv pilot":     true,
 }
 
 // creativeBCRecord holds one parsed entry from the Creative BC in-production list.
@@ -76,7 +80,8 @@ func (c *CreativeBCCollector) Name() string { return "creativebc" }
 // and TV Series, and returns RawProjects. Errors produce a warning log and an empty slice —
 // they do not abort the pipeline run.
 func (c *CreativeBCCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
-	body, err := c.fetchHTML(ctx)
+	sourceURL := c.URL
+	body, err := c.fetchHTML(ctx, sourceURL)
 	if err != nil {
 		logger.Log.Warn("could not fetch creativebc page", "error", err)
 		return nil, nil
@@ -84,7 +89,19 @@ func (c *CreativeBCCollector) Collect(ctx context.Context) ([]collector.RawProje
 
 	records, err := parseCreativeBCHTML(body)
 	if err != nil {
-		logger.Log.Warn("could not parse creativebc page", "error", err)
+		// The public creativebc.com page wraps the list in an iframe.
+		if src := findInProductionIframe(body); src != "" {
+			if c.Verbose {
+				logger.Log.Info("following creativebc iframe", "url", src)
+			}
+			sourceURL = src
+			if body, err = c.fetchHTML(ctx, sourceURL); err == nil {
+				records, err = parseCreativeBCHTML(body)
+			}
+		}
+	}
+	if err != nil {
+		logger.Log.Warn("could not parse creativebc page", "url", sourceURL, "error", err)
 		return nil, nil
 	}
 
@@ -98,7 +115,7 @@ func (c *CreativeBCCollector) Collect(ctx context.Context) ([]collector.RawProje
 			continue
 		}
 		p := toCreativeBCRawProject(rec, body)
-		p.SourceURL = c.URL
+		p.SourceURL = sourceURL
 		p.Hash = hashCreativeBCProduction(rec.Title, rec.Type)
 		projects = append(projects, p)
 	}
@@ -110,9 +127,9 @@ func (c *CreativeBCCollector) Collect(ctx context.Context) ([]collector.RawProje
 	return projects, nil
 }
 
-// fetchHTML fetches the Visualforce page and returns the response body.
-func (c *CreativeBCCollector) fetchHTML(ctx context.Context) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.URL, nil)
+// fetchHTML fetches a page and returns the response body.
+func (c *CreativeBCCollector) fetchHTML(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creativebc: build request: %w", err)
 	}
@@ -241,6 +258,41 @@ func parseCreativeBCHTML(body []byte) ([]creativeBCRecord, error) {
 		return nil, fmt.Errorf("creativebc: no productions found in page")
 	}
 	return records, nil
+}
+
+// findInProductionIframe returns the src of the iframe that embeds the in-production
+// list, or "" when the page has none.
+func findInProductionIframe(body []byte) string {
+	doc, err := html.Parse(strings.NewReader(string(body)))
+	if err != nil {
+		return ""
+	}
+	var src string
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if src != "" {
+			return
+		}
+		if n.Type == html.ElementNode && n.Data == "iframe" {
+			for _, a := range n.Attr {
+				if a.Key == "src" && strings.Contains(strings.ToLower(a.Val), "inproduction") {
+					src = a.Val
+					return
+				}
+			}
+		}
+		for ch := n.FirstChild; ch != nil; ch = ch.NextSibling {
+			walk(ch)
+		}
+	}
+	walk(doc)
+	if strings.HasPrefix(src, "//") {
+		src = "https:" + src
+	}
+	if !strings.HasPrefix(src, "http") {
+		return ""
+	}
+	return src
 }
 
 // normalizeProdType maps the h5 category text to a consistent production type string.
