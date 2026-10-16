@@ -1,0 +1,67 @@
+# Grafana alert rules for the AI provider chain (internal/llm), provisioned as
+# code. Edit here, not in the UI, then restart Grafana. The metrics are
+# declared in internal/llm/metrics.go. Routing comes from the notification
+# policy in this folder (the ops contact point once IaC Phase 9 is merged).
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: groupscout-ai
+    folder: GroupScout
+    interval: 1m
+    rules:
+      - uid: groupscout-ai-provider-account
+        title: GroupScout AI provider account problem
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI provider {{ $labels.provider }} rejected the account; enrichment moved to the next provider."
+          description: "No credit, quota used up, a bad key or an unknown model. Leads are still scored by the next provider in LLM_PROVIDERS, and this one is retried every 6 hours. Fix the account (console.anthropic.com, platform.openai.com or aistudio.google.com), then run `podman exec groupscout_app ./groupscout llm-check {{ $labels.provider }}`."
+        data:
+          - refId: A
+            relativeTimeRange: {from: 7200, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: sum by (provider) (increase(groupscout_llm_provider_failures_total{reason="account_error"}[2h]))
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+
+      - uid: groupscout-ai-exhausted
+        title: GroupScout AI enrichment failed on every provider
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: "Every AI provider failed for {{ $labels.use_case }} requests."
+          description: "Items that could not be scored are left unseen and retried on the next run, but no new leads are created until a provider works. Check /health (ai, ai_providers), search the app logs for 'AI provider', and run `podman exec groupscout_app ./groupscout llm-check`."
+        data:
+          - refId: A
+            relativeTimeRange: {from: 7200, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: sum by (use_case) (increase(groupscout_llm_exhausted_total[2h]))
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [0]}

@@ -39,7 +39,7 @@ func TestHealthHandler_ReportsBuildVersion(t *testing.T) {
 	t.Cleanup(func() { version = old })
 
 	l := slog.New(slog.NewTextHandler(io.Discard, nil))
-	code, body := serveHealth(t, healthHandler(fakePinger{}, false, &ollama.NoopClient{}, l))
+	code, body := serveHealth(t, healthHandler(fakePinger{}, false, &ollama.NoopClient{}, nil, l))
 
 	if code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", code)
@@ -54,7 +54,7 @@ func TestHealthHandler_ReportsBuildVersion(t *testing.T) {
 
 func TestHealthHandler_DatabaseDownReturns503(t *testing.T) {
 	l := slog.New(slog.NewTextHandler(io.Discard, nil))
-	code, body := serveHealth(t, healthHandler(fakePinger{err: errors.New("down")}, false, &ollama.NoopClient{}, l))
+	code, body := serveHealth(t, healthHandler(fakePinger{err: errors.New("down")}, false, &ollama.NoopClient{}, nil, l))
 
 	if code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503, got %d", code)
@@ -66,7 +66,7 @@ func TestHealthHandler_DatabaseDownReturns503(t *testing.T) {
 
 func TestHealthHandler_OllamaDegradedStaysHealthy(t *testing.T) {
 	l := slog.New(slog.NewTextHandler(io.Discard, nil))
-	code, body := serveHealth(t, healthHandler(fakePinger{}, true, &failingOllama{}, l))
+	code, body := serveHealth(t, healthHandler(fakePinger{}, true, &failingOllama{}, nil, l))
 
 	if code != http.StatusOK {
 		t.Fatalf("expected 200 when only Ollama is degraded, got %d", code)
@@ -78,7 +78,7 @@ func TestHealthHandler_OllamaDegradedStaysHealthy(t *testing.T) {
 
 func TestHealthHandler_OllamaOK(t *testing.T) {
 	l := slog.New(slog.NewTextHandler(io.Discard, nil))
-	_, body := serveHealth(t, healthHandler(fakePinger{}, true, &ollama.NoopClient{}, l))
+	_, body := serveHealth(t, healthHandler(fakePinger{}, true, &ollama.NoopClient{}, nil, l))
 
 	if body["ollama"] != "ok" {
 		t.Errorf("expected ollama ok, got %q", body["ollama"])

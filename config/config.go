@@ -45,7 +45,6 @@ type Config struct {
 	YVRFlightStatusURL       string
 	NavCanadaNOTAMURL        string
 	HunterAPIKey             string
-	LLMBaseURL               string
 	OllamaEnabled            bool
 	OllamaEndpoint           string
 	OllamaModel              string
@@ -60,6 +59,22 @@ type Config struct {
 	AuditRetentionDays       int
 	AuditRetentionIntervalH  int
 	AuditRetentionRunOnStart bool
+
+	// AI provider chain (internal/llm). LLMProviders is the order providers
+	// are tried in; a provider without a key or endpoint is left out.
+	LLMProviders          []string
+	LLMTimeoutS           int // per call, cloud providers
+	LLMLocalTimeoutS      int // per call, ollama and custom (CPU inference is slow)
+	ClaudeModel           string
+	OpenAIAPIKey          string
+	OpenAIModel           string
+	OpenAIBaseURL         string
+	OpenAIReasoningEffort string
+	GeminiModel           string
+	CustomLLMBaseURL      string
+	CustomLLMAPIKey       string
+	CustomLLMModel        string
+	CustomLLMJSONMode     bool
 }
 
 // defaultBCBidRSSURLs are the CivicInfo BC "new bids" feeds for categories that put
@@ -118,7 +133,6 @@ func Load() (*Config, error) {
 		YVRFlightStatusURL:       getEnv("YVR_FLIGHT_STATUS_URL", "https://www.yvr.ca/en/passengers/flights"),
 		NavCanadaNOTAMURL:        getEnv("NAVCANADA_NOTAM_URL", "https://www.navcanada.ca/en/flight-planning/notam-portal.aspx"),
 		HunterAPIKey:             os.Getenv("HUNTER_API_KEY"),
-		LLMBaseURL:               os.Getenv("LLM_BASE_URL"),
 		OllamaEnabled:            getEnv("OLLAMA_ENABLED", "false") == "true",
 		OllamaEndpoint:           getEnv("OLLAMA_ENDPOINT", "http://localhost:11434"),
 		OllamaModel:              getEnv("OLLAMA_MODEL", "mistral"),
@@ -133,7 +147,35 @@ func Load() (*Config, error) {
 		AuditRetentionDays:       getEnvInt("AUDIT_RETENTION_DAYS", 30),
 		AuditRetentionIntervalH:  getEnvInt("AUDIT_RETENTION_INTERVAL_HOURS", 24),
 		AuditRetentionRunOnStart: getEnv("AUDIT_RETENTION_RUN_ON_START", "true") == "true",
+		LLMProviders:             llmProviders(),
+		LLMTimeoutS:              getEnvInt("LLM_TIMEOUT_S", 60),
+		LLMLocalTimeoutS:         getEnvInt("LLM_LOCAL_TIMEOUT_S", 180),
+		ClaudeModel:              os.Getenv("CLAUDE_MODEL"),
+		OpenAIAPIKey:             os.Getenv("OPENAI_API_KEY"),
+		OpenAIModel:              os.Getenv("OPENAI_MODEL"),
+		OpenAIBaseURL:            os.Getenv("OPENAI_BASE_URL"),
+		OpenAIReasoningEffort:    os.Getenv("OPENAI_REASONING_EFFORT"),
+		GeminiModel:              os.Getenv("GEMINI_MODEL"),
+		CustomLLMBaseURL:         os.Getenv("CUSTOM_LLM_BASE_URL"),
+		CustomLLMAPIKey:          os.Getenv("CUSTOM_LLM_API_KEY"),
+		CustomLLMModel:           os.Getenv("CUSTOM_LLM_MODEL"),
+		CustomLLMJSONMode:        getEnv("CUSTOM_LLM_JSON_MODE", "true") == "true",
 	}, nil
+}
+
+// defaultLLMProviders is the chain when neither LLM_PROVIDERS nor the older
+// AI_PROVIDER is set. Providers without an API key are left out at startup.
+const defaultLLMProviders = "claude,openai,gemini"
+
+// llmProviders reads LLM_PROVIDERS. When it is unset, a set AI_PROVIDER (the
+// single-provider switch it replaces) is the whole chain.
+func llmProviders() []string {
+	if os.Getenv("LLM_PROVIDERS") == "" {
+		if legacy := strings.TrimSpace(os.Getenv("AI_PROVIDER")); legacy != "" {
+			return []string{legacy}
+		}
+	}
+	return getEnvList("LLM_PROVIDERS", strings.Split(defaultLLMProviders, ","))
 }
 
 // loadDotEnv reads key=value pairs from a file and sets them as environment

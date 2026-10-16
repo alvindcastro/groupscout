@@ -42,7 +42,22 @@ services:
         required: false
     environment:
       - DATABASE_URL=postgres://groupscout:${POSTGRES_PASSWORD:-groupscout}@postgres:5432/groupscout
+      # AI providers for enrichment, tried in order (internal/llm). A provider
+      # whose key is empty is left out, so listing it before it has a key is
+      # harmless. Empty *_MODEL values use the defaults in internal/llm.
+      - LLM_PROVIDERS=${LLM_PROVIDERS:-claude,openai,gemini}
       - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - OPENAI_REASONING_EFFORT=${OPENAI_REASONING_EFFORT:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-}
+      - CUSTOM_LLM_BASE_URL=${CUSTOM_LLM_BASE_URL:-}
+      - CUSTOM_LLM_API_KEY=${CUSTOM_LLM_API_KEY:-}
+      - CUSTOM_LLM_MODEL=${CUSTOM_LLM_MODEL:-}
+      - LLM_LOCAL_TIMEOUT_S=${LLM_LOCAL_TIMEOUT_S:-180}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - LEAD_NOTIFY_EMAILS=${LEAD_NOTIFY_EMAILS:-alvin.dcastro@gmail.com}

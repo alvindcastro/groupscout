@@ -1,100 +1,40 @@
 package enrichment
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/storage"
 )
 
-const (
-	claudeAPIURL     = "https://api.anthropic.com/v1/messages"
-	claudeAPIVersion = "2023-06-01"
-	defaultModel     = "claude-haiku-4-5-20251001"
-)
+// Prompts are provider-neutral: every model in the chain gets the same system
+// and user turns, and the reply is parsed and checked the same way.
 
-// EnrichedLead is the structured output from the Claude enrichment step.
-// Field names match the JSON keys Claude is prompted to return.
-type EnrichedLead struct {
-	GeneralContractor       string `json:"general_contractor"`
-	ProjectType             string `json:"project_type"`
-	EstimatedCrewSize       int    `json:"estimated_crew_size"`
-	EstimatedDurationMonths int    `json:"estimated_duration_months"`
-	OutOfTownCrewLikely     bool   `json:"out_of_town_crew_likely"`
-	PriorityScore           int    `json:"priority_score"`
-	PriorityReason          string `json:"priority_reason"`
-	SuggestedOutreachTiming string `json:"suggested_outreach_timing"`
-	Notes                   string `json:"notes"`
+// enrichmentPrompt picks the user turn for a project's source. Creative BC,
+// VCC, news, announcements and Eventbrite have their own; every other source
+// is treated as a permit.
+func enrichmentPrompt(p collector.RawProject) string {
+	switch p.Source {
+	case "creativebc":
+		return creativeBCPrompt(p)
+	case "vcc_events":
+		return vccEventsPrompt(p)
+	case "google_news":
+		return newsPrompt(p)
+	case "announcements":
+		return announcementsPrompt(p)
+	case "eventbrite":
+		return eventbritePrompt(p)
+	}
+	return permitPrompt(p)
 }
 
-// ClaudeEnricher calls the Claude Messages API to enrich a RawProject into an EnrichedLead.
-type ClaudeEnricher struct {
-	APIKey string
-	Model  string // defaults to claude-haiku-4-5-20251001; swap to claude-sonnet-4-6 if quality needs improvement
-	client *http.Client
-}
+const outreachSystemPrompt = "You are a senior hotel sales manager. Draft professional outreach emails."
 
-// NewClaudeEnricher returns a ClaudeEnricher using Haiku by default.
-func NewClaudeEnricher(apiKey string) *ClaudeEnricher {
-	return &ClaudeEnricher{
-		APIKey: apiKey,
-		Model:  defaultModel,
-		client: &http.Client{Timeout: 30 * time.Second},
-	}
-}
-
-// Enrich sends a RawProject to the Claude API and returns the parsed EnrichedLead.
-func (c *ClaudeEnricher) Enrich(ctx context.Context, p collector.RawProject) (*EnrichedLead, error) {
-	body, err := json.Marshal(c.buildRequest(p))
-	if err != nil {
-		return nil, fmt.Errorf("enrichment: marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, claudeAPIURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("enrichment: build request: %w", err)
-	}
-	req.Header.Set("x-api-key", c.APIKey)
-	req.Header.Set("anthropic-version", claudeAPIVersion)
-	req.Header.Set("content-type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("enrichment: api call: %w", err)
-	}
-	defer resp.Body.Close()
-
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("enrichment: read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("enrichment: claude returned HTTP %d: %s", resp.StatusCode, raw)
-	}
-
-	text, err := extractText(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	var lead EnrichedLead
-	if err := json.Unmarshal([]byte(stripMarkdown(text)), &lead); err != nil {
-		return nil, fmt.Errorf("enrichment: parse claude json: %w\nraw response: %s", err, text)
-	}
-
-	return &lead, nil
-}
-
-// DraftOutreach generates a cold outreach email for a lead using Claude.
-func (c *ClaudeEnricher) DraftOutreach(ctx context.Context, l storage.Lead) (string, error) {
-	prompt := fmt.Sprintf(`Draft a short, professional cold outreach email from the Sandman Hotel Vancouver Airport sales team to the following lead.
+// outreachPrompt is the user turn for a cold outreach email about a lead.
+func outreachPrompt(l storage.Lead) string {
+	return fmt.Sprintf(`Draft a short, professional cold outreach email from the Sandman Hotel Vancouver Airport sales team to the following lead.
 The goal is to offer room blocks and professional rates for their upcoming project/event.
 
 Lead Details:
@@ -111,71 +51,10 @@ Guidelines:
 - Mention that we specialize in construction crew and event speaker lodging.
 - Professional but approachable tone.`,
 		l.Title, l.Location, l.GeneralContractor, l.ProjectType, l.PriorityReason, l.Notes)
-
-	reqBody := map[string]any{
-		"model":      c.Model,
-		"max_tokens": 512,
-		"system":     "You are a senior hotel sales manager. Draft professional outreach emails.",
-		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
-		},
-	}
-
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, claudeAPIURL, bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("x-api-key", c.APIKey)
-	req.Header.Set("anthropic-version", claudeAPIVersion)
-	req.Header.Set("content-type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("claude error %d: %s", resp.StatusCode, raw)
-	}
-
-	return extractText(raw)
-}
-
-// buildRequest assembles the Messages API payload.
-// For Creative BC productions the user turn is source-specific; all other sources use permitPrompt.
-func (c *ClaudeEnricher) buildRequest(p collector.RawProject) map[string]any {
-	userContent := permitPrompt(p)
-	switch p.Source {
-	case "creativebc":
-		userContent = creativeBCPrompt(p)
-	case "vcc_events":
-		userContent = vccEventsPrompt(p)
-	case "google_news":
-		userContent = newsPrompt(p)
-	case "announcements":
-		userContent = announcementsPrompt(p)
-	case "eventbrite":
-		userContent = eventbritePrompt(p)
-	}
-	return map[string]any{
-		"model":      c.Model,
-		"max_tokens": 512,
-		"system":     systemPrompt,
-		"messages": []map[string]any{
-			{"role": "user", "content": userContent},
-		},
-	}
 }
 
 // vccEventsPrompt builds the user turn for Vancouver Convention Centre events.
-// It instructs Claude to estimate attendee count and out-of-town ratio.
+// It asks the model to estimate attendee count and out-of-town ratio.
 // Score boosters per PHASES.md: 3+ day event → +1; 500+ expected attendees → +1;
 // engineering/medical/mining/government → +1; event within 6 weeks → +1.
 func vccEventsPrompt(p collector.RawProject) string {
@@ -206,32 +85,7 @@ URL:         %s`,
 	)
 }
 
-// extractText pulls the assistant's text block from a Claude API response.
-func extractText(raw []byte) (string, error) {
-	var resp struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-		Error *struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return "", fmt.Errorf("enrichment: parse api response: %w", err)
-	}
-	if resp.Error != nil {
-		return "", fmt.Errorf("enrichment: claude error: %s", resp.Error.Message)
-	}
-	for _, block := range resp.Content {
-		if block.Type == "text" {
-			return block.Text, nil
-		}
-	}
-	return "", fmt.Errorf("enrichment: no text block in claude response")
-}
-
-// stripMarkdown removes ```json ... ``` fences if Claude includes them despite instructions.
+// stripMarkdown removes ```json ... ``` fences if a model includes them despite instructions.
 func stripMarkdown(s string) string {
 	s = strings.TrimSpace(s)
 	if strings.HasPrefix(s, "```") {
@@ -257,7 +111,7 @@ Key factors to weigh:
 Respond with ONLY a valid JSON object. No markdown, no explanation, no code fences.`
 
 // creativeBCPrompt builds the user turn for Creative BC film/TV productions.
-// It instructs Claude to estimate crew size and out-of-town ratio rather than permit fields.
+// It asks the model to estimate crew size and out-of-town ratio rather than permit fields.
 // Score boosters per PHASES.md: US studio → +2; "Richmond" or "Surrey" location reference → +1.
 func creativeBCPrompt(p collector.RawProject) string {
 	schedule, _ := p.Metadata["schedule"].(string)
@@ -378,7 +232,7 @@ URL:         %s`,
 	)
 }
 
-// permitPrompt formats a RawProject as the user turn sent to Claude.
+// permitPrompt formats a RawProject as the user turn for a building permit.
 func permitPrompt(p collector.RawProject) string {
 	return fmt.Sprintf(`Evaluate this building permit and return a JSON object with exactly these fields:
 {

@@ -30,8 +30,12 @@ type Lead struct {
 	SuggestedOutreachTiming string
 	Notes                   string
 	Status                  string
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+	// AIProvider and AIModel name what scored the lead (for example "openai"
+	// and "gpt-4.1-mini"); both are empty for leads the rule pre-scorer skipped.
+	AIProvider string
+	AIModel    string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // LeadStore is the interface for persisting and querying enriched leads.
@@ -61,7 +65,7 @@ const leadColumns = `id, raw_project_id, raw_input_id, source, title, location, 
 	general_contractor, applicant, contractor, source_url, project_type,
 	estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
 	priority_score, priority_reason, rationale, suggested_outreach_timing,
-	notes, status, created_at, updated_at`
+	notes, status, ai_provider, ai_model, created_at, updated_at`
 
 // rowScanner is satisfied by both *sql.Row and *sql.Rows.
 type rowScanner interface {
@@ -77,7 +81,7 @@ func scanLead(s rowScanner) (Lead, error) {
 		&l.GeneralContractor, &l.Applicant, &l.Contractor, &l.SourceURL, &l.ProjectType,
 		&l.EstimatedCrewSize, &l.EstimatedDurationMonths, &l.OutOfTownCrewLikely,
 		&l.PriorityScore, &l.PriorityReason, &l.Rationale, &l.SuggestedOutreachTiming,
-		&l.Notes, &l.Status, &l.CreatedAt, &l.UpdatedAt,
+		&l.Notes, &l.Status, &l.AIProvider, &l.AIModel, &l.CreatedAt, &l.UpdatedAt,
 	); err != nil {
 		return Lead{}, err
 	}
@@ -117,8 +121,8 @@ func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
 			general_contractor, applicant, contractor, source_url, project_type,
 			estimated_crew_size, estimated_duration_months, out_of_town_crew_likely,
 			priority_score, priority_reason, rationale, suggested_outreach_timing,
-			notes, status, created_at, updated_at
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			notes, status, ai_provider, ai_model, created_at, updated_at
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 	`
 	var rawProjectID any
 	if l.RawProjectID != "" {
@@ -133,7 +137,7 @@ func (s *sqliteLeadStore) Insert(ctx context.Context, l *Lead) error {
 		l.GeneralContractor, l.Applicant, l.Contractor, l.SourceURL, l.ProjectType,
 		l.EstimatedCrewSize, l.EstimatedDurationMonths, l.OutOfTownCrewLikely,
 		l.PriorityScore, l.PriorityReason, l.Rationale, l.SuggestedOutreachTiming,
-		l.Notes, l.Status, now, now,
+		l.Notes, l.Status, l.AIProvider, l.AIModel, now, now,
 	)
 	return err
 }

@@ -19,7 +19,8 @@ type EnricherAI interface {
 
 // Enricher orchestrates the collect → dedup → enrich → store pipeline.
 // It runs every registered Collector, skips permits already in the DB,
-// calls Claude to enrich new ones, and writes the resulting Lead records.
+// enriches new ones through the AI provider chain, and writes the resulting
+// Lead records.
 type Enricher struct {
 	collectors              []collector.Collector
 	rawStore                storage.RawProjectStore
@@ -233,7 +234,7 @@ func (e *Enricher) processProjectWithOptions(ctx context.Context, p collector.Ra
 			PriorityScore:  score,
 			PriorityReason: "Pre-scorer: " + reason,
 			Status:         "skipped",
-			Notes:          "Skipped Claude enrichment due to low pre-score.",
+			Notes:          "Skipped AI enrichment due to low pre-score.",
 		}
 		duplicate, err := e.leadStore.ExistsBySourceTitle(ctx, lead.Source, lead.Title)
 		if err != nil {
@@ -338,5 +339,7 @@ func toLeadRecord(p collector.RawProject, e *EnrichedLead, rawInputID string) st
 		PriorityReason:          e.PriorityReason,
 		SuggestedOutreachTiming: e.SuggestedOutreachTiming,
 		Notes:                   e.Notes,
+		AIProvider:              e.Provider,
+		AIModel:                 e.Model,
 	}
 }
