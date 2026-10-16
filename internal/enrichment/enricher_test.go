@@ -487,3 +487,54 @@ func TestEnricher_processProject_skipsDuplicateLeadBySourceAndTitle(t *testing.T
 		t.Fatal("lead insert called for duplicate")
 	}
 }
+
+func TestEnricher_processProject_enrichmentFailureLeavesProjectRetryable(t *testing.T) {
+	var rawInserts int
+	raw := &mockRawStore{
+		existsByHash: func(hash string) (bool, error) { return false, nil },
+		insert: func(p *collector.RawProject) error {
+			rawInserts++
+			return nil
+		},
+	}
+	audit := &mockAuditStore{
+		store: func(raw storage.RawInput) (uuid.UUID, error) { return uuid.New(), nil },
+	}
+	failing := true
+	ai := &mockAI{
+		enrich: func(p collector.RawProject) (*EnrichedLead, error) {
+			if failing {
+				return nil, errors.New("overloaded")
+			}
+			return &EnrichedLead{PriorityScore: 8}, nil
+		},
+	}
+	leads := &mockLeadStore{insert: func(l *storage.Lead) error { return nil }}
+	e := NewEnricher(nil, raw, audit, leads, ai, NewScorer(1), 0, nil, nil, false, false)
+
+	p := collector.RawProject{
+		Hash:     "retry-me",
+		Source:   "google_news",
+		Title:    "Massive Vancouver airport expansion already in flight",
+		RawData:  []byte("<rss/>"),
+		RawType:  "application/rss+xml",
+		Location: "Richmond BC",
+	}
+
+	inserted, err := e.processProject(context.Background(), p)
+	if err != nil || inserted {
+		t.Fatalf("failed run: inserted=%v err=%v, want false/nil", inserted, err)
+	}
+	if rawInserts != 0 {
+		t.Fatalf("raw hash recorded after enrichment failure; the project would never be retried")
+	}
+
+	failing = false
+	inserted, err = e.processProject(context.Background(), p)
+	if err != nil || !inserted {
+		t.Fatalf("retry run: inserted=%v err=%v, want true/nil", inserted, err)
+	}
+	if rawInserts != 1 {
+		t.Fatalf("raw inserts = %d after successful retry, want 1", rawInserts)
+	}
+}

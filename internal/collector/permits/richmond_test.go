@@ -1,75 +1,10 @@
 package permits
 
 import (
+	"os"
 	"testing"
 	"time"
 )
-
-// sampleLines is a representative slice of text lines as they come out of parsePDF().
-// Derived from the real Richmond weekly building report (Mar 15–21, 2026).
-//
-// Matches the real pdftotext output structure: permit records (left column) come first,
-// then APPLICANT/CONTRACTOR blocks (right column) appear after all permits on the page.
-// Each APPLICANT block corresponds to one SUB TYPE section in the same order.
-var sampleLines = []string{
-	// Page chrome — skipped
-	"Building Permit Issuance Report",
-	"City of Richmond",
-	"Filters",
-	"ISSUED FROM Equal to 15/03/2026 And ISSUED TO Equal to 21/03/2026",
-
-	// Section 0: Hotel
-	"SUB TYPE: Hotel",
-	"FOLDER NUMBER WORK PROPOSED STATUS ISSUE DATE CONSTR. VALUE", // column header — skipped
-	"25 036523 000 00 B7",
-	"Alteration",
-	"Issued",
-	"2026/03/16",
-	"1",             // permit count row — skipped
-	"CONSTR. VALUE", // column header repeat — skipped
-	"$300,000.00",
-	"FOLDER NAME 8640 Alexandra Road",
-	"$300,000.00", // section subtotal — second value, skipped
-
-	// Section 1: Warehouse
-	"SUB TYPE: Warehouse",
-	"24 008734 000 01 B7",
-	"New",
-	"Issued",
-	"2026/03/18",
-	"1",
-	"$1,200,000.00",
-	"FOLDER NAME 12500 Vulcan Way",
-	"$1,200,000.00",
-
-	// Section 2: One Family Dwelling (residential — filtered by isRelevant)
-	"SUB TYPE: One Family Dwelling",
-	"25 011111 000 00 B7",
-	"New",
-	"Issued",
-	"2026/03/19",
-	"1",
-	"$850,000.00",
-	"FOLDER NAME 9800 Maple Street",
-	"$850,000.00",
-
-	"SUB TOTAL",   // should be skipped
-	"GRAND TOTAL", // should be skipped
-
-	// Right column — APPLICANT/CONTRACTOR blocks in section order (0, 1, 2)
-	// Block 0 → Hotel (sectionIdx = 0)
-	"APPLICANT",
-	"Studio Senbel Architecture and Design Inc (Sharif Senbel) (604)605-6995",
-	"CONTRACTOR Safara Cladding Inc (416)875-1770",
-
-	// Block 1 → Warehouse (sectionIdx = 1)
-	"APPLICANT ABC Developments Ltd (604)555-0100",
-	"CONTRACTOR BuildRight Contracting (604)555-0199",
-
-	// Block 2 → One Family Dwelling (sectionIdx = 2)
-	"APPLICANT John Smith",
-	"CONTRACTOR Smith Build Co",
-}
 
 // ── parseDollarAmount ────────────────────────────────────────────────────────
 
@@ -199,8 +134,8 @@ func TestToRawProject(t *testing.T) {
 	if p.ExternalID != rec.FolderNumber {
 		t.Errorf("ExternalID = %q, want %q", p.ExternalID, rec.FolderNumber)
 	}
-	if p.Location != rec.Address {
-		t.Errorf("Location = %q, want %q", p.Location, rec.Address)
+	if p.Location != "8640 Alexandra Road, Richmond BC" {
+		t.Errorf("Location = %q, want %q", p.Location, "8640 Alexandra Road, Richmond BC")
 	}
 	if p.Value != rec.ValueCAD {
 		t.Errorf("Value = %d, want %d", p.Value, rec.ValueCAD)
@@ -216,85 +151,93 @@ func TestToRawProject(t *testing.T) {
 	}
 }
 
-// ── parsePermitLines ─────────────────────────────────────────────────────────
+// ── parseBBoxLayout ──────────────────────────────────────────────────────────
 
-func TestParsePermitLines(t *testing.T) {
-	records := parsePermitLines(sampleLines)
-
-	// sampleLines has 3 permits: Hotel, Warehouse, One Family Dwelling
-	if len(records) != 3 {
-		t.Fatalf("expected 3 permit records, got %d", len(records))
+// testdata/richmond_oct4-10_2026.bbox.html is `pdftotext -bbox-layout` output for
+// the real Oct 4–10, 2026 weekly report (buildingreportoct4-10202679898.pdf).
+func TestParseBBoxLayout(t *testing.T) {
+	data, err := os.ReadFile("testdata/richmond_oct4-10_2026.bbox.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := parseBBoxLayout(data)
+	if err != nil {
+		t.Fatalf("parseBBoxLayout: %v", err)
 	}
 
-	hotel := records[0]
-	warehouse := records[1]
-	residential := records[2]
+	// The report's Grand Totals row counts 22 permits.
+	if len(records) != 22 {
+		t.Fatalf("got %d records, want 22", len(records))
+	}
 
-	t.Run("hotel sub-type", func(t *testing.T) {
-		if hotel.SubType != "Hotel" {
-			t.Errorf("SubType = %q, want %q", hotel.SubType, "Hotel")
+	byFolder := map[string]permitRecord{}
+	for _, r := range records {
+		byFolder[r.FolderNumber] = r
+	}
+
+	t.Run("warehouse permit on the last page", func(t *testing.T) {
+		r, ok := byFolder["26 014001 000 00 BB"]
+		if !ok {
+			t.Fatal("warehouse permit 26 014001 000 00 BB not parsed")
 		}
-		if hotel.FolderNumber != "25 036523 000 00 B7" {
-			t.Errorf("FolderNumber = %q, want %q", hotel.FolderNumber, "25 036523 000 00 B7")
+		want := permitRecord{
+			SubType:      "Warehouse",
+			FolderNumber: "26 014001 000 00 BB",
+			WorkProposed: "Alteration",
+			Status:       "Issued",
+			IssueDate:    time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC),
+			ValueCAD:     2_000_000,
+			Address:      "2471 Viking Way",
+			Applicant:    "Jack Zhang (604)761-9246",
+			Contractor:   "Chandos Construction (778)372-6940",
 		}
-		if hotel.ValueCAD != 300_000 {
-			t.Errorf("ValueCAD = %d, want 300000", hotel.ValueCAD)
+		if r != want {
+			t.Errorf("got  %+v\nwant %+v", r, want)
 		}
-		if hotel.Address != "8640 Alexandra Road" {
-			t.Errorf("Address = %q, want %q", hotel.Address, "8640 Alexandra Road")
-		}
-		if hotel.IssueDate.IsZero() {
-			t.Error("IssueDate should not be zero")
+		if !isRelevant(r, minPermitValueCAD) {
+			t.Error("$2M warehouse alteration should pass isRelevant")
 		}
 	})
 
-	t.Run("hotel applicant and contractor from right-column block", func(t *testing.T) {
-		wantApplicant := "Studio Senbel Architecture and Design Inc (Sharif Senbel) (604)605-6995"
-		wantContractor := "Safara Cladding Inc (416)875-1770"
-		if hotel.Applicant != wantApplicant {
-			t.Errorf("Applicant = %q, want %q", hotel.Applicant, wantApplicant)
+	t.Run("hotel section with compressed header", func(t *testing.T) {
+		r := byFolder["26 024110 000 00 B7"]
+		if r.SubType != "Hotel" || r.WorkProposed != "Special Inspection" || r.Status != "Issued" {
+			t.Errorf("SubType/Work/Status = %q/%q/%q, want Hotel/Special Inspection/Issued", r.SubType, r.WorkProposed, r.Status)
 		}
-		if hotel.Contractor != wantContractor {
-			t.Errorf("Contractor = %q, want %q", hotel.Contractor, wantContractor)
+		if r.Address != "2888 Jow Street - Hotel 1- SPECIAL INSPECTION" {
+			t.Errorf("Address = %q", r.Address)
 		}
-	})
-
-	t.Run("warehouse sub-type", func(t *testing.T) {
-		if warehouse.SubType != "Warehouse" {
-			t.Errorf("SubType = %q, want %q", warehouse.SubType, "Warehouse")
-		}
-		if warehouse.ValueCAD != 1_200_000 {
-			t.Errorf("ValueCAD = %d, want 1200000", warehouse.ValueCAD)
+		if r.Contractor != "Scott Construction Management Ltd (604) 874-8228" {
+			t.Errorf("Contractor = %q", r.Contractor)
 		}
 	})
 
-	t.Run("warehouse applicant and contractor", func(t *testing.T) {
-		if warehouse.Applicant != "ABC Developments Ltd (604)555-0100" {
-			t.Errorf("Applicant = %q, want %q", warehouse.Applicant, "ABC Developments Ltd (604)555-0100")
+	t.Run("multi-permit section keeps each value", func(t *testing.T) {
+		// Restaurant section: subtotal row $200,000.00 must not overwrite permit values.
+		if v := byFolder["22 008943 000 01 B2"].ValueCAD; v != 0 {
+			t.Errorf("22 008943 ValueCAD = %d, want 0", v)
 		}
-		if warehouse.Contractor != "BuildRight Contracting (604)555-0199" {
-			t.Errorf("Contractor = %q, want %q", warehouse.Contractor, "BuildRight Contracting (604)555-0199")
-		}
-	})
-
-	t.Run("residential sub-type parsed but filtered by isRelevant", func(t *testing.T) {
-		// parsePermitLines returns all records — filtering is isRelevant's job
-		if residential.SubType != "One Family Dwelling" {
-			t.Errorf("SubType = %q, want %q", residential.SubType, "One Family Dwelling")
-		}
-		if isRelevant(residential, 500_000) {
-			t.Error("residential permit should not pass isRelevant filter")
+		if v := byFolder["26 019423 000 00 B2"].ValueCAD; v != 100_000 {
+			t.Errorf("26 019423 ValueCAD = %d, want 100000", v)
 		}
 	})
 
-	t.Run("page chrome and headers are skipped", func(t *testing.T) {
-		for _, rec := range records {
-			if rec.SubType == "GRAND TOTAL" || rec.SubType == "SUB TOTAL" {
-				t.Errorf("totals should not appear as sub-types, got %q", rec.SubType)
+	t.Run("non-issued status", func(t *testing.T) {
+		r := byFolder["26 023979 000 00 BZ"]
+		if r.WorkProposed != "New" || r.Status != "Pickup - Deposit" {
+			t.Errorf("Work/Status = %q/%q, want New/Pickup - Deposit", r.WorkProposed, r.Status)
+		}
+	})
+
+	t.Run("only the warehouse permit is relevant", func(t *testing.T) {
+		var relevant []string
+		for _, r := range records {
+			if isRelevant(r, minPermitValueCAD) {
+				relevant = append(relevant, r.FolderNumber)
 			}
-			if rec.FolderNumber == "FOLDER NUMBER WORK PROPOSED STATUS ISSUE DATE CONSTR. VALUE FOLDER NAME APPLICANT CONTRACTOR" {
-				t.Error("column header row should be skipped")
-			}
+		}
+		if len(relevant) != 1 || relevant[0] != "26 014001 000 00 BB" {
+			t.Errorf("relevant permits = %v, want [26 014001 000 00 BB]", relevant)
 		}
 	})
 }

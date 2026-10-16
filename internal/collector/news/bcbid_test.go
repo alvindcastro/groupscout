@@ -124,3 +124,22 @@ func TestBCBidCollector_ParseDate(t *testing.T) {
 		}
 	}
 }
+
+func TestBCBidCollector_ParseRSS_location(t *testing.T) {
+	feed := []byte(`<?xml version="1.0"?><rss version="2.0"><channel><title>CivicInfo BC | New "Construction" Bids &amp; Tenders</title>
+<item><title>26-83-INF – Operations Building Roof Replacement (Vernon (City))</title>
+<link>https://www.civicinfo.bc.ca/bids?id=1</link>
+<description>Request for Quotations&lt;br/&gt;Posting expires: Tuesday, November 3, 2026.&lt;br&gt;Location: Vernon&lt;br&gt;&lt;br&gt;To post a bid</description>
+<guid>https://www.civicinfo.bc.ca/bids?id=1</guid></item></channel></rss>`)
+
+	projects, err := NewBCBidCollector(nil).parseRSS(feed, "test")
+	if err != nil {
+		t.Fatalf("parseRSS: %v", err)
+	}
+	if len(projects) != 1 {
+		t.Fatalf("got %d projects, want 1", len(projects))
+	}
+	if projects[0].Location != "Vernon, BC" {
+		t.Errorf("Location = %q, want %q", projects[0].Location, "Vernon, BC")
+	}
+}

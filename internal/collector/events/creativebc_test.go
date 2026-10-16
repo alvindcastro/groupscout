@@ -1,6 +1,9 @@
 package events
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -293,6 +296,42 @@ func TestToTitleCase(t *testing.T) {
 		got := toTitleCase(c.input)
 		if got != c.want {
 			t.Errorf("toTitleCase(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+}
+
+// TestCollect_followsWrapperIframe covers the production config, where CREATIVEBC_URL
+// points at the creativebc.com page that only embeds the list in an iframe.
+func TestCollect_followsWrapperIframe(t *testing.T) {
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	mux.HandleFunc("/bc-film-commission/in-production/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html><body><h1>In Production</h1>
+			<iframe id="inProdIframe" style="height: 450px" src="` + srv.URL + `/inproduction"></iframe></body></html>`))
+	})
+	mux.HandleFunc("/inproduction", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(sampleCreativeBCHTML)
+	})
+
+	c := NewCreativeBCCollector(srv.URL + "/bc-film-commission/in-production/")
+	projects, err := c.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	// FARADAY, WHITE ELEPHANT (Feature) and VANCOUVER CHRONICLES (TV Series) are kept.
+	if len(projects) != 3 {
+		t.Fatalf("got %d projects, want 3", len(projects))
+	}
+	if projects[0].SourceURL != srv.URL+"/inproduction" {
+		t.Errorf("SourceURL = %q, want the iframe page", projects[0].SourceURL)
+	}
+}
+
+func TestIsCreativeBCRelevant_tvMovieAndPilot(t *testing.T) {
+	for _, typ := range []string{"TV Movie", "TV Pilot"} {
+		if !isCreativeBCRelevant(creativeBCRecord{Type: normalizeProdType(typ)}) {
+			t.Errorf("%s should be relevant", typ)
 		}
 	}
 }

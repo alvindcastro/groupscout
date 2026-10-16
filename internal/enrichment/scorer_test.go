@@ -76,3 +76,64 @@ func TestScorer_Score(t *testing.T) {
 		})
 	}
 }
+
+// TestScorer_RealItems uses titles the production pre-scorer skipped with score 0
+// before it read descriptions, alongside junk and out-of-region items it must
+// keep skipping.
+func TestScorer_RealItems(t *testing.T) {
+	tests := []struct {
+		name    string
+		project collector.RawProject
+		enrich  bool
+	}{
+		{"Fraser River Tunnel news", collector.RawProject{Source: "google_news", Title: "$4.15B Fraser River Tunnel Project inches closer to fruition - constructconnect.com"}, true},
+		{"Massey Tunnel news", collector.RawProject{Source: "google_news", Title: "$3.3B George Massey Tunnel Replacement Project Near Vancouver Moves Forward"}, true},
+		{"YVR expansion news", collector.RawProject{Source: "google_news", Title: "Massive Vancouver airport expansion already in flight - constructconnect.com"}, true},
+		{"Roberts Bank news", collector.RawProject{Source: "google_news", Title: "Consortium awarded landmass, wharf contract for Roberts Bank Terminal 2 - constructconnect.com"}, true},
+		{"YVR Sea Island announcement", collector.RawProject{Source: "announcements", Title: "Sea Island Climate Resilience Project", Description: "Major project at YVR"}, true},
+		{"YVR airfield announcement", collector.RawProject{Source: "announcements", Title: "2026 South Airfield Maintenance and Construction Projects"}, true},
+		{"BCIB subway", collector.RawProject{Source: "announcements", Title: "Broadway Subway Project"}, true},
+		{"VCC annual meeting", collector.RawProject{Source: "vcc_events", Title: "IEEE IAS Annual Meeting 2026", Description: "Category:  | Date: 4 Oct › 8 Oct"}, true},
+		{"CreativeBC feature in description", collector.RawProject{Source: "creativebc", Title: "Salt And Bone", Location: "Burnaby, BC", Description: "Feature Film — Salt Bone Productions Inc | Schedule: 9/8/2026 - 10/30/2026"}, true},
+		{"news value in description", collector.RawProject{Source: "google_news", Title: "Port Mann works begin", Description: `<a href="https://example.com">B.C. awards $54.5 million contract</a>`}, true},
+		{"Richmond permit with city in location", collector.RawProject{Source: "richmond_permits", Title: "Office — 5900 No 3 Road", Location: "5900 No 3 Road, Richmond BC", Value: 600_000}, true},
+
+		{"BCIB nav heading", collector.RawProject{Source: "announcements", Title: "More"}, false},
+		{"BCIB card heading", collector.RawProject{Source: "announcements", Title: "Employee"}, false},
+		{"networking event", collector.RawProject{Source: "eventbrite", Title: "Vancouver Healthcare Pharma Business Networking Event"}, false},
+		{"Ontario GO station", collector.RawProject{Source: "google_news", Title: "Construction starts on Caledonia GO station - constructconnect.com"}, false},
+		{"Edmonton LRT", collector.RawProject{Source: "google_news", Title: "Design-build contract awarded for Edmonton’s Capital Line South LRT expansion"}, false},
+		{"Saskatchewan hospital", collector.RawProject{Source: "google_news", Title: "PCL Construction begins site preparation for $900M Sask. hospital tower"}, false},
+		{"BC Bid consulting", collector.RawProject{Source: "bcbid", Title: "Islands Trust Accessibility Plan Development (Islands Trust)", Description: "Request for Proposals<br/>Location: Victoria"}, false},
+	}
+
+	scorer := NewScorer(1)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			score, reason := scorer.Score(tt.project)
+			if got := scorer.ShouldEnrich(score); got != tt.enrich {
+				t.Errorf("ShouldEnrich = %v (score %d, reason %q), want %v", got, score, reason, tt.enrich)
+			}
+		})
+	}
+}
+
+func TestLargestAmount(t *testing.T) {
+	tests := []struct {
+		text string
+		want int64
+	}{
+		{"$4.15B Fraser River Tunnel", 4_150_000_000},
+		{"$967.5M contract awarded", 967_500_000},
+		{"new $700-million North Shore wastewater plant", 700_000_000},
+		{"receives $54.5 million contract", 54_500_000},
+		{"valued at $1,200,000.00", 1_200_000},
+		{"$2M and $3.3B", 3_300_000_000},
+		{"no amount here", 0},
+	}
+	for _, tt := range tests {
+		if got := largestAmount(tt.text); got != tt.want {
+			t.Errorf("largestAmount(%q) = %d, want %d", tt.text, got, tt.want)
+		}
+	}
+}
