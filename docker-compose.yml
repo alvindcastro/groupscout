@@ -54,7 +54,7 @@ services:
       - RICHMOND_PERMITS_URL=${RICHMOND_PERMITS_URL:-}
       - DELTA_PERMITS_URL=${DELTA_PERMITS_URL:-}
       - CREATIVEBC_ENABLED=true
-      - CREATIVEBC_URL=https://www.creativebc.com/search-projects/in-production/
+      - CREATIVEBC_URL=https://creativebc.my.salesforce-sites.com/inproduction
       - VCC_ENABLED=true
       - VCC_URL=https://www.vancouverconventioncentre.com/events
       - BCBID_ENABLED=true

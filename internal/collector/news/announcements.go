@@ -102,8 +102,10 @@ func (c *AnnouncementsCollector) scrapeSource(ctx context.Context, src Announcem
 
 func (c *AnnouncementsCollector) parseBCIB(doc *goquery.Document, src AnnouncementSource, rawData []byte) []collector.RawProject {
 	var projects []collector.RawProject
-	// BCIB uses h3 for project titles in the projects list
-	doc.Find("h3").Each(func(i int, s *goquery.Selection) {
+	// BCIB project titles are h3.title on the project cards and plain h3 inside the
+	// map markers. Other h3s on the page are navigation ("How do I", "More") and
+	// audience cards ("Employee", "Contractor").
+	doc.Find("h3.title, .marker h3").Each(func(i int, s *goquery.Selection) {
 		title := strings.TrimSpace(s.Text())
 		if title == "" {
 			return

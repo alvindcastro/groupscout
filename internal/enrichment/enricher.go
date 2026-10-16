@@ -197,9 +197,13 @@ func (e *Enricher) processProjectWithOptions(ctx context.Context, p collector.Ra
 		return false, fmt.Errorf("store audit trail: %w", err)
 	}
 
-	// Also persist to legacy rawStore for backward compatibility (optional, but keeping it for now if needed)
-	if err := e.rawStore.Insert(ctx, &p); err != nil {
-		l.Warn("failed to insert legacy raw project", "error", err)
+	// markSeen records the dedup hash. It runs only once the project reaches a
+	// terminal state (lead stored, skipped, or duplicate), so a transient
+	// enrichment failure leaves the project to be retried on the next run.
+	markSeen := func() {
+		if err := e.rawStore.Insert(ctx, &p); err != nil {
+			l.Warn("failed to insert legacy raw project", "error", err)
+		}
 	}
 
 	// 1. Ollama Extraction (Phase 2)
@@ -252,18 +256,21 @@ func (e *Enricher) processProjectWithOptions(ctx context.Context, p collector.Ra
 			if e.Verbose {
 				l.Debug("skipping duplicate skipped lead", "title", lead.Title)
 			}
+			markSeen()
 			return false, nil
 		}
 		if err := e.leadStore.Insert(ctx, &lead); err != nil {
 			return false, fmt.Errorf("insert skipped lead: %w", err)
 		}
+		markSeen()
 		return true, nil
 	}
 
 	// 2. AI enrichment
 	enriched, err := e.ai.Enrich(ctx, p)
 	if err != nil {
-		// Log and skip — don't fail the run over a single API error
+		// Log and skip — don't fail the run over a single API error. The hash
+		// is not marked seen, so the next run retries this project.
 		l.Error("enrichment failed", "title", p.Title, "error", err)
 		if opts.failOnEnrichmentError {
 			return false, fmt.Errorf("enrich project: %w", err)
@@ -281,6 +288,7 @@ func (e *Enricher) processProjectWithOptions(ctx context.Context, p collector.Ra
 		if e.Verbose {
 			l.Debug("skipping duplicate lead", "title", lead.Title)
 		}
+		markSeen()
 		return false, nil
 	}
 
@@ -297,6 +305,7 @@ func (e *Enricher) processProjectWithOptions(ctx context.Context, p collector.Ra
 	if err := e.leadStore.Insert(ctx, &lead); err != nil {
 		return false, fmt.Errorf("insert lead: %w", err)
 	}
+	markSeen()
 
 	// 4. Priority Alert
 	if e.PriorityAlertThreshold > 0 && enriched.PriorityScore >= e.PriorityAlertThreshold {

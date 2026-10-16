@@ -8,12 +8,20 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/alvindcastro/groupscout/internal/logger"
 )
+
+// bcbidLocationRe pulls the municipality out of a CivicInfo BC item description,
+// "Request for Proposals<br/>Posting expires: ...<br>Location: Vernon<br>...".
+var bcbidLocationRe = regexp.MustCompile(`(?i)Location:\s*([^<\n]+)`)
+
+// bcbidClient bounds each feed request; http.DefaultClient has no timeout.
+var bcbidClient = &http.Client{Timeout: 30 * time.Second}
 
 // BCBidCollector processes award notices from BC Bid and aggregators like CivicInfo BC.
 type BCBidCollector struct {
@@ -34,6 +42,7 @@ func (b *BCBidCollector) Name() string { return "bcbid" }
 // Collect satisfies the collector.Collector interface.
 func (b *BCBidCollector) Collect(ctx context.Context) ([]collector.RawProject, error) {
 	var allProjects []collector.RawProject
+	seen := make(map[string]bool)
 
 	// 1. Check for automated RSS feeds if enabled
 	for _, url := range b.RSSURLs {
@@ -48,7 +57,13 @@ func (b *BCBidCollector) Collect(ctx context.Context) ([]collector.RawProject, e
 			logger.Log.Error("failed to fetch bcbid RSS", "url", url, "error", err)
 			continue
 		}
-		allProjects = append(allProjects, projects...)
+		// A tender is often listed under several categories; keep the first copy.
+		for _, p := range projects {
+			if !seen[p.Hash] {
+				seen[p.Hash] = true
+				allProjects = append(allProjects, p)
+			}
+		}
 	}
 
 	// 2. Check for manual raw input in the context (legacy/override support)
@@ -78,7 +93,7 @@ func (b *BCBidCollector) fetchRSS(ctx context.Context, url string) ([]collector.
 		return nil, err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := bcbidClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -124,15 +139,19 @@ func (b *BCBidCollector) parseRSS(data []byte, sourceURL string) ([]collector.Ra
 			id = item.Link
 		}
 
-		// Clean description (CivicInfo RSS descriptions often contain HTML)
+		// CivicInfo RSS descriptions contain HTML; keep it for the Enricher.
 		desc := item.Description
-		// Basic HTML tag removal if needed, but for now keep it for Enricher
+		var location string
+		if m := bcbidLocationRe.FindStringSubmatch(desc); m != nil {
+			location = strings.TrimSpace(m[1]) + ", BC"
+		}
 
 		itemData, _ := xml.Marshal(item)
 		projects = append(projects, collector.RawProject{
 			Source:      "bcbid",
 			ExternalID:  id,
 			Title:       item.Title,
+			Location:    location,
 			Description: desc,
 			IssuedAt:    b.parseDate(item.PubDate),
 			SourceURL:   item.Link,

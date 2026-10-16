@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/alvindcastro/groupscout/internal/collector"
 	"github.com/stretchr/testify/assert"
@@ -36,6 +37,74 @@ var vccMockHTML = `
 		</body>
 	</html>
 `
+
+// vccLiveMarkupHTML mirrors the real vancouverconventioncentre.com/events
+// structure (July 2026 snapshot): each event is an <a class="event-item">
+// anchor holding the href, with the title in .event-details h2 and stacked
+// day/month spans in .event-date. This guards against the selector drift that
+// made the collector return 200 but find 0 events.
+var vccLiveMarkupHTML = `
+	<html>
+		<body>
+			<section class="events-items">
+				<a class="event-item has-image anim start" href="/events/canada-together-2026">
+					<div class="event-container">
+						<div class="event-ctn">
+							<div class="event-date">
+								<div class="day"><span>1</span>
+									<span class="month">Jul</span></div>
+							</div>
+							<div class="event-details">
+								<h2 class="font-helvetica">Canada Together 2026</h2>
+								<p class="event-location"><span></span></p>
+							</div>
+						</div>
+					</div>
+				</a>
+				<a class="event-item anim start" href="/events/10th-world-congress-of-biomechanics">
+					<div class="event-container">
+						<div class="event-ctn">
+							<div class="event-date">
+								<div class="day"><span>11</span>
+									<span class="month">Jul</span></div>
+								<div> › </div>
+								<div class="day"><span>15</span>
+									<span class="month">Jul</span></div>
+							</div>
+							<div class="event-details">
+								<h2 class="font-helvetica">10th World Congress of Biomechanics</h2>
+							</div>
+						</div>
+					</div>
+				</a>
+			</section>
+		</body>
+	</html>
+`
+
+func TestVCCCollector_CollectLiveMarkup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(vccLiveMarkupHTML))
+	}))
+	defer server.Close()
+
+	c := NewVCCCollector(server.URL)
+	c.now = func() time.Time { return time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC) }
+	projects, err := c.Collect(context.Background())
+	require.NoError(t, err)
+	require.Len(t, projects, 2, "collector must extract both .event-item anchors from live markup")
+
+	assert.Equal(t, "Canada Together 2026", projects[0].Title)
+	assert.Equal(t, "https://www.vancouverconventioncentre.com/events/canada-together-2026", projects[0].SourceURL)
+	assert.Equal(t, "Category:  | Date: 1 Jul", projects[0].Description)
+
+	assert.Equal(t, "10th World Congress of Biomechanics", projects[1].Title)
+	assert.Equal(t, "https://www.vancouverconventioncentre.com/events/10th-world-congress-of-biomechanics", projects[1].SourceURL)
+	assert.Equal(t, "Category:  | Date: 11 Jul › 15 Jul", projects[1].Description)
+
+	assert.NotEqual(t, projects[0].Hash, projects[1].Hash, "each event needs a distinct dedup hash")
+}
 
 func TestVCCCollector_Collect(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -127,5 +196,43 @@ func TestVCCCollector_IsRelevant(t *testing.T) {
 		t.Run(tt.title, func(t *testing.T) {
 			assert.Equal(t, tt.expected, c.isRelevant(tt.title, tt.category))
 		})
+	}
+}
+
+func TestVCCCollector_SkipsPastEvents(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(vccLiveMarkupHTML))
+	}))
+	defer server.Close()
+
+	// Canada Together (1 Jul) has ended; the Congress of Biomechanics runs to 15 Jul.
+	c := NewVCCCollector(server.URL)
+	c.now = func() time.Time { return time.Date(2026, 7, 12, 9, 0, 0, 0, time.UTC) }
+	projects, err := c.Collect(context.Background())
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+	assert.Equal(t, "10th World Congress of Biomechanics", projects[0].Title)
+}
+
+func TestVCCEndDate(t *testing.T) {
+	oct15 := time.Date(2026, 10, 15, 18, 0, 0, 0, time.UTC)
+	tests := []struct {
+		dateStr string
+		now     time.Time
+		want    time.Time
+		ok      bool
+	}{
+		{"2 Oct › 4 Oct", oct15, time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC), true},
+		{"31 Oct", oct15, time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC), true},
+		{"28 Dec › 5 Jan", time.Date(2026, 12, 20, 0, 0, 0, 0, time.UTC), time.Date(2027, 1, 5, 0, 0, 0, 0, time.UTC), true},
+		{"28 Dec", time.Date(2027, 1, 3, 0, 0, 0, 0, time.UTC), time.Date(2026, 12, 28, 0, 0, 0, 0, time.UTC), true},
+		{"March 10-12, 2026", oct15, time.Time{}, false},
+	}
+	for _, tt := range tests {
+		got, ok := vccEndDate(tt.dateStr, tt.now)
+		if ok != tt.ok || !got.Equal(tt.want) {
+			t.Errorf("vccEndDate(%q) = %v, %v; want %v, %v", tt.dateStr, got, ok, tt.want, tt.ok)
+		}
 	}
 }
