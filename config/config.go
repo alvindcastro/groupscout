@@ -62,6 +62,19 @@ type Config struct {
 	AuditRetentionRunOnStart bool
 }
 
+// defaultBCBidRSSURLs are the CivicInfo BC "new bids" feeds for categories that put
+// construction crews on site: Construction (5), Engineering and Applied Science (13),
+// Road Maintenance and Construction (33), Sewer and Liquid Waste (34), Utility
+// Provision (42), Facility Maintenance, Inspection and Development (62), and
+// Drainage and Flood Protection (69).
+const defaultBCBidRSSURLs = "https://www.civicinfo.bc.ca/rss/bids-bt.php?id=5," +
+	"https://www.civicinfo.bc.ca/rss/bids-bt.php?id=13," +
+	"https://www.civicinfo.bc.ca/rss/bids-bt.php?id=33," +
+	"https://www.civicinfo.bc.ca/rss/bids-bt.php?id=34," +
+	"https://www.civicinfo.bc.ca/rss/bids-bt.php?id=42," +
+	"https://www.civicinfo.bc.ca/rss/bids-bt.php?id=62," +
+	"https://www.civicinfo.bc.ca/rss/bids-bt.php?id=69"
+
 // Load reads config from environment variables, falling back to sensible defaults.
 // It also loads a .env file from the current directory if one exists — values in
 // the .env are only applied when the variable is not already set in the environment,
@@ -84,7 +97,7 @@ func Load() (*Config, error) {
 		VCCEnabled:               getEnv("VCC_ENABLED", "false") == "true",
 		VCCURL:                   os.Getenv("VCC_URL"),
 		BCBidEnabled:             getEnv("BCBID_ENABLED", "true") == "true",
-		BCBidRSSURL:              getEnv("BCBID_RSS_URL", "https://www.civicinfo.bc.ca/rss/bids-bt.php?id=14,https://www.civicinfo.bc.ca/rss/bids-bt.php?id=53"),
+		BCBidRSSURL:              getEnv("BCBID_RSS_URL", defaultBCBidRSSURLs),
 		NewsEnabled:              os.Getenv("NEWS_ENABLED") == "true",
 		NewsRSSURL:               getEnv("NEWS_RSS_URL", "https://news.google.com/rss/search?q=%22Richmond+BC%22+construction+OR+%22Metro+Vancouver%22+infrastructure+contract+awarded+OR+%22YVR%22+expansion&hl=en-CA&gl=CA&ceid=CA:en"),
 		AnnouncementsEnabled:     getEnv("ANNOUNCEMENTS_ENABLED", "true") == "true",
