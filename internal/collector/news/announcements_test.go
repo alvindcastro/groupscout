@@ -8,15 +8,19 @@ import (
 )
 
 func TestAnnouncementsCollector_parseBCIB(t *testing.T) {
+	// Mirrors bcib.ca/projects/: project cards, map markers, and the nav and
+	// audience-card headings that must not become projects.
 	html := `<html><body>
-		<div>
-			<h3>Pattullo Bridge Replacement Project</h3>
+		<nav><h3 class="body-text _uppercase _20">How do I</h3><h3 class="body-text _uppercase _20">More</h3></nav>
+		<div class="card-column">
+			<h3 class="title _20 title-text _medium _dark">Pattullo Bridge Replacement Project</h3>
 			<p>A new bridge connecting Surrey and New Westminster.</p>
 		</div>
-		<div>
+		<div class="feature-cards-column"><h3 class="title-text _32 _medium">Contractor</h3></div>
+		<div class="acf-map"><div class="marker">
 			<h3>Broadway Subway Project</h3>
 			<p>Extending the Millennium Line.</p>
-		</div>
+		</div></div>
 	</body></html>`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
