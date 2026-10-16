@@ -1,0 +1,2 @@
+ALTER TABLE leads DROP COLUMN IF EXISTS ai_model;
+ALTER TABLE leads DROP COLUMN IF EXISTS ai_provider;

@@ -36,6 +36,8 @@ func TestToLeadRecord_fieldMapping(t *testing.T) {
 		PriorityReason:          "Small alteration — local crew likely",
 		SuggestedOutreachTiming: "Low priority — monitor for future phases",
 		Notes:                   "Cladding alteration only.",
+		Provider:                "openai",
+		Model:                   "gpt-4.1-mini",
 	}
 
 	lead := toLeadRecord(p, e, "")
@@ -71,6 +73,11 @@ func TestToLeadRecord_fieldMapping(t *testing.T) {
 	}
 	if lead.OutOfTownCrewLikely != false {
 		t.Errorf("OutOfTownCrewLikely = %v, want false", lead.OutOfTownCrewLikely)
+	}
+
+	// Which provider scored the lead
+	if lead.AIProvider != "openai" || lead.AIModel != "gpt-4.1-mini" {
+		t.Errorf("AIProvider/AIModel = %q/%q, want openai/gpt-4.1-mini", lead.AIProvider, lead.AIModel)
 	}
 }
 

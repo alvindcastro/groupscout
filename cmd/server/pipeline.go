@@ -227,14 +227,7 @@ func buildEnricher(cfg *config.Config, db *sql.DB, collectors []collector.Collec
 	auditStore := storage.NewAuditStoreWithDSN(db, cfg.DatabaseURL)
 	leadStore := storage.NewLeadStoreWithDSN(db, cfg.DatabaseURL)
 
-	var ai enrichment.EnricherAI
-	if cfg.AIProvider == "gemini" {
-		ai = enrichment.NewGeminiEnricher(cfg.GeminiAPIKey)
-		logger.Log.Info("using Gemini for enrichment")
-	} else {
-		ai = enrichment.NewClaudeEnricher(cfg.ClaudeAPIKey)
-		logger.Log.Info("using Claude for enrichment")
-	}
+	ai := enrichment.NewLLMEnricher(sharedAIChain(cfg))
 
 	scorer := enrichment.NewScorer(cfg.EnrichmentThreshold)
 

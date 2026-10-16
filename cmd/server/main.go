@@ -37,6 +37,10 @@ func main() {
 		return
 	}
 
+	if flag.NArg() > 0 && flag.Arg(0) == "llm-check" {
+		os.Exit(runLLMCheck(cfg, flag.Args()[1:], os.Stdout))
+	}
+
 	if flag.NArg() > 0 && flag.Arg(0) == "audit" {
 		handleAuditCommand(cfg)
 		return
@@ -93,12 +97,8 @@ func main() {
 	l.Info("database ready", "url", storage.RedactDSN(cfg.DatabaseURL))
 
 	if *runOnce {
-		if cfg.AIProvider == "claude" && cfg.ClaudeAPIKey == "" {
-			l.Error("CLAUDE_API_KEY is not set but AI_PROVIDER is claude")
-			os.Exit(1)
-		}
-		if cfg.AIProvider == "gemini" && cfg.GeminiAPIKey == "" {
-			l.Error("GEMINI_API_KEY is not set but AI_PROVIDER is gemini")
+		if len(sharedAIChain(cfg).Clients()) == 0 {
+			l.Error("no AI provider is configured; set LLM_PROVIDERS and a key for at least one of them")
 			os.Exit(1)
 		}
 		if cfg.SlackWebhookURL == "" {
@@ -124,7 +124,7 @@ func main() {
 	}
 
 	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/health", healthHandler(db, cfg.OllamaEnabled, ollamaClient, l))
+	http.HandleFunc("/health", healthHandler(db, cfg.OllamaEnabled, ollamaClient, sharedAIChain(cfg), l))
 
 	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

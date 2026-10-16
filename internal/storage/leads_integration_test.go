@@ -201,3 +201,32 @@ func TestLeadStore_GetByID(t *testing.T) {
 		t.Fatal("expected nil for non-existent lead")
 	}
 }
+
+func TestLeadStore_AIProviderRoundTrip(t *testing.T) {
+	db, dsn := newTestDB(t)
+	store := NewLeadStoreWithDSN(db, dsn)
+	ctx := context.Background()
+
+	scored := &Lead{Source: "test", Title: "scored by openai", Status: "new", PriorityScore: 8, AIProvider: "openai", AIModel: "gpt-4.1-mini"}
+	skipped := &Lead{Source: "test", Title: "pre-scorer skip", Status: "skipped"}
+	for _, l := range []*Lead{scored, skipped} {
+		if err := store.Insert(ctx, l); err != nil {
+			t.Fatalf("Insert: %v", err)
+		}
+	}
+
+	got, err := store.GetByID(ctx, scored.ID)
+	if err != nil || got == nil {
+		t.Fatalf("GetByID: %v, %v", got, err)
+	}
+	if got.AIProvider != "openai" || got.AIModel != "gpt-4.1-mini" {
+		t.Errorf("AIProvider/AIModel = %q/%q", got.AIProvider, got.AIModel)
+	}
+	got, err = store.GetByID(ctx, skipped.ID)
+	if err != nil || got == nil {
+		t.Fatalf("GetByID: %v, %v", got, err)
+	}
+	if got.AIProvider != "" || got.AIModel != "" {
+		t.Errorf("skipped lead AIProvider/AIModel = %q/%q, want empty", got.AIProvider, got.AIModel)
+	}
+}

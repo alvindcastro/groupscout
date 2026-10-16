@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS leads (
     source_url                TEXT,   -- direct link to the source document (PDF, page, etc.)
     notes                     TEXT,
     status                    TEXT DEFAULT 'new', -- new|contacted|proposal|booked|lost
+    ai_provider               TEXT NOT NULL DEFAULT '', -- provider that scored the lead; '' for pre-scorer skips
+    ai_model                  TEXT NOT NULL DEFAULT '',
     created_at                DATETIME NOT NULL,
     updated_at                DATETIME NOT NULL
 );
@@ -178,6 +180,8 @@ func Migrate(db *sql.DB, dsn string) error {
 		`ALTER TABLE leads ADD COLUMN rationale TEXT`,
 		`ALTER TABLE leads ADD COLUMN raw_input_id TEXT`,
 		`ALTER TABLE raw_projects ADD COLUMN raw_type TEXT`,
+		`ALTER TABLE leads ADD COLUMN ai_provider TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE leads ADD COLUMN ai_model TEXT NOT NULL DEFAULT ''`,
 	} {
 		if _, err := db.Exec(stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 			return err
